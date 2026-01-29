@@ -17,3 +17,8 @@ Make a distributed social network!
 The authors claiming copyright, if they wish to be known, can list their names here...
 
 * 
+## Project Members
+
+| Name            | CCID          | GitHub                                          |
+| --------------- | ------------- | ----------------------------------------------- |
+| Johny Luu       | jjluu         | [jjluu4](https://github.com/jjluu4)             |
