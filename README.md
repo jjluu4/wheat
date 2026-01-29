@@ -25,3 +25,4 @@ The authors claiming copyright, if they wish to be known, can list their names h
 | Zane Crawford   | zcrawfor      | [Zumzu](https://github.com/Zumzu)            |
 | Daniel Vold   | dvold      | [2004Nausicaa](https://github.com/2004nausicaa) |
 | Juan Joseph | jsjosep1 | [jsjosep1](https://github.com/jsjosep1)|
+| Sanskar Singh | sanskar2 | [S0504](https://github.com/S0504)|
