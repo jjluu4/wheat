@@ -23,3 +23,4 @@ The authors claiming copyright, if they wish to be known, can list their names h
 | --------------- | ------------- | ----------------------------------------------- |
 | Johny Luu       | jjluu         | [jjluu4](https://github.com/jjluu4)             |
 | Zane Crawford   | zcrawfor      | [Zumzu](https://github.com/Zumzu)            |
+| Daniel Vold   | dvold      | [2004Nausicaa](https://github.com/2004nausicaa) |
