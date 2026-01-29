@@ -22,3 +22,4 @@ The authors claiming copyright, if they wish to be known, can list their names h
 | Name            | CCID          | GitHub                                          |
 | --------------- | ------------- | ----------------------------------------------- |
 | Johny Luu       | jjluu         | [jjluu4](https://github.com/jjluu4)             |
+| Zane Crawford   | zcrawfor      | [Zumzu](https://github.com/Zumzu)            |
