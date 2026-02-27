@@ -55,7 +55,7 @@ ROOT_URLCONF = 'wheat.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [ BASE_DIR / 'templates' ], # when referencing a template in the templates folder, reference as exampleFolder/template.html
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
