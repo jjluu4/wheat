@@ -1,6 +1,5 @@
-#whitenoise / minified js
+#whitenoise
 staticfiles/
-static/
 
 # Django #
 *.log

@@ -1,0 +1,10 @@
+body {
+    background-color: black;    
+}
+
+h1 {
+    font-family: Consolas, monospace;
+    font-size: 6em;
+    color: magenta;
+    text-shadow: 5px 5px 0 red, 10px 10px 0 lime, 15px 15px 0 cyan;
+}
