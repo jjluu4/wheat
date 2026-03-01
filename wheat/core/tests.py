@@ -4,6 +4,7 @@ from django.utils import timezone
 from unittest.mock import patch
 from .models import Author, Entry
 
+
 # Tests here are mostly for APIs probably for pt1
 class AuthorProfilePageTests(TestCase):
     def setUp(self):
@@ -36,7 +37,7 @@ class AuthorProfilePageTests(TestCase):
         )
 
     def test_profile_page_shows_author_and_only_public_entries(self):
-        resp = self.client.get(reverse("author_profile", args=[self.author.id]))
+        resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
 
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Skar")
@@ -58,7 +59,7 @@ class AuthorEditPageTests(TestCase):
         )
 
     def test_edit_page_post_updates_author_and_redirects(self):
-        edit_url = reverse("author_edit", args=[self.author.id])
+        edit_url = reverse("author_edit", args=[self.author.serial])
 
         resp = self.client.post(
             edit_url,
@@ -114,7 +115,7 @@ class GitHubAutoImportTests(TestCase):
             web="http://testserver/authors/1",
         )
 
-        url = reverse("author_profile", args=[author.id])
+        url = reverse("author_profile", args=[author.serial])
 
         before = Entry.objects.filter(author=author).count()
 
@@ -133,7 +134,7 @@ class GitHubAutoImportTests(TestCase):
 
 class AuthorListPageTests(TestCase):
     def test_author_list_page(self):
-        a = Author.objects.create(
+        Author.objects.create(
             url="http://testserver/api/authors/test-author",
             host="http://testserver/api/",
             displayName="Skar",

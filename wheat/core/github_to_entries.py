@@ -1,11 +1,14 @@
 # wheat/core/github_to_entries.py
 
 from __future__ import annotations
+
 from typing import Any, Dict, Optional
+
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .models import Entry
+
 
 def event_to_entry_data(event: Dict[str, Any], author) -> Optional[Dict[str, Any]]:
     """
@@ -21,8 +24,8 @@ def event_to_entry_data(event: Dict[str, Any], author) -> Optional[Dict[str, Any
         return None
 
     # Build a stable URL for THIS entry in our system
-    # (Doesn't need to be perfect yet; just needs to be unique)
-    entry_url = f"{author.host}authors/{author.id}/entries/github-{gh_event_id}"
+    # Use stable author.serial (NOT DB pk) so links don't break
+    entry_url = f"{author.host}authors/{author.serial}/entries/github-{gh_event_id}"
 
     # Make simple human-readable content
     actor_login = (event.get("actor") or {}).get("login", "someone")
@@ -51,7 +54,6 @@ def event_to_entry_data(event: Dict[str, Any], author) -> Optional[Dict[str, Any
         "visibility": "PUBLIC",
         # We'll parse created_at to datetime later when we actually save
         "published": created_at,
-        # Store raw event id in content for now (we'll add a proper field later if needed)
     }
 
 

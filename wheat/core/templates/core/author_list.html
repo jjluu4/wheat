@@ -13,7 +13,7 @@
     <ul>
         {% for a in authors %}
         <li>
-            <a href="{% url 'author_profile' a.id %}">{{ a.displayName }}</a>
+            <a href="{% url 'author_profile' a.serial %}">{{ a.displayName }}</a>
         </li>
         {% endfor %}
     </ul>

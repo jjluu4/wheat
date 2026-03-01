@@ -1,6 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Author, Entry
-from django.http import HttpResponse
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
@@ -8,12 +7,14 @@ from .github_to_entries import save_event_as_entry
 def index(request):
     return render(request, "exampleTemplate/index.html")
 
+
 def author_list(request):
     authors = Author.objects.order_by("displayName")
     return render(request, "core/author_list.html", {"authors": authors})
 
-def author_profile(request, author_id):
-    author = get_object_or_404(Author, pk=author_id)
+
+def author_profile(request, author_serial):
+    author = get_object_or_404(Author, serial=author_serial)
 
     # Auto-import newest GitHub events as PUBLIC entries
     # (should not duplicate if save_event_as_entry uses unique URL)
@@ -41,8 +42,8 @@ def author_profile(request, author_id):
     )
 
 
-def author_edit(request, author_id):
-    author = get_object_or_404(Author, pk=author_id)
+def author_edit(request, author_serial):
+    author = get_object_or_404(Author, serial=author_serial)
 
     if request.method == "POST":
         author.displayName = request.POST.get("displayName", author.displayName)
@@ -51,6 +52,7 @@ def author_edit(request, author_id):
         author.profileImage = request.POST.get("profileImage", author.profileImage)
 
         author.save()
-        return redirect("author_profile", author_id=author.id)
+
+        return redirect("author_profile", author_serial=author.serial)
 
     return render(request, "core/author_edit.html", {"author": author})
