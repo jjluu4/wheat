@@ -1,0 +1,25 @@
+<form method="post">
+    {% csrf_token %}
+
+    <p>
+        <label>Display name</label><br />
+        <input type="text" name="displayName" value="{{ author.displayName }}" />
+    </p>
+
+    <p>
+        <label>GitHub URL</label><br />
+        <input type="url" name="github" value="{{ author.github }}" />
+    </p>
+
+    <p>
+        <label>Description</label><br />
+        <textarea name="description" rows="4" cols="50">{{ author.description }}</textarea>
+    </p>
+
+    <p>
+        <label>Profile image URL</label><br />
+        <input type="url" name="profileImage" value="{{ author.profileImage }}" />
+    </p>
+
+    <button type="submit">Save</button>
+</form>
