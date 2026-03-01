@@ -1,0 +1,36 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Logged out</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=1">
+</head>
+
+<body>
+    <div class="page">
+        <div class="topnav">
+            <div class="container">
+                <a class="brand" href="{% url 'author_list' %}">
+                    <span class="dot"></span> Wheat
+                </a>
+                <div class="navlinks">
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'signup' %}">Sign up</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="center-wrap">
+            <div class="card auth-card">
+                <h1>Logged out</h1>
+                <p>You’re signed out.</p>
+                <a class="btn" href="{% url 'login' %}">Log in again</a>
+                <a class="btn-link" href="{% url 'author_list' %}">Back to Authors</a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

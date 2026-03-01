@@ -1,41 +1,77 @@
+{% load static %}
 <!doctype html>
 <html>
 
 <head>
     <meta charset="utf-8" />
     <title>{{ author.displayName }}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 
 <body>
-    <h1>{{ author.displayName }}</h1>
+    <div class="page">
 
-    {% if author.user_id == request.user.id or request.user.is_staff %}
-    <p>
-        <a href="{% url 'author_edit' author.serial %}">Edit profile</a>
-    </p>
-    {% endif %}
+        <div class="topnav">
+            <div class="container">
+                <a class="brand" href="{% url 'author_list' %}">
+                    <span class="dot"></span> Wheat
+                </a>
 
-    <p>{{ author.description }}</p>
-    <p><a href="{{ author.github }}">GitHub</a></p>
+                <div class="navlinks">
+                    <a href="{% url 'author_list' %}">Authors</a>
+                    {% if request.user.is_authenticated %}
+                    <a href="{% url 'my_profile' %}">My Profile</a>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">Logout</button>
+                    </form>
+                    {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'signup' %}">Sign up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
 
-    {% if author.profileImage %}
-    <img src="{{ author.profileImage }}" alt="profile image" width="150" />
-    {% endif %}
+        <div class="container">
+            <h1>{{ author.displayName }}</h1>
 
-    <h2>Public Entries</h2>
+            <div class="card">
+                {% if author.user_id == request.user.id or request.user.is_staff %}
+                <p>
+                    <a class="btn-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
+                </p>
+                {% endif %}
 
-    {% if entries %}
-    <ul>
-        {% for entry in entries %}
-        <li>
-            <p><strong>{{ entry.published }}</strong></p>
-            <p>{{ entry.content }}</p>
-        </li>
-        {% endfor %}
-    </ul>
-    {% else %}
-    <p>No public entries yet.</p>
-    {% endif %}
+                <p>{{ author.description }}</p>
+
+                <p>
+                    <a class="btn-link" href="{{ author.github }}">GitHub</a>
+                </p>
+
+                {% if author.profileImage %}
+                <img class="avatar" src="{{ author.profileImage }}" alt="profile image" />
+                {% endif %}
+            </div>
+
+            <h2>Public Entries</h2>
+            <div class="card">
+                {% if entries %}
+                <ul class="clean">
+                    {% for entry in entries %}
+                    <li>
+                        <div class="small"><strong>{{ entry.published }}</strong></div>
+                        <div>{{ entry.content }}</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>No public entries yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
 </body>
 
 </html>

@@ -1,25 +1,72 @@
-<form method="post">
-    {% csrf_token %}
+{% load static %}
+<!doctype html>
+<html>
 
-    <p>
-        <label>Display name</label><br />
-        <input type="text" name="displayName" value="{{ author.displayName }}" />
-    </p>
+<head>
+    <meta charset="utf-8" />
+    <title>Edit Profile</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
 
-    <p>
-        <label>GitHub URL</label><br />
-        <input type="url" name="github" value="{{ author.github }}" />
-    </p>
+<body>
+    <div class="page">
 
-    <p>
-        <label>Description</label><br />
-        <textarea name="description" rows="4" cols="50">{{ author.description }}</textarea>
-    </p>
+        <div class="topnav">
+            <div class="container">
+                <a class="brand" href="{% url 'author_list' %}">
+                    <span class="dot"></span> Wheat
+                </a>
 
-    <p>
-        <label>Profile image URL</label><br />
-        <input type="url" name="profileImage" value="{{ author.profileImage }}" />
-    </p>
+                <div class="navlinks">
+                    <a href="{% url 'author_list' %}">Authors</a>
+                    {% if request.user.is_authenticated %}
+                    <a href="{% url 'my_profile' %}">My Profile</a>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">Logout</button>
+                    </form>
+                    {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'signup' %}">Sign up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
 
-    <button type="submit">Save</button>
-</form>
+        <div class="container">
+            <h1>Edit profile</h1>
+
+            <div class="card">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="field">
+                        <label>Display name</label>
+                        <input type="text" name="displayName" value="{{ author.displayName }}" />
+                    </div>
+
+                    <div class="field">
+                        <label>GitHub URL</label>
+                        <input type="url" name="github" value="{{ author.github }}" />
+                    </div>
+
+                    <div class="field">
+                        <label>Description</label>
+                        <textarea name="description" rows="4" cols="50">{{ author.description }}</textarea>
+                    </div>
+
+                    <div class="field">
+                        <label>Profile image URL</label>
+                        <input type="url" name="profileImage" value="{{ author.profileImage }}" />
+                    </div>
+
+                    <button class="btn" type="submit">Save</button>
+                    <a class="btn-link" href="{% url 'author_profile' author.serial %}">Back</a>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>

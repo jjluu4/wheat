@@ -1,0 +1,63 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Sign up</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=1">
+</head>
+
+<body>
+    <div class="page">
+
+        <div class="topnav">
+            <div class="container">
+                <a class="brand" href="{% url 'author_list' %}">
+                    <span class="dot"></span> Wheat
+                </a>
+                <div class="navlinks">
+                    <a href="{% url 'author_list' %}">Authors</a>
+                    <a href="{% url 'login' %}">Login</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="center-wrap">
+            <div class="card auth-card">
+                <h1>Create account</h1>
+                <p>Join and create your author profile.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    {{ form.non_field_errors }}
+
+                    <div class="field">
+                        {{ form.username.label_tag }}
+                        {{ form.username }}
+                        {{ form.username.errors }}
+                    </div>
+
+                    <div class="field">
+                        {{ form.password1.label_tag }}
+                        {{ form.password1 }}
+                        {{ form.password1.errors }}
+                    </div>
+
+                    <div class="field">
+                        {{ form.password2.label_tag }}
+                        {{ form.password2 }}
+                        {{ form.password2.errors }}
+                    </div>
+
+                    <button class="btn" type="submit">Sign up</button>
+                    <a class="btn-link" href="{% url 'login' %}">I already have an account</a>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>
