@@ -129,3 +129,19 @@ class GitHubAutoImportTests(TestCase):
         self.client.get(url)
         after_second = Entry.objects.filter(author=author).count()
         self.assertEqual(after_second, after_first)
+
+
+class AuthorListPageTests(TestCase):
+    def test_author_list_page(self):
+        a = Author.objects.create(
+            url="http://testserver/api/authors/test-author",
+            host="http://testserver/api/",
+            displayName="Skar",
+            github="https://github.com/example",
+            description="Hi",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/1",
+        )
+        resp = self.client.get(reverse("author_list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Skar")

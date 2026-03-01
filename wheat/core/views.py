@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Author, Entry
-
+from django.http import HttpResponse
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
@@ -8,6 +8,9 @@ from .github_to_entries import save_event_as_entry
 def index(request):
     return render(request, "exampleTemplate/index.html")
 
+def author_list(request):
+    authors = Author.objects.order_by("displayName")
+    return render(request, "core/author_list.html", {"authors": authors})
 
 def author_profile(request, author_id):
     author = get_object_or_404(Author, pk=author_id)

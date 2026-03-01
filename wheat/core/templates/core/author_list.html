@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Authors</title>
+</head>
+
+<body>
+    <h1>Authors</h1>
+
+    {% if authors %}
+    <ul>
+        {% for a in authors %}
+        <li>
+            <a href="{% url 'author_profile' a.id %}">{{ a.displayName }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No authors yet.</p>
+    {% endif %}
+</body>
+
+</html>
