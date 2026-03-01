@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>{{ author.displayName }}</title>
+</head>
+
+<body>
+    <h1>{{ author.displayName }}</h1>
+    <p>{{ author.description }}</p>
+    <p><a href="{{ author.github }}">GitHub</a></p>
+
+    {% if author.profileImage %}
+    <img src="{{ author.profileImage }}" alt="profile image" width="150" />
+    {% endif %}
+
+    <h2>Public Entries</h2>
+
+    {% if entries %}
+    <ul>
+        {% for entry in entries %}
+        <li>
+            <p><strong>{{ entry.published }}</strong></p>
+            <p>{{ entry.content }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No public entries yet.</p>
+    {% endif %}
+</body>
+
+</html>

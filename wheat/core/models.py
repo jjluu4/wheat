@@ -5,22 +5,22 @@ from django.db.models import Q
 # Core is only responsible for base offline functionality, other models for node and interconnectivity should be in a new app
 # -Z
 
-VISIBILITIES = {
-    "PUBLIC": "Public",
-    "UNLISTED": "Unlisted",
-    "FRIENDS": "Friends",
-    "DELETED": "Deleted"
-}
+VISIBILITIES = [
+    ("PUBLIC", "Public"),
+    ("UNLISTED", "Unlisted"),
+    ("FRIENDS", "Friends"),
+    ("DELETED", "Deleted"),
+]
 
 class Author(models.Model):
     url = models.URLField(unique=True)
 
     host = models.URLField()
-    displayName = models.CharField()
+    displayName = models.CharField(max_length=255)    
     github = models.URLField()
+    description = models.TextField(blank=True, default="")
     profileImage = models.URLField()
     web = models.URLField()
-
     def get_followers(self):
         return Author.objects.filter(following__target=self)
     
@@ -38,11 +38,11 @@ class Entry(models.Model):
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='entries')
 
     content = models.TextField()
-    content_type = models.CharField(default='text/plain')
+    content_type = models.CharField(max_length=100, default='text/plain')
 
     published = models.DateTimeField(default=timezone.now)
-    visibility = models.CharField(choices=VISIBILITIES, default="PUBLIC")
-
+    visibility = models.CharField(max_length=10, choices=VISIBILITIES, default="PUBLIC")    
+    
     @staticmethod
     def get_entries(viewer):
         following = viewer.get_following()
