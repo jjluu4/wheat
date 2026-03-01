@@ -1,23 +1,41 @@
-from django.shortcuts import render
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import render, get_object_or_404, redirect
 from .models import Author, Entry
+
+from .github import fetch_public_events
+from .github_to_entries import save_event_as_entry
+
 
 def index(request):
     return render(request, "exampleTemplate/index.html")
 
+
 def author_profile(request, author_id):
     author = get_object_or_404(Author, pk=author_id)
 
-    entries = Entry.objects.filter(
-        author=author,
-        visibility="PUBLIC"
-    ).order_by("-published")
+    # Auto-import newest GitHub events as PUBLIC entries
+    # (should not duplicate if save_event_as_entry uses unique URL)
+    if author.github:
+        try:
+            events = fetch_public_events(author.github, per_page=5)
+            for e in events:
+                save_event_as_entry(e, author)
+        except Exception:
+            # Don't break the profile page if GitHub API fails
+            pass
 
-    return render(request, "core/author_profile.html", {
-        "author": author,
-        "entries": entries,
-    })
+    entries = (
+        Entry.objects.filter(author=author, visibility="PUBLIC")
+        .order_by("-published")
+    )
+
+    return render(
+        request,
+        "core/author_profile.html",
+        {
+            "author": author,
+            "entries": entries,
+        },
+    )
 
 
 def author_edit(request, author_id):
