@@ -1,8 +1,16 @@
 from django.db import models
 from django.utils import timezone
+from django.db.models import Q
 
 # Core is only responsible for base offline functionality, other models for node and interconnectivity should be in a new app
 # -Z
+
+VISIBILITIES = {
+    "PUBLIC": "Public",
+    "UNLISTED": "Unlisted",
+    "FRIENDS": "Friends",
+    "DELETED": "Deleted"
+}
 
 class Author(models.Model):
     url = models.URLField(unique=True)
@@ -12,6 +20,16 @@ class Author(models.Model):
     github = models.URLField()
     profileImage = models.URLField()
     web = models.URLField()
+
+    def get_followers(self):
+        return Author.objects.filter(following__target=self)
+    
+    def get_following(self):
+        return Author.objects.filter(followers__actor=self)
+
+    def get_friends(self):
+        return Author.objects.filter(following__target=self, followers__actor=self)
+
 
 
 class Entry(models.Model):
@@ -23,6 +41,21 @@ class Entry(models.Model):
     content_type = models.CharField(default='text/plain')
 
     published = models.DateTimeField(default=timezone.now)
+    visibility = models.CharField(choices=VISIBILITIES, default="PUBLIC")
+
+    @staticmethod
+    def get_entries(viewer):
+        following = viewer.get_following()
+        friends = viewer.get_friends()
+
+        entryFilter = (
+            Q(visibility="PUBLIC") | 
+            Q(visibility="FRIENDS", author__in=friends) | 
+            Q(visibility="UNLISTED", author__in=following)
+        )
+
+        return Entry.objects.filter(entryFilter)
+
 
 
 class Comment(models.Model):
