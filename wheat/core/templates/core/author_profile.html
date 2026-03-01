@@ -8,6 +8,12 @@
 
 <body>
     <h1>{{ author.displayName }}</h1>
+
+    <!-- ✅ Easy navigation to edit page (uses stable UUID serial) -->
+    <p>
+        <a href="{% url 'author_edit' author.serial %}">Edit profile</a>
+    </p>
+
     <p>{{ author.description }}</p>
     <p><a href="{{ author.github }}">GitHub</a></p>
 
