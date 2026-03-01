@@ -1,4 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
+import uuid
+
 from .models import Author, Entry
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
@@ -42,8 +47,13 @@ def author_profile(request, author_serial):
     )
 
 
+@login_required
 def author_edit(request, author_serial):
     author = get_object_or_404(Author, serial=author_serial)
+
+    # Only the owner (or staff) can edit
+    if (author.user_id is None or author.user_id != request.user.id) and not request.user.is_staff:
+        return HttpResponseForbidden("You cannot edit someone else's profile.")
 
     if request.method == "POST":
         author.displayName = request.POST.get("displayName", author.displayName)
@@ -56,3 +66,34 @@ def author_edit(request, author_serial):
         return redirect("author_profile", author_serial=author.serial)
 
     return render(request, "core/author_edit.html", {"author": author})
+
+
+def signup(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+
+            # Auto-create an Author profile for this new user
+            if not hasattr(user, "author_profile"):
+                base = request.build_absolute_uri("/").rstrip("/")
+                author_serial = uuid.uuid4()
+
+                Author.objects.create(
+                    user=user,
+                    serial=author_serial,
+                    host=f"{base}/api/",
+                    url=f"{base}/api/authors/{author_serial}",
+                    web=f"{base}/authors/{author_serial}/",
+                    displayName=user.username,
+                    github=f"https://github.com/{user.username}",
+                    description="",
+                    profileImage="https://placehold.co/150x150.png",
+                )
+
+            # send them to the login page after creating account
+            return redirect("login")
+    else:
+        form = UserCreationForm()
+
+    return render(request, "registration/signup.html", {"form": form})

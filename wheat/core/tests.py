@@ -3,16 +3,19 @@ from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
 from .models import Author, Entry
-
+from django.contrib.auth import get_user_model
 
 # Tests here are mostly for APIs probably for pt1
+User = get_user_model()
+
+
 class AuthorProfilePageTests(TestCase):
     def setUp(self):
         self.author = Author.objects.create(
             url="http://testserver/api/authors/test-author",
             host="http://testserver/api/",
             displayName="Skar",
-            github="https://github.com/example",
+            github="",  # keep empty so tests don't try network
             description="Hello! This is my profile.",
             profileImage="https://placehold.co/150x150.png",
             web="http://testserver/authors/1",
@@ -48,7 +51,10 @@ class AuthorProfilePageTests(TestCase):
 
 class AuthorEditPageTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_user(username="skar", password="pass12345")
+
         self.author = Author.objects.create(
+            user=self.user,  # IMPORTANT: link author to logged-in user
             url="http://testserver/api/authors/test-author",
             host="http://testserver/api/",
             displayName="Skar",
@@ -59,6 +65,8 @@ class AuthorEditPageTests(TestCase):
         )
 
     def test_edit_page_post_updates_author_and_redirects(self):
+        self.client.force_login(self.user)  # IMPORTANT: login before POST
+
         edit_url = reverse("author_edit", args=[self.author.serial])
 
         resp = self.client.post(
@@ -85,7 +93,6 @@ class AuthorEditPageTests(TestCase):
 class GitHubAutoImportTests(TestCase):
     @patch("core.views.fetch_public_events")
     def test_profile_page_auto_imports_github_events_without_duplicates(self, mock_fetch):
-        # Fake GitHub events (no network)
         mock_fetch.return_value = [
             {
                 "id": "111",
@@ -120,13 +127,11 @@ class GitHubAutoImportTests(TestCase):
         before = Entry.objects.filter(author=author).count()
 
         self.client.get(url)
-        mock_fetch.assert_called()  # ensure view called GitHub fetch
+        mock_fetch.assert_called()
         after_first = Entry.objects.filter(author=author).count()
 
-        # should import 2 entries
         self.assertEqual(after_first, before + 2)
 
-        # visiting again should not duplicate (same github ids)
         self.client.get(url)
         after_second = Entry.objects.filter(author=author).count()
         self.assertEqual(after_second, after_first)

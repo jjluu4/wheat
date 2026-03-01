@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
+from django.conf import settings
 import uuid
 
 # Core is only responsible for base offline functionality, other models for node and interconnectivity should be in a new app
@@ -14,6 +15,15 @@ VISIBILITIES = [
 ]
 
 class Author(models.Model):
+    # Link Django User -> Author (so each login can own exactly one author profile)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="author_profile",
+    )
+
     # Stable identity that does NOT depend on DB pk
     serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
