@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.db import models
 from .models import Author, Entry
 import uuid
+from django.utils import timezone
 
 class AuthorSerializer(serializers.ModelSerializer):
     type = serializers.CharField(default='author', read_only=True)
@@ -16,6 +17,7 @@ class EntrySerializer(serializers.ModelSerializer):
     id = serializers.URLField(source='url')
     title = serializers.CharField(default='Title', read_only=True)
     description = serializers.CharField(default='Desc', read_only=True)
+    published = serializers.DateTimeField(default=timezone.now, read_only=True)
     web = serializers.CharField(default='Web', read_only=True)
     
     class Meta:
