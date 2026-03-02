@@ -29,6 +29,7 @@ urlpatterns = [
 
     # API endpoints
     path("api/authors/<uuid:author_serial>/", views.single_author, name="api_single_author"),
+    path("api/authors", views.all_authors, name="api_all_authors"),
 
     # Canonical stable routes use entry serial (UUID), not DB pk
     path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/edit/", views.edit_entry, name="entry_edit"),

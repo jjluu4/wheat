@@ -385,6 +385,23 @@ def delete_entry_legacy(request, author_serial, entry_id):
     entry = get_object_or_404(Entry, pk=entry_id, author=author)
     return delete_entry(request, author_serial=author.serial, entry_serial=entry.serial)
 
+@api_view(['GET'])
+def all_authors(request):
+    page=int(request.GET.get('page', 1))
+    size=int(request.GET.get('size', 5))
+
+    if page < 1:
+        page=1
+
+    if size < 1:
+        size=5    #same as no size
+
+    offset=(page-1)*size
+
+    serializer=AuthorSerializer(Author.objects.all()[offset:offset+size], many=True)
+
+    return Response({"type": "authors", "authors": serializer.data})
+
 @api_view(['GET', 'PUT'])
 def single_author(request, author_serial): #support GET and PUT
     author=get_object_or_404(Author, serial=author_serial)
