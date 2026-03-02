@@ -45,7 +45,10 @@ def author_profile(request, author_serial):
 
     entries = entries.order_by("-published")
     
-    isFollowing = True if request.user.author_profile.get_following().filter(serial=author.serial) else False
+    if request.user.is_authenticated:
+        isFollowing = True if request.user.author_profile.get_following().filter(serial=author.serial) else False
+    else:
+        isFollowing = False
 
     return render(
         request,

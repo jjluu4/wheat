@@ -36,7 +36,8 @@
 
         <div class="container">
             <h1>{{ author.displayName }}</h1>
-            {% if author.serial == request.user.author_profile.serial %}
+            {% if not request.user.is_authenticated %}
+            {% elif author.serial == request.user.author_profile.serial %}
             {% elif isFollowing %}
             <p>
                 <a class="btn-link" href={% url 'my_profile'%}>Unfollow</a>
