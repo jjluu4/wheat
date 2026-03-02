@@ -8,3 +8,14 @@ class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ['type', 'id', 'host', 'displayName', 'github', 'profileImage', 'web']
+
+class EntrySerializer(serializers.ModelSerializer):
+    type = serializers.CharField(default='entry', read_only=True)
+    id = serializers.URLField(source='url')
+    title = serializers.CharField(default='Title', read_only=True)
+    description = serializers.CharField(default='Desc', read_only=True)
+    
+    class Meta:
+        model = Entry
+        fields = ['type', 'title', 'id', 'description', 'content_type', 'content', 'author', 'published', 'visibility']
+        extra_kwargs = {'id': {'write_only': True}}

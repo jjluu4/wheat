@@ -5,13 +5,14 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, HttpResponseBadRequest, HttpResponseNotFound
 import uuid
+from rest_framework import status
 
 from .models import Author, Entry, Follow
 from .forms import EntryForm
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
-from .serializers import AuthorSerializer
+from .serializers import AuthorSerializer, EntrySerializer
 
 def index(request):
     return render(request, "core/index.html")
@@ -469,3 +470,119 @@ def get_follow_requests_api(request, author_serial):
         })
 
     return Response(data)
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def single_entry(request, author_serial, entry_serial):
+    
+    if not request.user.is_authenticated:
+        return Response(data={"error": "Authentication required to for entry API endpoint"},status=401)    
+    
+    entry = get_object_or_404(Entry, serial=entry_serial)
+    requestingAuthor = request.user.author_profile
+    entryAuthor = get_object_or_404(Author, serial=author_serial)
+    
+    if request.method == 'GET':    
+        
+        viewable_entries = Entry.get_entries(requestingAuthor) | Entry.objects.filter(author=requestingAuthor).exclude(visibility="DELETED")
+        viewable = True if viewable_entries.filter(serial=entry.serial) or request.user.is_staff else False
+        
+        if viewable:
+            author_serial = AuthorSerializer(entryAuthor).data
+            entry_serial = EntrySerializer(entry, context={'author': author_serial}).data
+            entry_serial['author'] = author_serial
+            return Response(entry_serial)
+        else:
+            return Response(data={"error": "You don't have permission to view this entry"},status=403)
+    
+    elif request.method == 'PUT':
+        if not hasattr(request.user,'author_profile') or request.user.author_profile!=entryAuthor:
+            return Response(data={"error": "You don't have permission to update this profile"},status=403)
+        
+        for field in ['content', 'content_type', 'image_url', 'visibility']:
+            if field in request.data:
+                setattr(entry, field, request.data[field])        
+        
+        entry.save()
+        
+        author_serial = AuthorSerializer(entryAuthor).data
+        entry_serial = EntrySerializer(entry, context={'author': author_serial}).data
+        entry_serial['author'] = author_serial
+        return Response(entry_serial)        
+        
+    
+    elif request.method == 'DELETE':
+        if entryAuthor == requestingAuthor.serial or request.user.is_staff:
+            return Response(data={"error": "You don't have permission to delete this entry."},status=403)
+        
+        try:
+            entry = Entry.objects.get(serial=entry.serial)
+
+        except entry.DoesNotExist:
+            return Response({"error": "Entry not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        #Delete the item from the database 
+        entry.delete()
+            
+        return Response(data={"deleted": "Entry has been deleted."},status=204)
+            
+        
+@api_view(['GET', 'POST'])
+def author_entries(request, author_serial):
+    
+    if not request.user.is_authenticated:
+        return Response(data={"error": "Authentication required to view entry"},status=401)
+    
+    author = get_object_or_404(Author, serial=author_serial)
+    requestingAuthor = request.user.author_profile
+    
+    if request.method == 'GET':
+        page=int(request.GET.get('page', 1))
+        size=int(request.GET.get('size', 5))
+        
+        if page < 1:
+            page=1
+        
+        if size < 1:
+            size=5    #same as no size
+        
+        offset=(page-1)*size
+        
+        entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
+        
+        friend = author.get_friends().filter(serial=requestingAuthor.serial)
+        follower = author.get_followers().filter(serial=requestingAuthor.serial)
+        
+        # Retrieve entries based on if requesting Author is friend/follower/unaffiliated
+        if len(friend) > 0 or (author_serial == requestingAuthor.serial) or request.user.is_staff:
+            entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
+        elif len(follower) > 0:
+            entries = Entry.objects.filter(author=author).exclude(visibility in ["DELETED", "FRIENDS"])
+        else:
+            entries = Entry.objects.filter(author=author, visibility="PUBLIC")
+        
+        serializer = EntrySerializer(entries[offset:offset+size], many=True)
+        entryData = serializer.data
+        
+        # Put Serialized Author data into entryData
+        for i in range(len(entryData)):
+            entryData[i]["author"] = AuthorSerializer(entries[i].author).data
+        
+        return Response({"type": "entries", "entries": entryData})
+    
+    elif request.method == 'POST':
+        if author.serial == requestingAuthor.serial:
+            data = request.data
+            authorData = data['author']
+            data['author'] = author.pk
+            entry = EntrySerializer(data=request.data)
+            if entry.is_valid():
+                print(f"ENTRY: {entry}")
+                #new_entry = entry.save(commit=False)
+                base_host = author.host.rstrip("/")
+                entry.validated_data['url'] = f"{base_host}/authors/{author.serial}/entries/{uuid.uuid4()}"            
+                entry.save()
+                return Response(status=status.HTTP_201_CREATED)
+            else:
+                return Response(entry.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(data={"error": "You cannot add entries to another user"},status=403)
