@@ -11,7 +11,7 @@ from .github_to_entries import save_event_as_entry
 
 
 def index(request):
-    return render(request, "exampleTemplate/index.html")
+    return render(request, "core/index.html")
 
 
 def author_list(request):
