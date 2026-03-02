@@ -1,6 +1,6 @@
 **API Documentation**
 
-**---------- Authors API ----------**
+# **---------- Authors API ----------**
 
 ~ GET api/authors
 
@@ -8,7 +8,7 @@
 
 **EXAMPLES:**<br>
 ***Request:***<br>
-GET /api/authors
+`GET /api/authors`
 
 ***Response:***<br>
 Code=200
@@ -41,7 +41,7 @@ Code=200
 [Returns all authors]
 
 ***Request:***<br>
-GET /api/authors?page=2&size=1
+`GET /api/authors?page=2&size=1`
 
 ***Response:***<br>
 Code=200
@@ -64,7 +64,7 @@ Code=200
 
 [Can also be paginated. This returns the second page of size 1 from two total authors]<br><br><br>
 
-**---------- Single Author API ----------**
+# **---------- Single Author API ----------**
 
 ~ GET/PUT api/authors/<uuid:author_serial>/
 
@@ -74,7 +74,7 @@ Code=200
 
 **EXAMPLES:**<br>
 ***Request:***<br>
-GET /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/
+`GET /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/`
 
 ***Response:***<br>
 Code=200
@@ -91,7 +91,7 @@ Code=200
 ````
 
 ***Request:***<br>
-PUT /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/
+`PUT /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/`
 ````
 {
     "displayName": "NewAccount2Edited"
@@ -104,7 +104,7 @@ Code=200
 
 [Successfully updated the display name of the corresponding author from “NewAccount2” to “NewAccount2Edited”]<br><br><br>
 
-**---------- Following API ----------**
+# **---------- Following API ----------**
 
 ~ GET api/authors/<uuid:author_serial>/following
 
@@ -112,9 +112,10 @@ Code=200
 
 **EXAMPLES:**<br>
 ***Request:***<br>
-GET /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/following
-````
+`GET /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/following`
+
 ***Response:***<br>
+````
 Code=200
 {
     "type": "following",
@@ -135,7 +136,7 @@ Code=200
 [Logged in as author “f3c61a63-31ba-4129-b0a4-a85f37ae483c”]
 
 ***Request:***<br>
-GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/following
+`GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/following`
 
 ***Response:***<br>
 Code=403
@@ -143,7 +144,7 @@ Code=403
 
 [Logged in as author “f3c61a63-31ba-4129-b0a4-a85f37ae483c”. Cannot see other user’s following list]<br><br><br>
 
-**---------- Follow Requests API ----------**
+# **---------- Follow Requests API ----------**
 
 ~ GET api/authors/<uuid:author_serial>/follow_requests
 
@@ -151,7 +152,7 @@ Code=403
 
 **EXAMPLES:**<br>
 ***Request:***<br>
-GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/follow_requests
+`GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/follow_requests`
 
 ***Response:***<br>
 Code=200
@@ -185,7 +186,7 @@ Code=200
 [Logged in as author “c6ede70c-0130-4b20-951c-d9bb8ad5a24e”]
 
 ***Request:***<br>
-GET /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/follow_requests
+`GET /api/authors/f3c61a63-31ba-4129-b0a4-a85f37ae483c/follow_requests`
 
 ***Response:***<br>
 Code=403
@@ -193,7 +194,7 @@ Code=403
 
 [Logged in as author “c6ede70c-0130-4b20-951c-d9bb8ad5a24e”. User cannot access the follow requests of another user]<br><br><br>
 
-**---------- Entries API 1 ----------**
+# **---------- Entries API 1 ----------**
 
 ~ GET/POST /api/authors/<uuid:author_serial>/entries/ 
 
@@ -203,7 +204,7 @@ Code=403
 
 **EXAMPLES:**<br>
 ***Request:***<br>
-GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/?page=2&size=2
+`GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/?page=2&size=2`
 
 ***Response:***<br>
 Code=200
@@ -238,7 +239,7 @@ Code=200
 [Returns the “second page” of posts when there are three total posts]
 
 ***Request:***<br>
-POST /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/
+`POST /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/`
 ````
 {
             "type": "entry",
@@ -264,7 +265,7 @@ POST /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/
 ***Response:***<br>
 Code=201<br><br><br>
 
-**---------- Entries API 2 ----------**
+# **---------- Entries API 2 ----------**
 
 ~ GET/PUT/DELETE /api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/
 
@@ -276,8 +277,7 @@ Code=201<br><br><br>
 
 **EXAMPLES:**<br>
 ***Request:***<br>
-GET
-/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/
+`GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/`
 
 ***Response:***<br>
 Code=200
@@ -305,7 +305,7 @@ Code=200
 ````
 
 ***Request:***<br>
-DELETE /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/
+`DELETE /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/`
 
 ***Response:***<br>
 Code=204
@@ -316,7 +316,7 @@ Code=204
 ````
 
 ***Request:***<br>
-PUT /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/a9510b91-6a7b-4ecc-a2ac-fe6e76dca9e8/
+`PUT /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/a9510b91-6a7b-4ecc-a2ac-fe6e76dca9e8/`
 ````
 {
     "content_type": "text/plain",
