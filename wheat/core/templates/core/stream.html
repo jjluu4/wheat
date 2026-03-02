@@ -27,7 +27,7 @@
                         <div class="small"><strong>{{ entry.visibility }}</strong></div>
                         {% endif %}
                         
-                        <a href="{% url 'author_profile' entry.author.serial %}">{{ entry.author.displayName }}: </a>
+                        <a class="profile-link" href="{% url 'author_profile' entry.author.serial %}">{{ entry.author.displayName }}: </a>
 
                         {% if entry.content_type == "text/markdown" %}
                         <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>

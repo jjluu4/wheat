@@ -22,8 +22,11 @@
                 <ul>
                     {% for req in requests %}
                     <li>
-                        <strong>{{ req.actor.displayName }}</strong> wants to follow you.
-                        <div class="small">
+                        <a class="profile-link" href="{% url 'author_profile' author.serial %}">
+                            {{ req.actor.displayName }}
+                        </a>
+                        wants to follow you.
+                        <div class="small accept">
                             <form action="{% url 'accept_follow' req.actor.serial %}" method="POST">
                                 {% csrf_token %}
                                 <button type="submit">Accept</button>

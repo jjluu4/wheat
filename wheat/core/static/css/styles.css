@@ -116,6 +116,7 @@ a.button-link {
 h1 {
     font-size: clamp(28px, 4vw, 44px);
     margin: 16px 0 10px;
+    color: wheat;
 }
 
 h2 {
@@ -279,4 +280,23 @@ ul.matrix {
 
 .edit {
     margin-top: 25px;
+}
+
+/* Stream */
+.profile-link {
+    color: wheat;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-block;
+    margin: 8px 0;
+}
+
+.profile-link:hover {
+    text-decoration: underline;
+}
+
+/* Follows */
+.accept {
+    display: flex;
+    gap: 10px;
 }
