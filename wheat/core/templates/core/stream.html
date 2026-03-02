@@ -43,13 +43,6 @@
                         {% else %}
                         <div>{{ entry.content }}</div>
                         {% endif %}
-
-                        {% if author.user_id == request.user.id or request.user.is_staff %}
-                        <div class="small">
-                            <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
-                            <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
-                        </div>
-                        {% endif %}
                     </li>
                     {% endfor %}
                 </ul>
