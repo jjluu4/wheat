@@ -5,6 +5,7 @@ from django.http import HttpResponseForbidden
 import uuid
 
 from .models import Author, Entry
+from .forms import EntryForm
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
@@ -32,10 +33,17 @@ def author_profile(request, author_serial):
             # Don't break the profile page if GitHub API fails
             pass
 
-    entries = (
-        Entry.objects.filter(author=author, visibility="PUBLIC")
-        .order_by("-published")
+    is_owner = (
+        request.user.is_authenticated
+        and (author.user_id == request.user.id or request.user.is_staff)
     )
+
+    if is_owner:
+        entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
+    else:
+        entries = Entry.objects.filter(author=author, visibility="PUBLIC")
+
+    entries = entries.order_by("-published")
 
     return render(
         request,
@@ -43,6 +51,7 @@ def author_profile(request, author_serial):
         {
             "author": author,
             "entries": entries,
+            "is_owner": is_owner,
         },
     )
 
@@ -123,3 +132,73 @@ def my_profile(request):
         )
 
     return redirect("author_profile", author_serial=author.serial)
+
+
+def author_owns_profile(request, author):
+    #as an author, other authors cannot modify my entries, so that I don't get impersonated.
+    if (author.user_id is None or author.user_id != request.user.id) and not request.user.is_staff:
+        return False
+    return True
+
+
+@login_required
+def create_entry(request, author_serial):
+    author = get_object_or_404(Author, serial=author_serial)
+
+    if not author_owns_profile(request, author):
+        return HttpResponseForbidden("You cannot create entries for another author.")
+
+    if request.method == "POST":
+        form = EntryForm(request.POST)
+        if form.is_valid():
+            entry = form.save(commit=False)
+            entry.author = author
+            base_host = author.host.rstrip("/")
+            entry.url = f"{base_host}/authors/{author.serial}/entries/{uuid.uuid4()}"
+            entry.save()
+            return redirect("author_profile", author_serial=author.serial)
+    else:
+        form = EntryForm(
+            initial={
+                "content_type": "text/plain",
+                "visibility": "PUBLIC",
+            }
+        )
+
+    return render(request, "core/entry_form.html", {"author": author, "form": form, "is_edit": False})
+
+@login_required
+def edit_entry(request, author_serial, entry_id):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    if entry.visibility == "DELETED":
+        return HttpResponseForbidden("You cannot edit a deleted entry.")
+    if not author_owns_profile(request, author):
+        return HttpResponseForbidden("You cannot edit another author's entries.")
+    if request.method == "POST":
+        form = EntryForm(request.POST, instance=entry)
+        if form.is_valid():
+            form.save()
+            return redirect("author_profile", author_serial=author.serial)
+    else:
+        form = EntryForm(instance=entry)
+
+    return render(request, "core/entry_form.html", {"author": author, "form": form, "is_edit": True, "entry": entry})
+
+
+@login_required
+def delete_entry(request, author_serial, entry_id):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    if entry.visibility == "DELETED":
+        return HttpResponseForbidden("This entry is already deleted.")
+
+    if not author_owns_profile(request, author):
+        return HttpResponseForbidden("You cannot delete another author's entries.")
+
+    if request.method == "POST":
+        entry.visibility = "DELETED"
+        entry.save(update_fields=["visibility"])
+        return redirect("author_profile", author_serial=author.serial)
+
+    return render(request, "core/entry_confirm_delete.html", {"author": author, "entry": entry})

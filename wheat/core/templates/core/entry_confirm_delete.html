@@ -1,11 +1,13 @@
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <title>Wheat – Social Distribution</title>
+    <meta charset="utf-8" />
+    <title>Delete Entry - {{ author.displayName }}</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
+
 <body>
     <div class="page">
         <div class="topnav">
@@ -13,6 +15,7 @@
                 <a class="brand" href="{% url 'author_list' %}">
                     <span class="dot"></span> Wheat
                 </a>
+
                 <div class="navlinks">
                     <a href="{% url 'author_list' %}">Authors</a>
                     {% if request.user.is_authenticated %}
@@ -28,19 +31,30 @@
                 </div>
             </div>
         </div>
+
         <div class="container">
-            <h1>Wheat</h1>
-            <p>Browse authors and their entries.</p>
-            <p>
-                <a href="{% url 'author_list' %}" class="btn-link">Browse authors</a>
-                {% if not request.user.is_authenticated %}
-                <a href="{% url 'login' %}" class="btn-link">Login</a>
-                <a href="{% url 'signup' %}" class="btn-link">Sign up</a>
-                {% else %}
-                <a href="{% url 'my_profile' %}" class="btn-link">My profile</a>
+            <h1>Delete Entry</h1>
+
+            <div class="card">
+                <p>Are you sure you want to delete this entry?</p>
+
+                <p><strong>Published:</strong> {{ entry.published }}</p>
+                <p><strong>Content type:</strong> {{ entry.content_type }}</p>
+                <p><strong>Text:</strong> {{ entry.content|truncatechars:200 }}</p>
+
+                {% if entry.image_url %}
+                <p><strong>Image URL:</strong> {{ entry.image_url }}</p>
                 {% endif %}
-            </p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-danger">Yes, delete</button>
+                    <a href="{% url 'author_profile' author.serial %}" class="btn-link">Cancel</a>
+                </form>
+            </div>
         </div>
     </div>
 </body>
+
 </html>
+

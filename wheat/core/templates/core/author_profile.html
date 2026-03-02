@@ -54,24 +54,56 @@
                 {% endif %}
             </div>
 
-            <h2>Public Entries</h2>
+            <h2>{% if is_owner %}Your Entries{% else %}Public Entries{% endif %}</h2>
+
+            {% if author.user_id == request.user.id or request.user.is_staff %}
+            <p>
+                <a class="btn-link" href="{% url 'entry_create' author.serial %}">New entry</a>
+            </p>
+            {% endif %}
+
             <div class="card">
                 {% if entries %}
                 <ul class="clean">
                     {% for entry in entries %}
                     <li>
                         <div class="small"><strong>{{ entry.published }}</strong></div>
+                        {% if is_owner %}
+                        <div class="small"><strong>{{ entry.visibility }}</strong></div>
+                        {% endif %}
+
+                        {% if entry.content_type == "text/markdown" %}
+                        <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>
+                        {% elif entry.content_type == "image" and entry.image_url %}
+                        <div class="entry-image">
+                            <img src="{{ entry.image_url }}" alt="{{ entry.content|default:'Image entry' }}">
+                            {% if entry.content %}
+                            <div class="caption">{{ entry.content }}</div>
+                            {% endif %}
+                        </div>
+                        {% else %}
                         <div>{{ entry.content }}</div>
+                        {% endif %}
+
+                        {% if author.user_id == request.user.id or request.user.is_staff %}
+                        <div class="small">
+                            <a href="{% url 'entry_edit' author.serial entry.id %}">Edit</a>
+                            <a href="{% url 'entry_delete' author.serial entry.id %}">Delete</a>
+                        </div>
+                        {% endif %}
                     </li>
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p>No public entries yet.</p>
+                <p>{% if is_owner %}No entries yet.{% else %}No public entries yet.{% endif %}</p>
                 {% endif %}
             </div>
         </div>
 
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{% static 'js/markdown-renderer.js' %}"></script>
 </body>
 
 </html>

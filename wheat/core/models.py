@@ -56,7 +56,8 @@ class Entry(models.Model):
 
     content = models.TextField()
     content_type = models.CharField(max_length=100, default='text/plain')
-
+    
+    image_url = models.URLField(blank=True, default="")
     published = models.DateTimeField(default=timezone.now)
     visibility = models.CharField(max_length=10, choices=VISIBILITIES, default="PUBLIC")    
     
