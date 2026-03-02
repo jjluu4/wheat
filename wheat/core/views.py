@@ -209,7 +209,7 @@ def create_entry(request, author_serial):
             entry = form.save(commit=False)
             entry.author = author
             base_host = author.host.rstrip("/")
-            entry.url = f"{base_host}/authors/{author.serial}/entries/{uuid.uuid4()}"
+            entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
             entry.save()
             return redirect("author_profile", author_serial=author.serial)
     else:
