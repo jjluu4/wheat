@@ -26,11 +26,11 @@
                         <div class="small">
                             <form action="{% url 'accept_follow' req.actor.serial %}" method="POST">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-link">Accept</button>
+                                <button type="submit">Accept</button>
                             </form>
                             <form action="{% url 'reject_follow' req.actor.serial %}" method="POST">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-link"">Reject</button>
+                                <button type="submit">Reject</button>
                             </form>
                         </div>
                     </li>

@@ -17,12 +17,12 @@
             <p><i>To be replaced with a proper landing page later</i></p>
             <br>
             <p>
-                <a class="button-link" href="{% url 'author_list' %}" class="btn-link">Browse authors</a>
+                <a class="button-link" href="{% url 'author_list' %}">Browse authors</a>
                 {% if not request.user.is_authenticated %}
-                <a class="button-link" href="{% url 'login' %}" class="btn-link">Login</a>
-                <a class="button-link" href="{% url 'signup' %}" class="btn-link">Sign up</a>
+                <a class="button-link" href="{% url 'login' %}">Login</a>
+                <a class="button-link" href="{% url 'signup' %}">Sign up</a>
                 {% else %}
-                <a class="button-link" href="{% url 'my_profile' %}" class="btn-link">My profile</a>
+                <a class="button-link" href="{% url 'my_profile' %}">My profile</a>
                 {% endif %}
             </p>
         </div>

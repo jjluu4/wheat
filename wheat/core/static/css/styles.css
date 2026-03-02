@@ -213,3 +213,18 @@ ul.clean li {
 .auth-card {
     width: min(560px, 92vw);
 }
+
+/* Profile */
+.avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 5px;
+    border: 2px solid wheat;
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 20px;
+}

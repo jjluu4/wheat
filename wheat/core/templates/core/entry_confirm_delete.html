@@ -29,8 +29,8 @@
 
                 <form method="post">
                     {% csrf_token %}
-                    <button type="submit" class="btn-danger">Yes, delete</button>
-                    <a href="{% url 'author_profile' author.serial %}" class="btn-link">Cancel</a>
+                    <button type="submit">Yes, delete</button>
+                    <a href="{% url 'author_profile' author.serial %}" class="button-link">Cancel</a>
                 </form>
             </div>
         </div>
