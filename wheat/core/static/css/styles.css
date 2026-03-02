@@ -1,6 +1,6 @@
 /* wheat/core/static/css/styles.css */
 
-/* ===== Theme ===== */
+/* Theme */
 * {
     box-sizing: border-box;
 }
@@ -13,13 +13,11 @@ body {
     margin: 0;
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     color: #eef0ff;
-    background:
-        radial-gradient(900px 500px at 15% 10%, rgba(139, 92, 246, 0.28), transparent 55%),
-        radial-gradient(700px 420px at 85% 20%, rgba(34, 211, 238, 0.20), transparent 55%),
-        linear-gradient(180deg, #070713, #0b0b1c);
+    background-color: #141414;
 }
 
-/* ===== Layout ===== */
+
+/* Layout */
 .page {
     min-height: 100%;
     display: flex;
@@ -32,15 +30,13 @@ body {
     padding: 26px 0 40px;
 }
 
-/* ===== Nav ===== */
+/* Nav */
 .topnav {
     position: sticky;
     top: 0;
     z-index: 10;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    background: rgba(8, 8, 20, 0.55);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: #141414a0;
+    border-bottom: 1px solid #ffffff15;
 }
 
 .topnav .container {
@@ -64,8 +60,7 @@ body {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #8b5cf6, #22d3ee);
-    box-shadow: 0 0 18px rgba(139, 92, 246, 0.55);
+    background: wheat;
 }
 
 .navlinks {
@@ -85,7 +80,7 @@ body {
 
 .navlinks a:hover {
     color: #eef0ff;
-    background: rgba(255, 255, 255, 0.06);
+    background: #ffffff15;
 }
 
 .navlinks form {
@@ -93,26 +88,34 @@ body {
     display: inline;
 }
 
-.navlinks button {
-    background: rgba(255, 255, 255, 0.06);
+
+/* Buttons */
+button, a.button-link {
+    background: #ffffff15;
     color: #eef0ff;
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: none;
     padding: 8px 12px;
     border-radius: 10px;
     cursor: pointer;
-    font-weight: 800;
+    font-size: small;
+    font-weight: 700;
 }
 
-.navlinks button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.18);
+button:hover, a.button-link:hover {
+    background: #ffffff30;
 }
 
-/* ===== Typography ===== */
+a.button-link {
+    background: #ffffff08;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 600;
+}
+
+/* Typography */
 h1 {
     font-size: clamp(28px, 4vw, 44px);
     margin: 16px 0 10px;
-    letter-spacing: -0.6px;
 }
 
 h2 {
@@ -125,52 +128,23 @@ p {
     line-height: 1.5;
 }
 
-/* ===== Card ===== */
+.small {
+    color: #b9bdd8;
+    font-size: 13px;
+}
+
+
+/* Card */
 .card {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 18px;
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
-    padding: 18px;
-}
-
-/* ===== Buttons ===== */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 11px 14px;
+    background: #ffffff02;
+    border: 1px solid #ffffff10;
     border-radius: 12px;
-    border: 0;
-    cursor: pointer;
-    font-weight: 900;
-    color: #0b0b16;
-    background: linear-gradient(135deg, #8b5cf6, #22d3ee);
-    box-shadow: 0 10px 26px rgba(139, 92, 246, 0.25);
+    box-shadow: 0 18px 15px #00000080;
+    padding: 12px;
 }
 
-.btn:hover {
-    filter: brightness(1.05);
-}
 
-.btn-link, .follow-btn-link {
-    display: inline-block;
-    padding: 8px 10px;
-    border-radius: 10px;
-    text-decoration: none;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    color: #eef0ff;
-    font-weight: 800;
-}
-
-.btn-link:hover, .follow-btn-link:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.18);
-    cursor: pointer;
-}
-
-/* ===== Forms ===== */
+/* Forms */
 .field {
     margin: 12px 0;
 }
@@ -183,19 +157,18 @@ label {
     font-size: 13px;
 }
 
-input[type="text"], input[type="password"], input[type="email"], input[type="url"], textarea {
-    width: min(560px, 100%);
-    padding: 12px 12px;
+input, textarea {
+    width: 100%;
+    padding: 10px;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(10, 10, 24, 0.65);
+    border: 1px solid #ffffff20;
+    background: #00000060;
     color: #eef0ff;
     outline: none;
 }
 
 input:focus, textarea:focus {
-    border-color: rgba(139, 92, 246, 0.55);
-    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+    border-color: wheat;
 }
 
 /* Django errors */
@@ -222,27 +195,21 @@ ul.clean {
 }
 
 ul.clean li {
-    padding: 12px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    background: rgba(255, 255, 255, 0.04);
+    padding: 12px;
+    background: #ffffff02;
+    border: 1px solid #ffffff10;
     border-radius: 14px;
     margin: 10px 0;
 }
 
 /* Auth page centering */
 .center-wrap {
-    min-height: calc(100vh - 70px);
+    min-height: 85vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 30px 0 50px;
 }
 
 .auth-card {
     width: min(560px, 92vw);
-}
-
-.small {
-    font-size: 13px;
-    color: #b9bdd8;
 }
