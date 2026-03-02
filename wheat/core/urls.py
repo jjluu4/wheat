@@ -26,7 +26,6 @@ urlpatterns = [
     path("authors/<uuid:author_serial>/requests/", views.follow_requests, name="follow_requests"),
     path("authors/<uuid:author_serial>/followers/", views.followers, name="followers_list"),
     path("authors/<uuid:author_serial>/following/", views.following, name="following_list"),
-]
 
     # Canonical stable routes use entry serial (UUID), not DB pk
     path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/edit/", views.edit_entry, name="entry_edit"),
