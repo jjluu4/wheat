@@ -389,14 +389,19 @@ def delete_entry_legacy(request, author_serial, entry_id):
 
 @api_view(['GET'])
 def all_authors(request):
-    page=int(request.GET.get('page', 1))
-    size=int(request.GET.get('size', 5))
-
-    if page < 1:
+    try:
+        page=int(request.GET.get('page', 1))
+        if page < 1:
+            page=1
+    except:
         page=1
 
-    if size < 1:
-        size=5   
+    try:
+        size=int(request.GET.get('size', 5))
+        if size < 1:
+            size=5
+    except:
+        size=5
 
     offset=(page-1)*size
 
@@ -564,13 +569,20 @@ def author_entries(request, author_serial):
         requestingAuthor = request.user.author_profile
 
     if request.method == "GET":
-        page = int(request.GET.get("page", 1))
-        size = int(request.GET.get("size", 5))
-        # Basic pagination guard rails
-        if page < 1:
-            page = 1
-        if size < 1:
-            size = 5
+        try:
+            page=int(request.GET.get('page', 1))
+            if page < 1:
+                page=1
+        except:
+            page=1
+
+        try:
+            size=int(request.GET.get('size', 5))
+            if size < 1:
+                size=5
+        except:
+            size=5
+
         offset = (page - 1) * size
 
         qs = Entry.objects.filter(author=author).exclude(visibility="DELETED").order_by("-published")
