@@ -9,6 +9,8 @@ urlpatterns = [
     path("authors/", views.author_list, name="author_list"),
 
     path("authors/me/", views.my_profile, name="my_profile"),
+    
+    path("stream/", views.my_stream, name="my_stream"),
 
     # stable UUID serial routes
     path("authors/<uuid:author_serial>/", views.author_profile, name="author_profile"),

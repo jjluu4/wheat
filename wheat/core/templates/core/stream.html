@@ -35,43 +35,13 @@
         </div>
 
         <div class="container">
-            <h1>{{ author.displayName }}</h1>
-            {% if author.serial == request.user.author_profile.serial %}
-            {% elif isFollowing %}
-            <p>
-                <a class="btn-link" href={% url 'my_profile'%}>Unfollow</a>
-            </p>
-            {% else %}
-            <a class="btn-link" href={% url 'my_profile'%}>Follow</a></p>
-            {% endif %}
-            <div class="card">
-                {% if author.user_id == request.user.id or request.user.is_staff %}
-                <p>
-                    <a class="btn-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
-                </p>
-                {% endif %}
+            <h1>{{ author.displayName }}'s Stream</h1>
 
-                <p>{{ author.description }}</p>
-
-                <p>
-                    <a class="btn-link" href="{{ author.github }}">GitHub</a>
-                </p>
-
-                {% if author.profileImage %}
-                <img class="avatar" src="{{ author.profileImage }}" alt="profile image" />
-                {% endif %}
-            </div>
-
-            <h2>{% if is_owner %}Your Entries{% else %}Public Entries{% endif %}</h2>
-
-            {% if author.user_id == request.user.id or request.user.is_staff %}
-            <p>
-                <a class="btn-link" href="{% url 'entry_create' author.serial %}">New entry</a>
-            </p>
-            {% endif %}
-
+            <h2>Entries:</h2>
             <div class="card">
                 {% if entries %}
+                
+                
                 <ul class="clean">
                     {% for entry in entries %}
                     <li>
@@ -79,6 +49,8 @@
                         {% if is_owner %}
                         <div class="small"><strong>{{ entry.visibility }}</strong></div>
                         {% endif %}
+                        
+                        <a href="{% url 'author_profile' entry.author.serial %}">{{ entry.author.displayName }}: </a>
 
                         {% if entry.content_type == "text/markdown" %}
                         <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>
@@ -102,16 +74,15 @@
                     </li>
                     {% endfor %}
                 </ul>
+                
+                
                 {% else %}
-                <p>{% if is_owner %}No entries yet.{% else %}No public entries yet.{% endif %}</p>
+                <p>No public entries yet.</p>
                 {% endif %}
             </div>
         </div>
 
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="{% static 'js/markdown-renderer.js' %}"></script>
 </body>
 
 </html>

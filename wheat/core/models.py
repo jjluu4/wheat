@@ -51,6 +51,8 @@ class Author(models.Model):
 
 class Entry(models.Model):
     url = models.URLField(unique=True)
+    
+    serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='entries')
 
