@@ -1,42 +1,22 @@
 /* wheat/core/static/css/styles.css */
 
 /* ===== Theme ===== */
-:root {
-    --bg0: #070713;
-    --bg1: #0b0b1c;
-
-    --card: rgba(255, 255, 255, 0.06);
-    --border: rgba(255, 255, 255, 0.10);
-
-    --text: #eef0ff;
-    --muted: #b9bdd8;
-
-    --p1: #8b5cf6;
-    /* purple */
-    --p2: #22d3ee;
-    /* cyan */
-
-    --radius: 18px;
-    --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
-}
-
 * {
     box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
     height: 100%;
 }
 
 body {
     margin: 0;
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    color: var(--text);
+    color: #eef0ff;
     background:
         radial-gradient(900px 500px at 15% 10%, rgba(139, 92, 246, 0.28), transparent 55%),
         radial-gradient(700px 420px at 85% 20%, rgba(34, 211, 238, 0.20), transparent 55%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+        linear-gradient(180deg, #070713, #0b0b1c);
 }
 
 /* ===== Layout ===== */
@@ -75,7 +55,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--text);
+    color: #eef0ff;
     text-decoration: none;
     font-weight: 800;
 }
@@ -84,7 +64,7 @@ body {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--p1), var(--p2));
+    background: linear-gradient(135deg, #8b5cf6, #22d3ee);
     box-shadow: 0 0 18px rgba(139, 92, 246, 0.55);
 }
 
@@ -96,7 +76,7 @@ body {
 }
 
 .navlinks a {
-    color: var(--muted);
+    color: #b9bdd8;
     text-decoration: none;
     font-weight: 700;
     padding: 8px 10px;
@@ -104,7 +84,7 @@ body {
 }
 
 .navlinks a:hover {
-    color: var(--text);
+    color: #eef0ff;
     background: rgba(255, 255, 255, 0.06);
 }
 
@@ -115,7 +95,7 @@ body {
 
 .navlinks button {
     background: rgba(255, 255, 255, 0.06);
-    color: var(--text);
+    color: #eef0ff;
     border: 1px solid rgba(255, 255, 255, 0.10);
     padding: 8px 12px;
     border-radius: 10px;
@@ -141,16 +121,16 @@ h2 {
 }
 
 p {
-    color: var(--muted);
+    color: #b9bdd8;
     line-height: 1.5;
 }
 
 /* ===== Card ===== */
 .card {
     background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 18px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
     padding: 18px;
 }
 
@@ -165,7 +145,7 @@ p {
     cursor: pointer;
     font-weight: 900;
     color: #0b0b16;
-    background: linear-gradient(135deg, var(--p1), var(--p2));
+    background: linear-gradient(135deg, #8b5cf6, #22d3ee);
     box-shadow: 0 10px 26px rgba(139, 92, 246, 0.25);
 }
 
@@ -180,7 +160,7 @@ p {
     text-decoration: none;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.10);
-    color: var(--text);
+    color: #eef0ff;
     font-weight: 800;
 }
 
@@ -198,27 +178,22 @@ p {
 label {
     display: block;
     margin: 0 0 6px;
-    color: var(--muted);
+    color: #b9bdd8;
     font-weight: 800;
     font-size: 13px;
 }
 
-input[type="text"],
-input[type="password"],
-input[type="email"],
-input[type="url"],
-textarea {
+input[type="text"], input[type="password"], input[type="email"], input[type="url"], textarea {
     width: min(560px, 100%);
     padding: 12px 12px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: rgba(10, 10, 24, 0.65);
-    color: var(--text);
+    color: #eef0ff;
     outline: none;
 }
 
-input:focus,
-textarea:focus {
+input:focus, textarea:focus {
     border-color: rgba(139, 92, 246, 0.55);
     box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
 }
@@ -269,5 +244,5 @@ ul.clean li {
 
 .small {
     font-size: 13px;
-    color: var(--muted);
+    color: #b9bdd8;
 }
