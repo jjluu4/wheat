@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
-from .models import Author, Entry
+from core.models import Author, Entry
 from django.contrib.auth import get_user_model
 
 # Tests here are mostly for APIs probably for pt1
