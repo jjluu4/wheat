@@ -1,3 +1,5 @@
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
@@ -8,6 +10,8 @@ from .models import Author, Entry, Follow
 from .forms import EntryForm
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
+
+from .serializers import AuthorSerializer
 
 def index(request):
     return render(request, "core/index.html")
@@ -380,3 +384,27 @@ def delete_entry_legacy(request, author_serial, entry_id):
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, pk=entry_id, author=author)
     return delete_entry(request, author_serial=author.serial, entry_serial=entry.serial)
+
+@api_view(['GET', 'PUT'])
+def single_author(request, author_serial): #support GET and PUT
+    author=get_object_or_404(Author, serial=author_serial)
+
+    if request.method=='GET':
+        serializer=AuthorSerializer(author)
+        return Response(serializer.data)
+
+    elif request.method=='PUT':
+        if not request.user.is_authenticated:
+            return Response(data={"error": "Authentication required to update profile"},status=401)
+
+        if not hasattr(request.user,'author_profile') or request.user.author_profile!=author:
+            return Response(data={"error": "You don't have permission to update this profile"},status=403)
+
+        for field in ['displayName', 'github', 'profileImage']:
+            if field in request.data:
+                setattr(author, field, request.data[field])
+
+        author.save()
+
+        serializer=AuthorSerializer(author)
+        return Response(serializer.data)
