@@ -209,9 +209,9 @@ def create_entry(request, author_serial):
     return render(request, "core/entry_form.html", {"author": author, "form": form, "is_edit": False})
 
 @login_required
-def edit_entry(request, author_serial, entry_id):
+def edit_entry(request, author_serial, entry_serial):
     author = get_object_or_404(Author, serial=author_serial)
-    entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
         return HttpResponseForbidden("You cannot edit a deleted entry.")
     if not author_owns_profile(request, author):
@@ -228,9 +228,16 @@ def edit_entry(request, author_serial, entry_id):
 
 
 @login_required
-def delete_entry(request, author_serial, entry_id):
+def edit_entry_legacy(request, author_serial, entry_id):
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    return edit_entry(request, author_serial=author.serial, entry_serial=entry.serial)
+
+
+@login_required
+def delete_entry(request, author_serial, entry_serial):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
         return HttpResponseForbidden("This entry is already deleted.")
 
@@ -243,3 +250,10 @@ def delete_entry(request, author_serial, entry_id):
         return redirect("author_profile", author_serial=author.serial)
 
     return render(request, "core/entry_confirm_delete.html", {"author": author, "entry": entry})
+
+
+@login_required
+def delete_entry_legacy(request, author_serial, entry_id):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    return delete_entry(request, author_serial=author.serial, entry_serial=entry.serial)
