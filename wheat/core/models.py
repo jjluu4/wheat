@@ -36,10 +36,10 @@ class Author(models.Model):
     url = models.URLField(unique=True)
     host = models.URLField()
     displayName = models.CharField(max_length=255)
-    github = models.URLField()
+    github = models.URLField(blank=True, default="")
     description = models.TextField(blank=True, default="")
-    profileImage = models.URLField()
-    web = models.URLField()
+    profileImage = models.URLField(blank=True, default="")
+    web = models.URLField(blank=True, default="")
 
     def get_followers(self):
         return Author.objects.filter(following__target=self, following__status="ACCEPTED")

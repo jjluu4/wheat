@@ -87,7 +87,7 @@
                             {% endif %}
                         </div>
                         {% else %}
-                        <div>{{ entry.content }}</div>
+                        <div class="entry-content plain-text">{{ entry.content|linebreaksbr }}</div>
                         {% endif %}
 
                         {% if author.user_id == request.user.id or request.user.is_staff %}
