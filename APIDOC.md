@@ -149,7 +149,7 @@ Code=403
 
 ~~ GET: Retrieves in JSON formatting a list of all follow_requests for the user corresponding to the required author_serial. Returns a 401 if the user is not logged in and a 403 if the user tries to access another user’s follow requests.
 
-EXAMPLES:
+**EXAMPLES:**<br>
 ***Request:***<br>
 GET /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/follow_requests
 
