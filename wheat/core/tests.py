@@ -289,7 +289,7 @@ class EntryEditTests(TestCase):
 
     def test_owner_can_edit_entry(self):
         self.client.force_login(self.user)
-        url = reverse("entry_edit", args=[self.author.serial, self.entry.pk])
+        url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(
             url,
             data={
@@ -306,7 +306,7 @@ class EntryEditTests(TestCase):
     def test_non_owner_cannot_edit_entry(self):
         other = User.objects.create_user(username="other", password="pass12345")
         self.client.force_login(other)
-        url = reverse("entry_edit", args=[self.author.serial, self.entry.pk])
+        url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(
             url,
             data={
@@ -344,7 +344,7 @@ class EntryDeleteTests(TestCase):
 
     def test_owner_can_delete_entry_soft_delete(self):
         self.client.force_login(self.user)
-        url = reverse("entry_delete", args=[self.author.serial, self.entry.pk])
+        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(url)
         self.assertEqual(resp.status_code, 302)
         self.entry.refresh_from_db()
@@ -353,7 +353,7 @@ class EntryDeleteTests(TestCase):
     def test_non_owner_cannot_delete_entry(self):
         other = User.objects.create_user(username="other", password="pass12345")
         self.client.force_login(other)
-        url = reverse("entry_delete", args=[self.author.serial, self.entry.pk])
+        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(url)
         self.assertEqual(resp.status_code, 403)
         self.entry.refresh_from_db()

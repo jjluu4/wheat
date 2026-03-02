@@ -10,7 +10,7 @@ from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
 def index(request):
-    return render(request, "exampleTemplate/index.html")
+    return render(request, "core/index.html")
 
 
 def author_list(request):
@@ -117,6 +117,8 @@ def signup(request):
 
     return render(request, "registration/signup.html", {"form": form})
 
+def logged_out(request):
+    return render(request, "registration/logged_out.html")
 
 @login_required
 def my_profile(request):
@@ -168,7 +170,8 @@ def my_stream(request):
             profileImage="https://placehold.co/150x150.png",
         )
     
-    entries = Entry.get_entries(author).order_by("-published")
+    allEntries = Entry.get_entries(author).order_by("-published")
+    entries = allEntries.exclude(author__serial=author.serial)    
 
     return render(
         request,
@@ -214,9 +217,9 @@ def create_entry(request, author_serial):
     return render(request, "core/entry_form.html", {"author": author, "form": form, "is_edit": False})
 
 @login_required
-def edit_entry(request, author_serial, entry_id):
+def edit_entry(request, author_serial, entry_serial):
     author = get_object_or_404(Author, serial=author_serial)
-    entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
         return HttpResponseForbidden("You cannot edit a deleted entry.")
     if not author_owns_profile(request, author):
@@ -233,9 +236,16 @@ def edit_entry(request, author_serial, entry_id):
 
 
 @login_required
-def delete_entry(request, author_serial, entry_id):
+def edit_entry_legacy(request, author_serial, entry_id):
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    return edit_entry(request, author_serial=author.serial, entry_serial=entry.serial)
+
+
+@login_required
+def delete_entry(request, author_serial, entry_serial):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
         return HttpResponseForbidden("This entry is already deleted.")
 
@@ -364,3 +374,9 @@ def unfollow(request, author_serial):
     
     except Follow.DoesNotExist:
         return HttpResponseNotFound("Follow request cannot be found.")
+
+@login_required
+def delete_entry_legacy(request, author_serial, entry_id):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, pk=entry_id, author=author)
+    return delete_entry(request, author_serial=author.serial, entry_serial=entry.serial)

@@ -5,6 +5,7 @@ urlpatterns = [
     path("", views.index, name="index"),
 
     path("accounts/signup/", views.signup, name="signup"),
+    path("accounts/logged_out", views.logged_out, name="logged_out"),
 
     path("authors/", views.author_list, name="author_list"),
 
@@ -25,4 +26,13 @@ urlpatterns = [
     path("authors/<uuid:author_serial>/requests/", views.follow_requests, name="follow_requests"),
     path("authors/<uuid:author_serial>/followers/", views.followers, name="followers_list"),
     path("authors/<uuid:author_serial>/following/", views.following, name="following_list"),
+]
+
+    # Canonical stable routes use entry serial (UUID), not DB pk
+    path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/edit/", views.edit_entry, name="entry_edit"),
+    path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/delete/", views.delete_entry, name="entry_delete"),
+
+    # Backward-compatible legacy routes
+    path("authors/<uuid:author_serial>/entries/<int:entry_id>/edit/", views.edit_entry_legacy, name="entry_edit_legacy"),
+    path("authors/<uuid:author_serial>/entries/<int:entry_id>/delete/", views.delete_entry_legacy, name="entry_delete_legacy"),
 ]

@@ -119,5 +119,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-LOGIN_REDIRECT_URL = "/authors/"
-LOGOUT_REDIRECT_URL = "/authors/"
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGIN_REDIRECT_URL = "/authors/me"
+LOGOUT_REDIRECT_URL = "/accounts/logged_out"

@@ -1,0 +1,23 @@
+{% load static %}
+<div class="topnav">
+    <div class="container">
+        <a class="brand" href="{% url 'index' %}">
+            <span class="dot"></span> Wheat
+        </a>
+
+        <div class="navlinks">
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'author_list' %}">Authors</a>
+            <a href="{% url 'my_stream' %}">My Stream</a>
+            <a href="{% url 'my_profile' %}">My Profile</a>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit">Logout</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}">Login</a>
+            <a href="{% url 'signup' %}">Sign up</a>
+            {% endif %}
+        </div>
+    </div>
+</div>

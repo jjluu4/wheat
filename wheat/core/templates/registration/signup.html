@@ -11,17 +11,7 @@
 <body>
     <div class="page">
 
-        <div class="topnav">
-            <div class="container">
-                <a class="brand" href="{% url 'author_list' %}">
-                    <span class="dot"></span> Wheat
-                </a>
-                <div class="navlinks">
-                    <a href="{% url 'author_list' %}">Authors</a>
-                    <a href="{% url 'login' %}">Login</a>
-                </div>
-            </div>
-        </div>
+        {% include '../navs/main.html' %}
 
         <div class="center-wrap">
             <div class="card auth-card">

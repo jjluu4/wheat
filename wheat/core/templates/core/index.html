@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Wheat – Social Distribution</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <div class="page">
+
+        {% include '../navs/main.html' %}
+
+        <div class="container">
+            <h1>Wheat</h1>
+            <p>Browse authors and their entries.</p>
+            <p>
+                <a href="{% url 'author_list' %}" class="btn-link">Browse authors</a>
+                {% if not request.user.is_authenticated %}
+                <a href="{% url 'login' %}" class="btn-link">Login</a>
+                <a href="{% url 'signup' %}" class="btn-link">Sign up</a>
+                {% else %}
+                <a href="{% url 'my_profile' %}" class="btn-link">My profile</a>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</body>
+</html>
