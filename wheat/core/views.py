@@ -112,6 +112,8 @@ def signup(request):
 
     return render(request, "registration/signup.html", {"form": form})
 
+def logged_out(request):
+    return render(request, "registration/logged_out.html")
 
 @login_required
 def my_profile(request):

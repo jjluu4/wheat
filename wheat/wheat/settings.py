@@ -125,5 +125,5 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-LOGIN_REDIRECT_URL = "/authors/"
-LOGOUT_REDIRECT_URL = "/authors/"
+LOGIN_REDIRECT_URL = "/authors/me"
+LOGOUT_REDIRECT_URL = "/accounts/logged_out"
