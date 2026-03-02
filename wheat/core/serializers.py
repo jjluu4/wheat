@@ -24,3 +24,7 @@ class EntrySerializer(serializers.ModelSerializer):
         model = Entry
         fields = ['type', 'title', 'id', 'web', 'description', 'content_type', 'content', 'author', 'published', 'visibility']
         extra_kwargs = {'id': {'write_only': True}}
+    
+    def create(self, validated_data):
+        entry = Entry.objects.create(**validated_data)
+        return entry.serial

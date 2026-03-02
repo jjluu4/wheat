@@ -581,8 +581,10 @@ def author_entries(request, author_serial):
             
             if entry.is_valid():
                 base_host = author.host.rstrip("/")
-                entry.validated_data['url'] = f"{base_host}/authors/{author.serial}/entries/{uuid.uuid4()}"
-                entry.save()
+                newEntrySerial = entry.save()
+                newEntry = Entry.objects.get(serial=newEntrySerial)
+                newEntry.url = f"{base_host}/authors/{author.serial}/entries/{newEntry.serial}"
+                newEntry.save()
                 return Response(status=status.HTTP_201_CREATED)
             else:
                 return Response(entry.errors, status=status.HTTP_400_BAD_REQUEST)
