@@ -512,19 +512,19 @@ def single_entry(request, author_serial, entry_serial):
         
     
     elif request.method == 'DELETE':
-        if entryAuthor == requestingAuthor.serial or request.user.is_staff:
+        if author_serial == requestingAuthor.serial or request.user.is_staff:
+            try:
+                entry = Entry.objects.get(serial=entry.serial)
+    
+            except entry.DoesNotExist:
+                return Response({"error": "Entry not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+            #Delete the item from the database 
+            entry.delete()
+                
+            return Response(data={"deleted": "Entry has been deleted."},status=204)            
+        else:
             return Response(data={"error": "You don't have permission to delete this entry."},status=403)
-        
-        try:
-            entry = Entry.objects.get(serial=entry.serial)
-
-        except entry.DoesNotExist:
-            return Response({"error": "Entry not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        #Delete the item from the database 
-        entry.delete()
-            
-        return Response(data={"deleted": "Entry has been deleted."},status=204)
             
         
 @api_view(['GET', 'POST'])
