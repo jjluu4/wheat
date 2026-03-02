@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, HttpResponseBadRequest, HttpResponseNotFound
 import uuid
 from rest_framework import status
+from django.db import models
+from django.utils import timezone
 
 from .models import Author, Entry, Follow
 from .forms import EntryForm
@@ -576,10 +578,9 @@ def author_entries(request, author_serial):
             data['author'] = author.pk
             entry = EntrySerializer(data=request.data)
             if entry.is_valid():
-                print(f"ENTRY: {entry}")
-                #new_entry = entry.save(commit=False)
                 base_host = author.host.rstrip("/")
-                entry.validated_data['url'] = f"{base_host}/authors/{author.serial}/entries/{uuid.uuid4()}"            
+                entry.validated_data['url'] = f"{base_host}/authors/{author.serial}/entries/{uuid.uuid4()}"
+                #entry.validated_data['published'] = models.DateTimeField(default=timezone.now)
                 entry.save()
                 return Response(status=status.HTTP_201_CREATED)
             else:
