@@ -188,18 +188,48 @@ input:focus, textarea:focus {
 }
 
 /* Lists */
-ul.clean {
+ul {
     list-style: none;
     padding: 0;
     margin: 10px 0 0;
 }
 
-ul.clean li {
+ul li {
     padding: 12px;
     background: #ffffff02;
     border: 1px solid #ffffff10;
     border-radius: 14px;
     margin: 10px 0;
+}
+
+ul.matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.matrix li {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+}
+
+.matrix a {
+    display: block;
+    padding: 16px 20px;
+    background: #ffffff08;
+    border: 1px solid #ffffff10;
+    border-radius: 12px;
+    color: #eef0ff;
+    text-decoration: none;
+    font-weight: 600;
+    text-align: center;
+}
+
+.matrix a:hover {
+    border-color: wheat;
 }
 
 /* Auth page centering */

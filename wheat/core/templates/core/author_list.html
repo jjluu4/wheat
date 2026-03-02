@@ -18,7 +18,7 @@
 
             <div class="card">
                 {% if authors %}
-                <ul class="clean">
+                <ul class="matrix">
                     {% for a in authors %}
                     <li>
                         <a href="{% url 'author_profile' a.serial %}">{{ a.displayName }}</a>
