@@ -163,7 +163,8 @@ def my_stream(request):
             profileImage="https://placehold.co/150x150.png",
         )
     
-    entries = Entry.get_entries(author).order_by("-published")
+    allEntries = Entry.get_entries(author).order_by("-published")
+    entries = allEntries.exclude(author__serial=author.serial)    
 
     return render(
         request,
