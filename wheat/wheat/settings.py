@@ -15,9 +15,6 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Silence "Auto-created primary key" warning (Django 3.2+)
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -28,7 +25,7 @@ SECRET_KEY = 'django-insecure-))ro_$@8x=vvhim!hx*-n_ti9cx#^qs-+()t%ch2k#$v=_1j#&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -121,9 +118,6 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_REDIRECT_URL = "/authors/"
 LOGOUT_REDIRECT_URL = "/authors/"

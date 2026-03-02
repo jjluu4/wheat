@@ -18,4 +18,11 @@ urlpatterns = [
     path("authors/<uuid:author_serial>/entries/new/", views.create_entry, name="entry_create"),
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/edit/", views.edit_entry, name="entry_edit"),
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/delete/",views.delete_entry, name="entry_delete"),
+    path("authors/<uuid:author_serial>/follow/", views.follow_author, name="follow_author"),
+    path("authors/<uuid:author_serial>/accept/", views.accept_follow, name="accept_follow"),
+    path("authors/<uuid:author_serial>/reject/", views.reject_follow, name="reject_follow"),
+    path("authors/<uuid:author_serial>/unfollow/", views.unfollow, name="unfollow_author"),
+    path("authors/<uuid:author_serial>/requests/", views.follow_requests, name="follow_requests"),
+    path("authors/<uuid:author_serial>/followers/", views.followers, name="followers_list"),
+    path("authors/<uuid:author_serial>/following/", views.following, name="following_list"),
 ]

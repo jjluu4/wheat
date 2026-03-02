@@ -1,0 +1,63 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>{{ follow_type }}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+
+<body>
+    <div class="page">
+
+        <div class="topnav">
+            <div class="container">
+                <a class="brand" href="{% url 'author_list' %}">
+                    <span class="dot"></span> Wheat
+                </a>
+
+                <div class="navlinks">
+                    <a href="{% url 'author_list' %}">Authors</a>
+                    {% if request.user.is_authenticated %}
+                    <a href="{% url 'my_stream' %}">My Stream</a>
+                    <a href="{% url 'my_profile' %}">My Profile</a>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">Logout</button>
+                    </form>
+                    {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'signup' %}">Sign up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <h1>{{ follow_type }}</h1>
+
+            <div class="card">
+                {% if authors %}
+                
+                
+                <ul class="clean">
+                    {% for author in authors %}
+                    <li>
+                        <a href="{% url 'author_profile' author.serial %}" class="btn-link">
+                            {{ author.displayName }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                
+                {% else %}
+                <p>No {{ follow_type }}.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>

@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, CheckConstraint, UniqueConstraint, F
 from django.conf import settings
 import uuid
 
@@ -12,6 +12,12 @@ VISIBILITIES = [
     ("UNLISTED", "Unlisted"),
     ("FRIENDS", "Friends"),
     ("DELETED", "Deleted"),
+]
+
+FOLLOW_STATUSES = [
+    ("ACCEPTED", "Accepted"),
+    ("REQUESTING", "Requesting"),
+    ("REJECTED", "Rejected")
 ]
 
 class Author(models.Model):
@@ -36,13 +42,13 @@ class Author(models.Model):
     web = models.URLField()
 
     def get_followers(self):
-        return Author.objects.filter(following__target=self)
+        return Author.objects.filter(following__target=self, following__status="ACCEPTED")
 
     def get_following(self):
-        return Author.objects.filter(followers__actor=self)
+        return Author.objects.filter(followers__actor=self, followers__status="ACCEPTED")
 
     def get_friends(self):
-        return Author.objects.filter(following__target=self, followers__actor=self)
+        return Author.objects.filter(following__target=self, following__status="ACCEPTED", followers__actor=self, followers__status="ACCEPTED")
 
     def __str__(self):
         return self.displayName
@@ -100,10 +106,19 @@ class Like(models.Model):
 class Follow(models.Model):
     actor = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='following')
     target = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='followers')
+    status = models.CharField(choices=FOLLOW_STATUSES, default="REQUESTED")
 
+    class Meta:
+        constraints = [
+            # Ensure an author cannot follow themselves.
+            CheckConstraint(
+                name="restrict_self_follow",
+                condition=~Q(actor=F("target"))
+            ),
 
-class FollowRequest(models.Model):
-    actor = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='outgoing_follow_requests')
-    target = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='incoming_follow_requests')
-
-    summary = models.TextField()
+            # Only one follow object can exist per actor to target.
+            UniqueConstraint(
+                name="unique_follow",
+                fields=["actor", "target"]
+            )
+        ]
