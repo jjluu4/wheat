@@ -65,32 +65,7 @@
                 {% if entries %}
                 <ul>
                     {% for entry in entries %}
-                    <li>
-                        <div class="small"><strong>{{ entry.published }}</strong></div>
-                        {% if is_owner %}
-                        <div class="small"><strong>{{ entry.visibility }}</strong></div>
-                        {% endif %}
-
-                        {% if entry.content_type == "text/markdown" %}
-                        <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>
-                        {% elif entry.content_type == "image" and entry.image_url %}
-                        <div class="entry-image">
-                            <img src="{{ entry.image_url }}" alt="{{ entry.content|default:'Image entry' }}">
-                            {% if entry.content %}
-                            <div class="caption">{{ entry.content }}</div>
-                            {% endif %}
-                        </div>
-                        {% else %}
-                        <div class="entry-content plain-text">{{ entry.content|linebreaksbr }}</div>
-                        {% endif %}
-
-                        {% if author.user_id == request.user.id or request.user.is_staff %}
-                        <div class="small edit">
-                            <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
-                            <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
-                        </div>
-                        {% endif %}
-                    </li>
+                    {% include './fragments/entry.html' with entry=entry is_owner=is_owner %}
                     {% endfor %}
                 </ul>
                 {% else %}
