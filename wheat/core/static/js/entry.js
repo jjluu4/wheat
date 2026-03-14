@@ -53,19 +53,37 @@ function loadComments(entrySerial, page=1) {
     fetch(`/api/authors/${authorSerial}/entries/${entrySerial}/comments/?page=${page}&size=10`)
     .then(response => response.json())
     .then(data => {
-        commentsList.innerHTML = '';
+        commentsList.innerHTML='';
 
         if (data.src && data.src.length > 0) {
             data.src.forEach(comment => {
-                const commentItem = document.createElement('li');
-                commentItem.className = 'comment-item';
-                commentItem.innerHTML = `
-                    <div class="space-between">
-                        <a class="profile-link" style="margin-top: 0;" href="/authors/${comment.author.serial}/">${comment.author.displayName}</a>
-                        <div class="small"><strong>${new Date(comment.published).toLocaleString()}</strong></div>
-                    </div>
-                    ${comment.content}
-                `; //TODO: SECURITY BAD, LIKE SERIOUSLY THIS COULD NOT BE WORSE
+                const commentItem=document.createElement('li');
+                commentItem.className='comment-item';
+
+                const header=document.createElement('div');
+                header.className='space-between';
+
+                    const profile=document.createElement('a');
+                    profile.className='profile-link';
+                    profile.style.marginTop='0';
+                    profile.href=`/authors/${encodeURIComponent(comment.author.serial)}/`;
+                    profile.textContent=comment.author.displayName;
+
+                    const date=document.createElement('div');
+                    date.className='small';
+                    const dateStrong=document.createElement('strong');
+                    dateStrong.textContent=new Date(comment.published).toLocaleString();
+                    date.appendChild(dateStrong);
+
+                header.appendChild(profile);
+                header.appendChild(date);
+
+                const content=document.createElement('p');
+                content.style.margin=0;
+                content.textContent=comment.content;
+
+                commentItem.appendChild(header);
+                commentItem.appendChild(content);
                 commentsList.appendChild(commentItem);
             });
         } else commentsList.innerHTML='<li class="no-comments">No comments yet.</li>';
