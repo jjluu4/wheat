@@ -1,7 +1,7 @@
 {% load static %}
 
-<li>
-    <div style="display: flex; flex-direction: row; justify-content: space-between;"> <!-- Couldnt get this to inherit from stylesheet, works with inline styles though? -->
+<li data-entry="{{ entry.serial }}">
+    <div class="space-between">
         <div class="small"><strong>{{ entry.published }}</strong></div>
         <div class="small"><strong>{{ entry.visibility }}</strong></div>
     </div>
@@ -20,11 +20,34 @@
     {% else %}
         <div class="entry-content plain-text">{{ entry.content|linebreaksbr }}</div>
     {% endif %}
-
-    {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
-    <div class="small edit">
-        <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
-        <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
+    
+    <div class="space-between">
+        <div class="small edit">
+            {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
+            <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
+            <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+            <button onclick="toggleLike('{{ entry.serial }}')">Like</button>
+            <button onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
+            <!-- TODO: would be good for comments to show a count next to button -->
+            {% endif %}
+            <button onclick="toggleComments('{{ entry.serial }}')">Comments</button>
+        </div>
     </div>
-    {% endif %}
+
+    <div class="new-comment"> <!--toggled by entry.js-->
+        {% if request.user.is_authenticated %}
+        <form onsubmit="submitComment(event)" style="display: none;" data-user-serial="{{ request.user.author_profile.serial }}">
+            {% csrf_token %}
+            <textarea name="content" placeholder="Comment..." required></textarea>
+            <button type="submit">Post Comment</button>
+            <button onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <ul class="comments" style="display: none;">
+        <!--populated by entry.js-->
+    </ul>
 </li>

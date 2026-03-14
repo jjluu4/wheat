@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import Author, Entry
+from .models import Author, Entry, Comment, EntryLike, CommentLike
 import uuid
 from django.utils import timezone
 
@@ -10,7 +10,7 @@ class AuthorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Author
-        fields = ["type", "id", "host", "displayName", "github", "profileImage", "web"]
+        fields = ["type", "serial", "id", "host", "displayName", "github", "profileImage", "web"]
 
 
 class EntrySerializer(serializers.ModelSerializer):
@@ -30,3 +30,29 @@ class EntrySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Entry.objects.create(**validated_data)
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    type=serializers.CharField(default="comment", read_only=True)
+    author=AuthorSerializer(read_only=True)
+    entry = serializers.URLField(source='entry.url', read_only=True)
+
+    class Meta:
+        model=Comment
+        fields=['type', 'url', 'author', 'content', 'published', 'entry']
+
+
+class EntryLikeSerializer(serializers.ModelSerializer):
+    type=serializers.CharField(default="like", read_only=True)
+
+    class Meta:
+        model=EntryLike
+        fields=['type', 'url', 'author', 'published', 'entry']
+
+
+class CommentLikeSerializer(serializers.ModelSerializer):
+    type=serializers.CharField(default="like", read_only=True)
+
+    class Meta:
+        model=CommentLike
+        fields=['type', 'url', 'author', 'published', 'comment']

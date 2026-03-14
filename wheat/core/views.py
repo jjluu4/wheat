@@ -7,13 +7,18 @@ from django.http import HttpResponseForbidden, HttpResponseBadRequest, HttpRespo
 import uuid
 from rest_framework import status
 from django.db import models
+import re
 
-from .models import Author, Entry, Follow
+from .models import Author, Entry, Follow, Comment
 from .forms import EntryForm
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
-from .serializers import AuthorSerializer, EntrySerializer
+from .serializers import AuthorSerializer, EntrySerializer, CommentSerializer, CommentLikeSerializer, EntryLikeSerializer
+
+#
+# TODO: this is approaching godfile, we should probably split this for pt2
+#
 
 def index(request):
     return render(request, "core/index.html")
@@ -652,3 +657,156 @@ def author_entries(request, author_serial):
         payload = EntrySerializer(entry).data
         payload["author"] = serializedAuthor
         return Response(payload, status=201)
+
+@api_view(['GET', 'POST'])
+def author_commented(request, author_serial):
+    author=get_object_or_404(Author, serial=author_serial)
+
+    if request.method=='GET':
+        try:
+            page=int(request.GET.get('page', 1))
+            if page < 1:
+                page=1
+        except:
+            page=1
+
+        try:
+            size=int(request.GET.get('size', 5))
+            if size < 1:
+                size=5
+        except:
+            size=5
+
+        offset=(page - 1) * size
+
+        comments=Comment.objects.filter(author=author).select_related('author', 'entry').order_by('-published')
+
+        requestingAuthor=None
+        if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
+            requestingAuthor=request.user.author_profile
+
+        total=comments.count()
+        page_comments=list(comments[offset:offset+size])
+
+        data=[]
+        for comment in page_comments:
+            serializer=CommentSerializer(comment, context={'request': request})
+            data.append(serializer.data)
+
+        return Response({ 
+            #this is missing 'web' and 'id' fields for networking later
+            "type": "comments",
+            "page_number": page,
+            "size": size,
+            "count": total,
+            "src": data,
+        })
+
+    elif request.method=='POST':
+        if not request.user.is_authenticated:
+            return Response({"error": "Authentication required"}, status=401)
+
+        requestingAuthor=None
+        if hasattr(request.user, 'author_profile'):
+            requestingAuthor=request.user.author_profile
+
+        if not requestingAuthor or requestingAuthor.serial!=author_serial:
+            return Response({"error": "Cannot post as another author"}, status=403)
+
+        data=request.data if request.content_type=='application/json' else request.POST.dict()
+
+        if data.get('type')!='comment' and data.get('type') is not None:
+            return Response({"error": "Type must be 'comment'"}, status=400)
+
+        comment_text=data.get('comment', data.get('content'))
+        if not comment_text:
+            return Response({"error": "Comment text is required"}, status=400)
+
+        entry_url=data.get('entry')
+        if not entry_url:
+            return Response({"error": "Entry URL is required"}, status=400)
+
+        try:
+            match=re.search(r'/authors/([^/]+)/entries/([^/]+)', entry_url)
+            if not match:
+                return Response({"error": "Invalid entry URL format"}, status=400)
+
+            entry=get_object_or_404(Entry, serial=match.groups()[1], author__serial=match.groups()[0])
+        except Exception as e:
+            return Response({"error": f"Invalid entry URL"}, status=400)
+
+        comment_serial=uuid.uuid4()
+        comment=Comment.objects.create(
+            url=f"{request.build_absolute_uri('/')}api/authors/{author_serial}/commented/{comment_serial}/",
+            serial=comment_serial,
+            author=author,
+            entry=entry,
+            content_type=data.get('contentType', data.get('content_type', 'text/plain')),
+            content=comment_text
+        )
+
+        # TODO: forwarding
+
+        serializer=CommentSerializer(comment, context={'request': request})
+        return Response(serializer.data, status=201)
+
+
+@api_view(['GET'])
+def entry_comments(request, author_serial, entry_serial):
+    entry=get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
+    entry_author=entry.author
+
+    requesting_author=None
+    if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
+        requesting_author=request.user.author_profile
+
+    friend=entry.visibility=='FRIENDS' and requesting_author and entry_author.get_friends().filter(serial==requesting_author.serial).exists()
+
+    if not (requesting_author==entry_author or request.user.is_staff or entry.visibility.upper() in ['PUBLIC', 'UNLISTED'] or friend):
+        return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
+
+    try:
+        page=int(request.GET.get('page', 1))
+        if page < 1:
+            page=1
+    except:
+        page=1
+
+    try:
+        size=int(request.GET.get('size', 5))
+        if size < 1:
+            size=5
+    except:
+        size=5
+
+    offset=(page - 1) * size
+
+    comments=Comment.objects.filter(entry=entry).select_related('author').order_by('-published')
+    base_url=request.build_absolute_uri('/').rstrip('/')
+
+    data=[]
+    for comment in list(comments[offset:offset+size]):
+        serializer=CommentSerializer(comment, context={'request': request})
+        comment_data=serializer.data
+
+        comment_data['entry']=f"{base_url}/api/authors/{entry_author.serial}/entries/{entry.serial}/"
+        
+        comment_data['likes']={ #PLACEHOLDER, likes not done yet
+            #this is missing 'web' and 'id' fields for networking later
+            "type": "likes",
+            "page_number": 1,
+            "size": 50,
+            "count": 0,
+            "src": [],
+        }
+        
+        data.append(comment_data)
+
+    return Response({
+        #this is missing 'web' and 'id' fields for networking later
+        "type": "comments",
+        "page_number": page,
+        "size": size,
+        "count": comments.count(),
+        "src": data,
+    })

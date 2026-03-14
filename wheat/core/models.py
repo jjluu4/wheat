@@ -86,19 +86,30 @@ class Entry(models.Model):
 
 class Comment(models.Model):
     url = models.URLField(unique=True)
+    serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='comments_made')
     entry = models.ForeignKey(Entry, on_delete=models.CASCADE, related_name='comments')
 
+    content_type = models.CharField(max_length=100, default='text/plain')
     content = models.TextField()
+
     published = models.DateTimeField(default=timezone.now)
 
 
-class Like(models.Model):
+class EntryLike(models.Model):
     url = models.URLField(unique=True)
 
-    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='likes')
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='liked_entries')
     entry = models.ForeignKey(Entry, on_delete=models.CASCADE, related_name='likes')
+
+    published = models.DateTimeField(default=timezone.now)
+
+class CommentLike(models.Model):
+    url = models.URLField(unique=True)
+
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='liked_comments')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
 
     published = models.DateTimeField(default=timezone.now)
 

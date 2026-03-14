@@ -300,3 +300,14 @@ ul.matrix {
     display: flex;
     gap: 10px;
 }
+
+.space-between {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.comments {
+    display: flex;
+    flex-direction: column;
+}
