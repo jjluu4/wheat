@@ -15,6 +15,13 @@ from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
 
 from .serializers import AuthorSerializer, EntrySerializer, CommentSerializer, CommentLikeSerializer, EntryLikeSerializer
+from .permissions import (
+    get_requesting_author,
+    is_friend,
+    can_view_entry,
+    can_view_comment,
+    filter_comments_for_viewer,
+)
 
 #
 # TODO: this is approaching godfile, we should probably split this for pt2
