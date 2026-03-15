@@ -17,6 +17,7 @@ class EntryForm(forms.ModelForm):
         ("image", "Image (by URL)"),
     ]
 
+    title = forms.CharField(required=False)
     content_type = forms.ChoiceField(choices=CONTENT_TYPE_CHOICES)
     visibility = forms.ChoiceField(
         choices=[
@@ -32,12 +33,15 @@ class EntryForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        title = cleaned.get("title").strip()
+        title = (cleaned.get("title") or "").strip()
         ctype = cleaned.get("content_type")
-        image_url = cleaned.get("image_url", "").strip()
-        content = cleaned.get("content", "").strip()
+        image_url = (cleaned.get("image_url") or "").strip()
+        content = (cleaned.get("content") or "").strip()
+
         if ctype == "image" and not image_url:
             self.add_error("image_url", "provide an image url")
+
+        cleaned["title"] = title or getattr(self.instance, "title", "") or "Untitled"
         cleaned["image_url"] = image_url
         cleaned["content"] = content
         return cleaned
