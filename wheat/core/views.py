@@ -750,6 +750,29 @@ def author_commented(request, author_serial):
         serializer=CommentSerializer(comment, context={'request': request})
         return Response(serializer.data, status=201)
 
+@api_view(['GET'])
+def author_commented_single(request, author_serial, comment_serial):
+    author=get_object_or_404(Author, serial=author_serial)
+    comment=get_object_or_404(Comment, serial=comment_serial, author=author)
+
+    entry=comment.entry
+
+    requesting_author=None
+    if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
+        requesting_author=request.user.author_profile
+
+    friend=entry.visibility=='FRIENDS' and requesting_author and entry.author.get_friends().filter(serial==requesting_author.serial).exists()
+
+    if not (requesting_author==entry.author or request.user.is_staff or entry.visibility.upper() in ['PUBLIC', 'UNLISTED'] or friend):
+        return Response({"error": "You don't have permission to view this comment"}, status=403)
+
+    serializer=CommentSerializer(comment, context={'request': request})
+    comment_data=serializer.data
+
+    base_url=request.build_absolute_uri('/').rstrip('/')
+    comment_data['web']=f"{base_url}/authors/{author.serial}/comments/{comment.serial}"
+
+    return Response(comment_data)
 
 @api_view(['GET'])
 def entry_comments(request, author_serial, entry_serial):

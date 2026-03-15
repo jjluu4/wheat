@@ -34,7 +34,8 @@ urlpatterns = [
     path("api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", views.single_entry, name="api_single_entry"),    
     path("api/authors/<uuid:author_serial>/follow_requests", views.get_follow_requests_api, name="api_follow_requests"),
     path("api/authors/<uuid:author_serial>/following", views.get_following_api, name="api_get_following"),
-    path('api/authors/<uuid:author_serial>/commented/', views.author_commented, name='api_author'),
+    path('api/authors/<uuid:author_serial>/commented/', views.author_commented, name='api_author_comments'),
+    path('api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/', views.author_commented_single, name='api_author_comments_single'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/', views.entry_comments, name='api_entry_comments'),
 
 
