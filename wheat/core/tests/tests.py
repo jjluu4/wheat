@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
+import uuid
 from core.models import Author, Entry
 from django.contrib.auth import get_user_model
 
@@ -365,6 +366,83 @@ class EntryDeleteTests(TestCase):
         self.client.force_login(self.user)
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertNotContains(resp, "To delete")
+
+
+class EntryViewPageInteractionTests(TestCase):
+    def setUp(self):
+        self.owner_user = User.objects.create_user(username="owner-view", password="pass12345")
+        self.viewer_user = User.objects.create_user(username="viewer-view", password="pass12345")
+        self.friend_user = User.objects.create_user(username="friend-view", password="pass12345")
+
+        self.owner = Author.objects.create(
+            user=self.owner_user,
+            url="http://testserver/api/authors/owner-view",
+            host="http://testserver/api/",
+            displayName="OwnerView",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/owner-view/",
+        )
+        self.viewer = Author.objects.create(
+            user=self.viewer_user,
+            url="http://testserver/api/authors/viewer-view",
+            host="http://testserver/api/",
+            displayName="ViewerView",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/viewer-view/",
+        )
+        self.friend = Author.objects.create(
+            user=self.friend_user,
+            url="http://testserver/api/authors/friend-view",
+            host="http://testserver/api/",
+            displayName="FriendView",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/friend-view/",
+        )
+
+        from core.models import Follow
+
+        Follow.objects.create(actor=self.owner, target=self.friend, status="ACCEPTED")
+        Follow.objects.create(actor=self.friend, target=self.owner, status="ACCEPTED")
+
+        self.public_entry = Entry.objects.create(
+            url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}",
+            author=self.owner,
+            title="Public view entry",
+            content="Visible on entry page",
+            content_type="text/plain",
+            visibility="PUBLIC",
+            published=timezone.now(),
+        )
+        self.friends_entry = Entry.objects.create(
+            url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}",
+            author=self.owner,
+            title="Friends view entry",
+            content="Friends only on entry page",
+            content_type="text/plain",
+            visibility="FRIENDS",
+            published=timezone.now(),
+        )
+
+    def test_authenticated_viewer_sees_like_and_comment_controls_on_public_entry_page(self):
+        self.client.force_login(self.viewer_user)
+        resp = self.client.get(reverse("view_entry", args=[self.owner.serial, self.public_entry.serial]))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "toggleLike")
+        self.assertContains(resp, "Comments")
+        self.assertContains(resp, "Comment")
+        self.assertContains(resp, "entry.js?v=likes-ui-1")
+
+    def test_friend_sees_like_and_comment_controls_on_friends_entry_page(self):
+        self.client.force_login(self.friend_user)
+        resp = self.client.get(reverse("view_entry", args=[self.owner.serial, self.friends_entry.serial]))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "toggleLike")
+        self.assertContains(resp, "Comments")
 
 
 class EntryProfileVisibilityTests(TestCase):

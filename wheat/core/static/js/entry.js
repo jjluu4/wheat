@@ -47,10 +47,14 @@ function refreshEntryLikeCount(entrySerial) {
     if (!entryNode) return;
 
     fetch(`/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/likes/?page=1&size=1`)
-        .then((response) => response.json())
+        .then((response) => {
+            if (!response.ok) throw new Error(`Failed to fetch entry likes (${response.status})`);
+            return response.json();
+        })
         .then((data) => {
             updateEntryLikeCount(entryNode, data.count || 0);
-        });
+        })
+        .catch((error) => console.error(error));
 }
 
 function toggleLike(entrySerial) {
@@ -62,14 +66,19 @@ function toggleLike(entrySerial) {
 
     const objectUrl = `${window.location.origin}/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
     postLike(userSerial, objectUrl, getCsrfToken(entryNode))
-        .then(({ response }) => {
+        .then(({ response, data }) => {
             if (response.ok) {
                 const button = entryNode.querySelector('.entry-like-button');
                 if (button) {
                     button.textContent = 'Liked';
                 }
                 refreshEntryLikeCount(entrySerial);
+                return;
             }
+            console.error('Entry like failed', response.status, data);
+        })
+        .catch((error) => {
+            console.error('Entry like failed', error);
         });
 }
 
@@ -128,7 +137,10 @@ function loadComments(entrySerial, page=1) {
     const currentUserSerial = getCurrentUserSerial(entryNode);
 
     fetch(`/api/authors/${authorSerial}/entries/${entrySerial}/comments/?page=${page}&size=10`)
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error(`Failed to load comments (${response.status})`);
+        return response.json();
+    })
     .then(data => {
         commentsList.innerHTML='';
 
@@ -173,10 +185,12 @@ function loadComments(entrySerial, page=1) {
                     likeButton.textContent = 'Like';
                     likeButton.onclick = () => {
                         postLike(currentUserSerial, comment.id || comment.url, getCsrfToken(entryNode))
-                            .then(({ response }) => {
+                            .then(({ response, data }) => {
                                 if (response.ok) {
                                     loadComments(entrySerial, page);
+                                    return;
                                 }
+                                console.error('Comment like failed', response.status, data);
                             });
                     };
                     actions.appendChild(document.createTextNode(' '));
@@ -189,5 +203,9 @@ function loadComments(entrySerial, page=1) {
                 commentsList.appendChild(commentItem);
             });
         } else commentsList.innerHTML='<li class="no-comments">No comments yet.</li>';
+    })
+    .catch((error) => {
+        console.error(error);
+        commentsList.innerHTML = '<li class="no-comments">Unable to load comments.</li>';
     });
 }
