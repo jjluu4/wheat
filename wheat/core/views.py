@@ -394,6 +394,13 @@ def delete_entry_legacy(request, author_serial, entry_id):
 
 @api_view(['GET'])
 def all_authors(request):
+    """
+    Retrieves a paginated list of all authors on this node
+
+    parameters:
+        - page: Page number (default: 1)
+        - size: Number of authors per page (default: 5)
+    """
     try:
         page=int(request.GET.get('page', 1))
         if page < 1:
@@ -416,6 +423,12 @@ def all_authors(request):
 
 @api_view(['GET', 'PUT'])
 def single_author(request, author_serial): 
+    """
+    Handles operations on a single author profile
+
+    GET: Retrieve the author's profile information
+    PUT: Update the author's profile. Requires authentication as the author
+    """
     author=get_object_or_404(Author, serial=author_serial)
 
     if request.method=='GET':
@@ -440,6 +453,11 @@ def single_author(request, author_serial):
 
 @api_view(['GET'])
 def get_following_api(request, author_serial):
+    """
+    Retrieves the list of authors that the specified author is following
+    
+    Requires authentication as the author
+    """
     author = get_object_or_404(Author, serial=author_serial)
 
     if not request.user.is_authenticated:
@@ -458,6 +476,11 @@ def get_following_api(request, author_serial):
 
 @api_view(['GET'])
 def get_follow_requests_api(request, author_serial):
+    """
+    Retrieves all pending follow requests for the specified author, returns a list of follow request objects
+
+    Requires authentication as the author
+    """
     author = get_object_or_404(Author, serial=author_serial)
 
     if not request.user.is_authenticated:
@@ -484,7 +507,13 @@ def get_follow_requests_api(request, author_serial):
 
 @api_view(["GET", "PUT", "DELETE"])
 def single_entry(request, author_serial, entry_serial):
-   
+    """
+    Handles operations on a single entry
+
+    GET: Retrieve an entry (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
+    PUT: Update an entry. Requires authentication as the entry author
+    DELETE: Mark an entry as DELETED. Requires authentication as the entry author
+    """
     entryAuthor = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, serial=entry_serial, author=entryAuthor)
 
@@ -567,6 +596,12 @@ def single_entry(request, author_serial, entry_serial):
         
 @api_view(["GET", "POST"])
 def author_entries(request, author_serial):
+    """
+    Handles operations on an authors entries collection
+
+    GET: Retrieve paginated entries for an author. (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
+    POST: Create a new entry for the author. Requires authentication as the author
+    """
     author = get_object_or_404(Author, serial=author_serial)
 
     requestingAuthor = None
@@ -660,6 +695,12 @@ def author_entries(request, author_serial):
 
 @api_view(['GET', 'POST'])
 def author_commented(request, author_serial):
+    """
+    Handles operations on an authors comments
+
+    GET: Retrieve paginated list of comments made by the author
+    POST: Create a new comment as the author. Requires authentication and the comment must be associated with a valid entry URL
+    """
     author=get_object_or_404(Author, serial=author_serial)
 
     if request.method=='GET':
@@ -752,6 +793,11 @@ def author_commented(request, author_serial):
 
 @api_view(['GET'])
 def author_commented_single(request, author_serial, comment_serial):
+    """
+    Retrieves a specific comment made by an author
+
+    Depends on post visibility (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
+    """
     author=get_object_or_404(Author, serial=author_serial)
     comment=get_object_or_404(Comment, serial=comment_serial, author=author)
 
@@ -776,6 +822,11 @@ def author_commented_single(request, author_serial, comment_serial):
 
 @api_view(['GET'])
 def entry_comments(request, author_serial, entry_serial):
+    """
+    Retrieves paginated comments for a specific entry
+
+    Depends on post visibility (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
+    """
     entry=get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     entry_author=entry.author
 
