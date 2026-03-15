@@ -831,7 +831,7 @@ def author_commented_single(request, author_serial, comment_serial):
     if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
         requesting_author=request.user.author_profile
 
-    friend=entry.visibility=='FRIENDS' and requesting_author and entry.author.get_friends().filter(serial==requesting_author.serial).exists()
+    friend=entry.visibility=='FRIENDS' and requesting_author and entry.author.get_friends().filter(serial=requesting_author.serial).exists()
 
     if not (requesting_author==entry.author or request.user.is_staff or entry.visibility.upper() in ['PUBLIC', 'UNLISTED'] or friend):
         return Response({"error": "You don't have permission to view this comment"}, status=403)
@@ -858,7 +858,7 @@ def entry_comments(request, author_serial, entry_serial):
     if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
         requesting_author=request.user.author_profile
 
-    friend=entry.visibility=='FRIENDS' and requesting_author and entry_author.get_friends().filter(serial==requesting_author.serial).exists()
+    friend=entry.visibility=='FRIENDS' and requesting_author and entry_author.get_friends().filter(serial=requesting_author.serial).exists()
 
     if not (requesting_author==entry_author or request.user.is_staff or entry.visibility.upper() in ['PUBLIC', 'UNLISTED'] or friend):
         return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
