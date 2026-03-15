@@ -38,6 +38,9 @@ urlpatterns = [
     path('api/authors/<uuid:author_serial>/commented/', views.author_commented, name='api_author_comments'),
     path('api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/', views.author_commented_single, name='api_author_comments_single'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/', views.entry_comments, name='api_entry_comments'),
+    path('api/authors/<uuid:author_serial>/liked/', views.author_liked, name='api_author_liked'),
+    path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/', views.entry_likes, name='api_entry_likes'),
+    path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/<uuid:comment_serial>/likes/', views.comment_likes, name='api_comment_likes'),
 
 
     # Canonical stable routes use entry serial (UUID), not DB pk

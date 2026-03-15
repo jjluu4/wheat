@@ -1,6 +1,12 @@
 {% load static %}
 
-<li data-entry="{{ entry.serial }}">
+<li
+    data-entry="{{ entry.serial }}"
+    data-author="{{ entry.author.serial }}"
+    {% if request.user.is_authenticated and request.user.author_profile %}
+    data-user="{{ request.user.author_profile.serial }}"
+    {% endif %}
+>
     <div class="space-between">
         <div class="small"><strong>{{ entry.published }}</strong></div>
         <div class="small"><strong>{{ entry.visibility }}</strong></div>
@@ -30,11 +36,11 @@
             <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
             {% endif %}
             {% if request.user.is_authenticated %}
-            <button onclick="toggleLike('{{ entry.serial }}')">Like</button>
-            <button onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
-            <!-- TODO: would be good for comments to show a count next to button -->
+            <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
+            <span class="like-count">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</span>
+            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
             {% endif %}
-            <button onclick="toggleComments('{{ entry.serial }}')">Comments</button>
+            <button type="button" onclick="toggleComments('{{ entry.serial }}')">Comments</button>
         </div>
     </div>
 
@@ -44,7 +50,7 @@
             {% csrf_token %}
             <textarea name="content" placeholder="Comment..." required></textarea>
             <button type="submit">Post Comment</button>
-            <button onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
+            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
         </form>
         {% endif %}
     </div>

@@ -35,38 +35,25 @@ def can_view_entry(entry, requesting_author, user):
 def can_view_comment(comment, requesting_author, user):
     entry = comment.entry
 
-    if user.is_authenticated and user.is_staff:
+    if can_view_entry(entry, requesting_author, user):
         return True
 
-    if requesting_author == entry.author:
+    if entry.visibility == "FRIENDS" and requesting_author == comment.author:
         return True
-
-    if requesting_author == comment.author:
-        return True
-
-    if entry.visibility in ("PUBLIC", "UNLISTED"):
-        return True
-
-    if entry.visibility == "FRIENDS":
-        return is_friend(entry.author, requesting_author)
 
     return False
 
 
 def filter_comments_for_viewer(comments_qs, entry, requesting_author, user):
-    if entry.visibility != "FRIENDS":
+    if entry.visibility == "DELETED":
+        if user.is_authenticated and user.is_staff:
+            return comments_qs
+        return comments_qs.none()
+
+    if can_view_entry(entry, requesting_author, user):
         return comments_qs
 
-    if user.is_authenticated and user.is_staff:
-        return comments_qs
-
-    if requesting_author == entry.author:
-        return comments_qs
-
-    if is_friend(entry.author, requesting_author):
-        return comments_qs
-
-    if requesting_author:
+    if entry.visibility == "FRIENDS" and requesting_author:
         return comments_qs.filter(author=requesting_author)
 
     return comments_qs.none()

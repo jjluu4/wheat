@@ -1,3 +1,78 @@
+function getEntryNode(entrySerial) {
+    return document.querySelector(`li[data-entry="${entrySerial}"]`);
+}
+
+function getCurrentUserSerial(entryNode) {
+    return entryNode?.dataset.user || '';
+}
+
+function getCsrfToken(entryNode) {
+    return (
+        entryNode?.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+        document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+        ''
+    );
+}
+
+function updateEntryLikeCount(entryNode, count) {
+    const likeCount = entryNode?.querySelector('.like-count');
+    if (!likeCount) return;
+    likeCount.textContent = `${count} like${count === 1 ? '' : 's'}`;
+}
+
+function postLike(userSerial, objectUrl, csrfToken) {
+    return fetch(`/api/authors/${userSerial}/liked/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            type: 'like',
+            object: objectUrl,
+        }),
+    }).then(async (response) => {
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = {};
+        }
+        return { response, data };
+    });
+}
+
+function refreshEntryLikeCount(entrySerial) {
+    const entryNode = getEntryNode(entrySerial);
+    if (!entryNode) return;
+
+    fetch(`/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/likes/?page=1&size=1`)
+        .then((response) => response.json())
+        .then((data) => {
+            updateEntryLikeCount(entryNode, data.count || 0);
+        });
+}
+
+function toggleLike(entrySerial) {
+    const entryNode = getEntryNode(entrySerial);
+    if (!entryNode) return;
+
+    const userSerial = getCurrentUserSerial(entryNode);
+    if (!userSerial) return;
+
+    const objectUrl = `${window.location.origin}/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
+    postLike(userSerial, objectUrl, getCsrfToken(entryNode))
+        .then(({ response }) => {
+            if (response.ok) {
+                const button = entryNode.querySelector('.entry-like-button');
+                if (button) {
+                    button.textContent = 'Liked';
+                }
+                refreshEntryLikeCount(entrySerial);
+            }
+        });
+}
+
 function toggleCommentForm(entrySerial) {
     const form=document.querySelector(`li[data-entry="${entrySerial}"] form`);
     form.style.display=form.style.display==='none'?'flex':'none';
@@ -48,7 +123,9 @@ function submitComment(event) {
 
 function loadComments(entrySerial, page=1) {
     const commentsList=document.querySelector(`li[data-entry="${entrySerial}"] .comments`);
-    const authorSerial=document.querySelector(`li[data-entry="${entrySerial}"] .profile-link`).href.split('/').filter(part=>part!=='').pop();
+    const entryNode = getEntryNode(entrySerial);
+    const authorSerial=entryNode.dataset.author;
+    const currentUserSerial = getCurrentUserSerial(entryNode);
 
     fetch(`/api/authors/${authorSerial}/entries/${entrySerial}/comments/?page=${page}&size=10`)
     .then(response => response.json())
@@ -82,8 +159,33 @@ function loadComments(entrySerial, page=1) {
                 content.style.margin=0;
                 content.textContent=comment.content;
 
+                const actions = document.createElement('div');
+                actions.className = 'small';
+
+                const likeCount = document.createElement('span');
+                const count = comment.likes?.count || 0;
+                likeCount.textContent = `${count} like${count === 1 ? '' : 's'}`;
+                actions.appendChild(likeCount);
+
+                if (currentUserSerial && (comment.id || comment.url)) {
+                    const likeButton = document.createElement('button');
+                    likeButton.type = 'button';
+                    likeButton.textContent = 'Like';
+                    likeButton.onclick = () => {
+                        postLike(currentUserSerial, comment.id || comment.url, getCsrfToken(entryNode))
+                            .then(({ response }) => {
+                                if (response.ok) {
+                                    loadComments(entrySerial, page);
+                                }
+                            });
+                    };
+                    actions.appendChild(document.createTextNode(' '));
+                    actions.appendChild(likeButton);
+                }
+
                 commentItem.appendChild(header);
                 commentItem.appendChild(content);
+                commentItem.appendChild(actions);
                 commentsList.appendChild(commentItem);
             });
         } else commentsList.innerHTML='<li class="no-comments">No comments yet.</li>';

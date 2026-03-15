@@ -98,6 +98,7 @@ class Comment(models.Model):
 
 
 class EntryLike(models.Model):
+    serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     url = models.URLField(unique=True)
 
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='liked_entries')
@@ -105,13 +106,30 @@ class EntryLike(models.Model):
 
     published = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                name="unique_entry_like",
+                fields=["author", "entry"],
+            )
+        ]
+
 class CommentLike(models.Model):
+    serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     url = models.URLField(unique=True)
 
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='liked_comments')
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
 
     published = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                name="unique_comment_like",
+                fields=["author", "comment"],
+            )
+        ]
 
 
 class Follow(models.Model):

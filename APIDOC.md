@@ -238,6 +238,62 @@ Code=200
 
 [Returns the “second page” of posts when there are three total posts]
 
+
+# **---------- Likes API ----------**
+
+~ GET /api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/
+
+~~ GET: Retrieves a paginated list of likes on the specified entry. Visibility follows the entry's visibility rules.
+
+**EXAMPLE:**<br>
+***Request:***<br>
+`GET /api/authors/<author>/entries/<entry>/likes/`
+
+***Response:***<br>
+Code=200
+````
+{
+    "type": "likes",
+    "id": "http://127.0.0.1:8000/api/authors/<author>/entries/<entry>/likes/",
+    "page_number": 1,
+    "size": 50,
+    "count": 1,
+    "src": [
+        {
+            "type": "like",
+            "id": "http://127.0.0.1:8000/api/authors/<liker>/liked/<like>/",
+            "author": {
+                "type": "author",
+                "id": "http://127.0.0.1:8000/api/authors/<liker>"
+            },
+            "published": "2026-03-15T00:00:00Z",
+            "object": "http://127.0.0.1:8000/api/authors/<author>/entries/<entry>/"
+        }
+    ]
+}
+````
+
+~ GET /api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/<uuid:comment_serial>/likes/
+
+~~ GET: Retrieves a paginated list of likes on the specified comment. Visibility follows the parent entry's visibility rules.
+
+~ GET /api/authors/<uuid:author_serial>/liked/
+
+~~ GET: Retrieves a paginated list of visible things this author has liked (entry likes and comment likes).
+
+~ POST /api/authors/<uuid:author_serial>/liked/ [local]
+
+~~ POST: Local UI helper endpoint for creating a like. Requires authentication as the author in the URL. Accepts a JSON body with:
+
+````
+{
+    "type": "like",
+    "object": "http://127.0.0.1:8000/api/authors/<target-author>/entries/<target-entry>/"
+}
+````
+
+The `object` can be either a local entry URL or a local comment URL. Remote inbox forwarding is not implemented yet.
+
 ***Request:***<br>
 `POST /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/`
 ````

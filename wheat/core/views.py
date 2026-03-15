@@ -9,7 +9,7 @@ from rest_framework import status
 from django.db import models
 import re
 
-from .models import Author, Entry, Follow, Comment
+from .models import Author, Entry, Follow, Comment, EntryLike, CommentLike
 from .forms import EntryForm
 from .github import fetch_public_events
 from .github_to_entries import save_event_as_entry
@@ -26,6 +26,8 @@ from .permissions import (
 #
 # TODO: this is approaching godfile, we should probably split this for pt2
 #
+
+LIKES_PAGE_SIZE = 50
 
 def index(request):
     return render(request, "core/index.html")
@@ -536,59 +538,152 @@ def get_follow_requests_api(request, author_serial):
 
     return Response(data)
 
+
+def get_pagination_params(request, default_size=5):
+    try:
+        page = int(request.GET.get("page", 1))
+        if page < 1:
+            page = 1
+    except (TypeError, ValueError):
+        page = 1
+
+    try:
+        size = int(request.GET.get("size", default_size))
+        if size < 1:
+            size = default_size
+    except (TypeError, ValueError):
+        size = default_size
+
+    return page, size
+
+
+def build_entry_likes_url(request, entry):
+    base_url = request.build_absolute_uri("/").rstrip("/")
+    return f"{base_url}/api/authors/{entry.author.serial}/entries/{entry.serial}/likes/"
+
+
+def build_comment_likes_url(request, comment):
+    base_url = request.build_absolute_uri("/").rstrip("/")
+    return f"{base_url}/api/authors/{comment.entry.author.serial}/entries/{comment.entry.serial}/comments/{comment.serial}/likes/"
+
+
+def build_like_url(request, author, like_serial):
+    base_url = request.build_absolute_uri("/").rstrip("/")
+    return f"{base_url}/api/authors/{author.serial}/liked/{like_serial}/"
+
+
+def build_likes_collection(queryset, serializer_class, collection_id, page=1, size=LIKES_PAGE_SIZE):
+    offset = (page - 1) * size
+    total = queryset.count()
+    page_items = list(queryset[offset : offset + size])
+    return {
+        "type": "likes",
+        "id": collection_id,
+        "page_number": page,
+        "size": size,
+        "count": total,
+        "src": serializer_class(page_items, many=True).data,
+    }
+
+
+def serialize_like_item(like):
+    if isinstance(like, EntryLike):
+        return EntryLikeSerializer(like).data
+    return CommentLikeSerializer(like).data
+
+
+def build_mixed_likes_collection(items, collection_id, page, size):
+    offset = (page - 1) * size
+    page_items = items[offset : offset + size]
+    return {
+        "type": "likes",
+        "id": collection_id,
+        "page_number": page,
+        "size": size,
+        "count": len(items),
+        "src": [serialize_like_item(item) for item in page_items],
+    }
+
+
+def build_entry_payload(entry, request):
+    payload = EntrySerializer(entry).data
+    payload["author"] = AuthorSerializer(entry.author).data
+    likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
+    payload["likes"] = build_likes_collection(
+        likes_qs,
+        EntryLikeSerializer,
+        build_entry_likes_url(request, entry),
+    )
+    return payload
+
+
+def build_comment_payload(comment, request):
+    comment_data = CommentSerializer(comment, context={"request": request}).data
+    comment_data["entry"] = f"{request.build_absolute_uri('/').rstrip('/')}/api/authors/{comment.entry.author.serial}/entries/{comment.entry.serial}/"
+    likes_qs = CommentLike.objects.filter(comment=comment).select_related("author").order_by("-published")
+    comment_data["likes"] = build_likes_collection(
+        likes_qs,
+        CommentLikeSerializer,
+        build_comment_likes_url(request, comment),
+    )
+    return comment_data
+
+
+ENTRY_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
+COMMENT_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/commented/(?P<comment>[0-9a-f-]+)/?$")
+
+
+def resolve_like_target(object_url):
+    entry_match = ENTRY_OBJECT_RE.search(object_url or "")
+    if entry_match:
+        entry = get_object_or_404(
+            Entry,
+            serial=entry_match.group("entry"),
+            author__serial=entry_match.group("author"),
+        )
+        return "entry", entry
+
+    comment_match = COMMENT_OBJECT_RE.search(object_url or "")
+    if comment_match:
+        comment = get_object_or_404(
+            Comment,
+            serial=comment_match.group("comment"),
+            author__serial=comment_match.group("author"),
+        )
+        return "comment", comment
+
+    return None, None
+
 @api_view(["GET", "PUT", "DELETE"])
 def single_entry(request, author_serial, entry_serial):
     """
-    Handles operations on a single entry
-
-    GET: Retrieve an entry (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
-    PUT: Update an entry. Requires authentication as the entry author
-    DELETE: Mark an entry as DELETED. Requires authentication as the entry author
+    Handles operations on a single entry.
     """
     entryAuthor = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, serial=entry_serial, author=entryAuthor)
-
-    # If the requester is authenticated, capture their Author profile (if any)
-    requestingAuthor = None
-    if request.user.is_authenticated and hasattr(request.user, "author_profile"):
-        requestingAuthor = request.user.author_profile
+    requestingAuthor = get_requesting_author(request)
 
     if request.method == "GET":
-        if entry.visibility == "DELETED":
-            return Response({"error": "Entry not found"}, status=404)
+        if not can_view_entry(entry, requestingAuthor, request.user):
+            if entry.visibility == "DELETED":
+                return Response({"error": "Entry not found"}, status=404)
 
-        # PUBLIC and UNLISTED entries are viewable by anyone
-        if entry.visibility in ("PUBLIC", "UNLISTED"):
-            serializedAuthor = AuthorSerializer(entryAuthor).data
-            payload = EntrySerializer(entry).data
-            payload["author"] = serializedAuthor
-            return Response(payload, status=200)
+            if not request.user.is_authenticated and entry.visibility == "FRIENDS":
+                return Response({"error": "Authentication required"}, status=401)
 
-        
-        if not request.user.is_authenticated:
-            return Response({"error": "Authentication required"}, status=401)
+            return Response({"error": "You don't have permission to view this entry"}, status=403)
 
-        if request.user.is_staff or (requestingAuthor and requestingAuthor == entryAuthor):
-            serializedAuthor = AuthorSerializer(entryAuthor).data
-            payload = EntrySerializer(entry).data
-            payload["author"] = serializedAuthor
-            return Response(payload, status=200)
+        return Response(build_entry_payload(entry, request), status=200)
 
-        if requestingAuthor and entryAuthor.get_friends().filter(serial=requestingAuthor.serial).exists():
-            serializedAuthor = AuthorSerializer(entryAuthor).data
-            payload = EntrySerializer(entry).data
-            payload["author"] = serializedAuthor
-            return Response(payload, status=200)
+    if not request.user.is_authenticated:
+        return Response({"error": "Authentication required"}, status=401)
 
-        return Response({"error": "You don't have permission to view this entry"}, status=403)
+    if not hasattr(request.user, "author_profile") or request.user.author_profile != entryAuthor:
+        return Response({"error": "You don't have permission to modify this entry"}, status=403)
 
-    elif request.method == "PUT":
-        if not request.user.is_authenticated:
-            return Response({"error": "Authentication required"}, status=401)
-
-        if not hasattr(request.user, "author_profile") or request.user.author_profile != entryAuthor:
-            return Response({"error": "You don't have permission to edit this entry"}, status=403)
-
+    if request.method == "PUT":
+        if "title" in request.data:
+            entry.title = (request.data.get("title") or "").strip() or entry.title
         if "content" in request.data:
             entry.content = request.data["content"]
         if "contentType" in request.data:
@@ -606,25 +701,13 @@ def single_entry(request, author_serial, entry_serial):
             return Response({"error": "imageUrl is required for image entries"}, status=400)
 
         entry.save()
+        return Response(build_entry_payload(entry, request), status=200)
 
-        serializedAuthor = AuthorSerializer(entryAuthor).data
-        payload = EntrySerializer(entry).data
-        payload["author"] = serializedAuthor
-        return Response(payload, status=200)
+    if request.method == "DELETE":
+        entry.visibility = "DELETED"
+        entry.save(update_fields=["visibility"])
+        return Response(status=204)
 
-    elif request.method == "DELETE":
-        if not request.user.is_authenticated:
-            return Response({"error": "Authentication required"}, status=401)
-
-        if request.user.is_staff or (hasattr(request.user, "author_profile") and request.user.author_profile == entryAuthor):
-      
-            entry.visibility = "DELETED"
-            entry.save(update_fields=["visibility"])
-            return Response(status=204)
-
-        return Response({"error": "You don't have permission to delete this entry."}, status=403)
-            
-        
 @api_view(["GET", "POST"])
 def author_entries(request, author_serial):
     """
@@ -640,20 +723,7 @@ def author_entries(request, author_serial):
         requestingAuthor = request.user.author_profile
 
     if request.method == "GET":
-        try:
-            page=int(request.GET.get('page', 1))
-            if page < 1:
-                page=1
-        except:
-            page=1
-
-        try:
-            size=int(request.GET.get('size', 5))
-            if size < 1:
-                size=5
-        except:
-            size=5
-
+        page, size = get_pagination_params(request)
         offset = (page - 1) * size
 
         qs = Entry.objects.filter(author=author).exclude(visibility="DELETED").order_by("-published")
@@ -671,12 +741,7 @@ def author_entries(request, author_serial):
 
         total = qs.count()
         page_entries = list(qs[offset : offset + size])
-        serializer = EntrySerializer(page_entries, many=True)
-        entryData = serializer.data
-
-        serializedAuthor = AuthorSerializer(author).data
-        for item in entryData:
-            item["author"] = serializedAuthor
+        entryData = [build_entry_payload(entry, request) for entry in page_entries]
 
         return Response(
             {
@@ -699,6 +764,7 @@ def author_entries(request, author_serial):
         content = request.data.get("content", "")
         content_type = request.data.get("contentType", request.data.get("content_type", "text/plain"))
         image_url = request.data.get("imageUrl", request.data.get("image_url", ""))
+        title = (request.data.get("title") or "").strip() or "Untitled"
         visibility = request.data.get("visibility", "PUBLIC")
         if visibility not in ("PUBLIC", "UNLISTED", "FRIENDS"):
             visibility = "PUBLIC"
@@ -709,6 +775,7 @@ def author_entries(request, author_serial):
         entry = Entry.objects.create(
             author=author,
             url="",
+            title=title,
             content=content,
             content_type=content_type,
             image_url=image_url,
@@ -719,10 +786,7 @@ def author_entries(request, author_serial):
         entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
         entry.save(update_fields=["url"])
 
-        serializedAuthor = AuthorSerializer(author).data
-        payload = EntrySerializer(entry).data
-        payload["author"] = serializedAuthor
-        return Response(payload, status=201)
+        return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(['GET', 'POST'])
 def author_commented(request, author_serial):
@@ -735,38 +799,21 @@ def author_commented(request, author_serial):
     author=get_object_or_404(Author, serial=author_serial)
 
     if request.method=='GET':
-        try:
-            page=int(request.GET.get('page', 1))
-            if page < 1:
-                page=1
-        except:
-            page=1
-
-        try:
-            size=int(request.GET.get('size', 5))
-            if size < 1:
-                size=5
-        except:
-            size=5
-
+        page, size = get_pagination_params(request)
         offset=(page - 1) * size
+        requestingAuthor = get_requesting_author(request)
 
-        comments=Comment.objects.filter(author=author).select_related('author', 'entry').order_by('-published')
+        comments = [
+            comment
+            for comment in Comment.objects.filter(author=author).select_related('author', 'entry', 'entry__author').order_by('-published')
+            if can_view_comment(comment, requestingAuthor, request.user)
+        ]
 
-        requestingAuthor=None
-        if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
-            requestingAuthor=request.user.author_profile
-
-        total=comments.count()
-        page_comments=list(comments[offset:offset+size])
-
-        data=[]
-        for comment in page_comments:
-            serializer=CommentSerializer(comment, context={'request': request})
-            data.append(serializer.data)
+        total = len(comments)
+        page_comments = comments[offset:offset+size]
+        data = [build_comment_payload(comment, request) for comment in page_comments]
 
         return Response({ 
-            #this is missing 'web' and 'id' fields for networking later
             "type": "comments",
             "page_number": page,
             "size": size,
@@ -804,8 +851,11 @@ def author_commented(request, author_serial):
                 return Response({"error": "Invalid entry URL format"}, status=400)
 
             entry=get_object_or_404(Entry, serial=match.groups()[1], author__serial=match.groups()[0])
-        except Exception as e:
+        except Exception:
             return Response({"error": f"Invalid entry URL"}, status=400)
+
+        if not can_view_entry(entry, requestingAuthor, request.user):
+            return Response({"error": "You don't have permission to comment on this entry"}, status=403)
 
         comment_serial=uuid.uuid4()
         comment=Comment.objects.create(
@@ -819,8 +869,7 @@ def author_commented(request, author_serial):
 
         # TODO: forwarding
 
-        serializer=CommentSerializer(comment, context={'request': request})
-        return Response(serializer.data, status=201)
+        return Response(build_comment_payload(comment, request), status=201)
 
 @api_view(['GET'])
 def author_commented_single(request, author_serial, comment_serial):
@@ -834,20 +883,13 @@ def author_commented_single(request, author_serial, comment_serial):
 
     entry=comment.entry
 
-    requesting_author=None
-    if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
-        requesting_author=request.user.author_profile
+    requesting_author = get_requesting_author(request)
 
-    friend=entry.visibility=='FRIENDS' and requesting_author and entry.author.get_friends().filter(serial=requesting_author.serial).exists()
-
-    if not (requesting_author==entry.author or request.user.is_staff or entry.visibility.upper() in ['PUBLIC', 'UNLISTED'] or friend):
+    if not can_view_comment(comment, requesting_author, request.user):
         return Response({"error": "You don't have permission to view this comment"}, status=403)
 
-    serializer=CommentSerializer(comment, context={'request': request})
-    comment_data=serializer.data
-
-    base_url=request.build_absolute_uri('/').rstrip('/')
-    comment_data['web']=f"{base_url}/authors/{author.serial}/comments/{comment.serial}"
+    comment_data = build_comment_payload(comment, request)
+    comment_data['web']=f"{request.build_absolute_uri('/').rstrip('/')}/authors/{author.serial}/comments/{comment.serial}"
 
     return Response(comment_data)
 
@@ -861,57 +903,132 @@ def entry_comments(request, author_serial, entry_serial):
     entry=get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     entry_author=entry.author
 
-    requesting_author=None
-    if request.user.is_authenticated and hasattr(request.user, 'author_profile'):
-        requesting_author=request.user.author_profile
+    requesting_author = get_requesting_author(request)
+    visible_comments = filter_comments_for_viewer(
+        Comment.objects.filter(entry=entry).select_related('author', 'entry__author').order_by('-published'),
+        entry,
+        requesting_author,
+        request.user,
+    )
 
-    friend=entry.visibility=='FRIENDS' and requesting_author and entry_author.get_friends().filter(serial=requesting_author.serial).exists()
-
-    if not (requesting_author==entry_author or request.user.is_staff or entry.visibility.upper() in ['PUBLIC', 'UNLISTED'] or friend):
+    if not can_view_entry(entry, requesting_author, request.user) and not visible_comments.exists():
         return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
 
-    try:
-        page=int(request.GET.get('page', 1))
-        if page < 1:
-            page=1
-    except:
-        page=1
-
-    try:
-        size=int(request.GET.get('size', 5))
-        if size < 1:
-            size=5
-    except:
-        size=5
-
+    page, size = get_pagination_params(request)
     offset=(page - 1) * size
-
-    comments=Comment.objects.filter(entry=entry).select_related('author').order_by('-published')
-    base_url=request.build_absolute_uri('/').rstrip('/')
+    comments = list(visible_comments[offset:offset+size])
 
     data=[]
-    for comment in list(comments[offset:offset+size]):
-        serializer=CommentSerializer(comment, context={'request': request})
-        comment_data=serializer.data
-
-        comment_data['entry']=f"{base_url}/api/authors/{entry_author.serial}/entries/{entry.serial}/"
-        
-        comment_data['likes']={ #PLACEHOLDER, likes not done yet
-            #this is missing 'web' and 'id' fields for networking later
-            "type": "likes",
-            "page_number": 1,
-            "size": 50,
-            "count": 0,
-            "src": [],
-        }
-        
-        data.append(comment_data)
+    for comment in comments:
+        data.append(build_comment_payload(comment, request))
 
     return Response({
-        #this is missing 'web' and 'id' fields for networking later
         "type": "comments",
         "page_number": page,
         "size": size,
-        "count": comments.count(),
+        "count": visible_comments.count(),
         "src": data,
     })
+
+
+@api_view(["GET", "POST"])
+def author_liked(request, author_serial):
+    author = get_object_or_404(Author, serial=author_serial)
+
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return Response({"error": "Authentication required"}, status=401)
+
+        requesting_author = get_requesting_author(request)
+        if not requesting_author or requesting_author != author:
+            return Response({"error": "Cannot like as another author"}, status=403)
+
+        object_url = request.data.get("object")
+        if not object_url:
+            return Response({"error": "Object URL is required"}, status=400)
+
+        target_type, target = resolve_like_target(object_url)
+        if not target_type:
+            return Response({"error": "Invalid object URL"}, status=400)
+
+        if target_type == "entry":
+            if not can_view_entry(target, requesting_author, request.user):
+                return Response({"error": "You don't have permission to like this entry"}, status=403)
+
+            existing_like = EntryLike.objects.filter(author=author, entry=target).select_related("author", "entry").first()
+            if existing_like:
+                return Response(EntryLikeSerializer(existing_like).data, status=200)
+
+            like = EntryLike.objects.create(
+                author=author,
+                entry=target,
+                url=build_like_url(request, author, uuid.uuid4()),
+            )
+            like.url = build_like_url(request, author, like.serial)
+            like.save(update_fields=["url"])
+            return Response(EntryLikeSerializer(like).data, status=201)
+
+        if not can_view_comment(target, requesting_author, request.user):
+            return Response({"error": "You don't have permission to like this comment"}, status=403)
+
+        existing_like = CommentLike.objects.filter(author=author, comment=target).select_related("author", "comment").first()
+        if existing_like:
+            return Response(CommentLikeSerializer(existing_like).data, status=200)
+
+        like = CommentLike.objects.create(
+            author=author,
+            comment=target,
+            url=build_like_url(request, author, uuid.uuid4()),
+        )
+        like.url = build_like_url(request, author, like.serial)
+        like.save(update_fields=["url"])
+        return Response(CommentLikeSerializer(like).data, status=201)
+
+    page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)
+    requesting_author = get_requesting_author(request)
+
+    entry_likes = [
+        like
+        for like in EntryLike.objects.filter(author=author).select_related("author", "entry", "entry__author")
+        if can_view_entry(like.entry, requesting_author, request.user)
+    ]
+    comment_likes = [
+        like
+        for like in CommentLike.objects.filter(author=author).select_related("author", "comment", "comment__entry", "comment__entry__author", "comment__author")
+        if can_view_comment(like.comment, requesting_author, request.user)
+    ]
+    items = sorted(entry_likes + comment_likes, key=lambda like: like.published, reverse=True)
+
+    collection_id = f"{request.build_absolute_uri('/').rstrip('/')}/api/authors/{author.serial}/liked/"
+    return Response(build_mixed_likes_collection(items, collection_id, page, size))
+
+
+@api_view(["GET"])
+def entry_likes(request, author_serial, entry_serial):
+    entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
+    requesting_author = get_requesting_author(request)
+
+    if not can_view_entry(entry, requesting_author, request.user):
+        if not request.user.is_authenticated and entry.visibility == "FRIENDS":
+            return Response({"error": "Authentication required"}, status=401)
+        return Response({"error": "You don't have permission to view likes on this entry"}, status=403)
+
+    page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)
+    likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
+    return Response(build_likes_collection(likes_qs, EntryLikeSerializer, build_entry_likes_url(request, entry), page, size))
+
+
+@api_view(["GET"])
+def comment_likes(request, author_serial, entry_serial, comment_serial):
+    entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
+    comment = get_object_or_404(Comment, serial=comment_serial, entry=entry)
+    requesting_author = get_requesting_author(request)
+
+    if not can_view_comment(comment, requesting_author, request.user):
+        if not request.user.is_authenticated and entry.visibility == "FRIENDS":
+            return Response({"error": "Authentication required"}, status=401)
+        return Response({"error": "You don't have permission to view likes on this comment"}, status=403)
+
+    page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)
+    likes_qs = CommentLike.objects.filter(comment=comment).select_related("author").order_by("-published")
+    return Response(build_likes_collection(likes_qs, CommentLikeSerializer, build_comment_likes_url(request, comment), page, size))
