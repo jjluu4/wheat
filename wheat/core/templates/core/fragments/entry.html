@@ -5,7 +5,9 @@
         <div class="small"><strong>{{ entry.published }}</strong></div>
         <div class="small"><strong>{{ entry.visibility }}</strong></div>
     </div>
-
+    <div>
+        <a class="title-link" href="{% url 'view_entry' entry.author.serial entry.serial %}">{{ entry.title }} </a>
+    </div>
     <a class="profile-link" href="{% url 'author_profile' entry.author.serial %}">{{ entry.author.displayName }}: </a>
 
     {% if entry.content_type == "text/markdown" %}

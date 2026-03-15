@@ -28,10 +28,11 @@ class EntryForm(forms.ModelForm):
 
     class Meta:
         model = Entry
-        fields = ["content", "content_type", "image_url", "visibility"]
+        fields = ["title", "content", "content_type", "image_url", "visibility"]
 
     def clean(self):
         cleaned = super().clean()
+        title = cleaned.get("title").strip()
         ctype = cleaned.get("content_type")
         image_url = cleaned.get("image_url", "").strip()
         content = cleaned.get("content", "").strip()

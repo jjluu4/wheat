@@ -1,0 +1,43 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title> {{ entry.title }}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+
+<body>
+    <div class="page">
+
+        {% include '../navs/main.html' %}
+        <div class="container">
+            <div class="card">
+                <h1 class="title">{{ entry.title }}</h1>
+                <div class="metadata">
+                    <p>By: <a class="profile-link" href="{% url 'author_profile' entry.author.serial %}">{{ author.displayName }}</a></p>
+                    <div class="small"><strong>Published:</strong> {{ entry.published }}</div>
+                    <div class="small"><strong>Visibility:</strong> {{ entry.visibility }}</div>
+                </div>
+                <hr>
+                <div class="entry-content">
+                    {% if entry.content_type == "text/markdown" %}
+                        <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>
+                    {% elif entry.content_type == "image" and entry.image_url %}
+                        <div class="entry-image">
+                            <img src="{{ entry.image_url }}" alt="Image entry">
+                            {% if entry.content %}
+                            <div class="caption">{{ entry.content }}</div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+</body>
+
+</html>
+

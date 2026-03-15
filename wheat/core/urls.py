@@ -26,6 +26,7 @@ urlpatterns = [
     path("authors/<uuid:author_serial>/requests/", views.follow_requests, name="follow_requests"),
     path("authors/<uuid:author_serial>/followers/", views.followers, name="followers_list"),
     path("authors/<uuid:author_serial>/following/", views.following, name="following_list"),
+    path("authors/<uuid:author_serial>/entries/<int:entry_id>/", views.view_entry, name="view_entry"),
 
     # API endpoints
     path("api/authors/<uuid:author_serial>/", views.single_author, name="api_single_author"),
@@ -42,6 +43,7 @@ urlpatterns = [
     # Canonical stable routes use entry serial (UUID), not DB pk
     path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/edit/", views.edit_entry, name="entry_edit"),
     path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/delete/", views.delete_entry, name="entry_delete"),
+    path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", views.view_entry, name="view_entry"),
 
     # Backward-compatible legacy routes
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/edit/", views.edit_entry_legacy, name="entry_edit_legacy"),

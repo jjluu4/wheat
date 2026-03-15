@@ -270,6 +270,30 @@ def delete_entry(request, author_serial, entry_serial):
 
     return render(request, "core/entry_confirm_delete.html", {"author": author, "entry": entry})
 
+def view_entry(request, author_serial, entry_serial):
+    author = get_object_or_404(Author, serial=author_serial)
+    entry = get_object_or_404(Entry, serial=entry_serial, author=author)
+
+    if entry.visibility == "DELETED":
+        return HttpResponseForbidden("This entry has been deleted.")
+
+    elif entry.visibility == "PUBLIC" or entry.visibility == "UNLISTED":
+        return render(request, "core/view_entry.html", {"entry": entry, "author": author})
+    
+    else:
+        if not request.user.is_authenticated:
+            return HttpResponseForbidden("You do not have permission to view this entry.")
+        
+        requestingAuthor = getattr(request.user, "author_profile", None)
+        is_owner = request.user.is_staff or requestingAuthor == author
+        is_friend = requestingAuthor is not None and author.get_friends().filter(serial=requestingAuthor.serial).exists()
+
+        if is_owner or is_friend:
+            return render(request, "core/view_entry.html", {"entry": entry, "author": author})
+        
+        return HttpResponseForbidden("You do not have permission to view this entry.")
+
+
 @login_required
 def follow_author(request, author_serial):
     actor = get_object_or_404(Author, user=request.user)

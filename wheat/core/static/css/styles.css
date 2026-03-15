@@ -291,8 +291,19 @@ ul.matrix {
     margin: 8px 0;
 }
 
-.profile-link:hover {
+.profile-link:hover, .title-link:hover {
     text-decoration: underline;
+}
+
+.title-link, .title {
+    color: white;
+    font-weight: 700;
+    text-decoration: none;
+    font-size: 24px;
+}
+
+.title {
+    font-size: 40px;
 }
 
 /* Follows */

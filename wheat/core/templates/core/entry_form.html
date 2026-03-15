@@ -25,6 +25,12 @@
                     {{ form.non_field_errors }}
 
                     <div class="form-row">
+                        <label for="{{ form.title.id_for_label }}">Title</label>
+                        {{ form.title }}
+                        {{ form.title.errors }}
+                    </div>
+
+                    <div class="form-row">
                         <label for="{{ form.content_type.id_for_label }}">Content type</label>
                         {{ form.content_type }}
                         {{ form.content_type.errors }}

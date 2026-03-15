@@ -61,7 +61,7 @@ class Entry(models.Model):
     serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='entries')
-
+    title = models.CharField(max_length=255, default="Untitled")
     content = models.TextField()
     content_type = models.CharField(max_length=100, default='text/plain')
     
