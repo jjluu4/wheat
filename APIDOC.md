@@ -16,7 +16,7 @@
 
 <p>There are a number of methods one can use to send an HTTP request. One of the most common methods is through CURL requests. An example of a simple GET request with CURL can be seen below.</p>
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/ 
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/ 
 
 <p>As mentioned previously, some HTTP requests will require login in order to be successfully carried out. To achieve this, the format in the example GET request below can be applied to any type of CURL request. </p>
 
