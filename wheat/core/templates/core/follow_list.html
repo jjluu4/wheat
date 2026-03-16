@@ -21,7 +21,10 @@
                 
                 <ul>
                     {% for author in authors %}
-                    <li>
+                    <li class="follow-item">
+                        {% if author.profileImage %}
+                            <img class="avatar avatar-small" src="{{ author.profileImage }}" alt="{{ author.displayName }} avatar">
+                        {% endif %}
                         <a class="profile-link" href="{% url 'author_profile' author.serial %}">
                             {{ author.displayName }}
                         </a>

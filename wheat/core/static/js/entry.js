@@ -167,9 +167,10 @@ function loadComments(entrySerial, page=1) {
                 header.appendChild(profile);
                 header.appendChild(date);
 
-                const content=document.createElement('p');
-                content.style.margin=0;
-                content.textContent=comment.content;
+                const content = document.createElement('div');
+                content.className = 'content markdown-source';
+                content.style.margin = 0;
+                content.textContent = comment.content || '';
 
                 const actions = document.createElement('div');
                 actions.className = 'small';
@@ -202,7 +203,14 @@ function loadComments(entrySerial, page=1) {
                 commentItem.appendChild(actions);
                 commentsList.appendChild(commentItem);
             });
-        } else commentsList.innerHTML='<li class="no-comments">No comments yet.</li>';
+        } else {
+            commentsList.innerHTML = '<li class="no-comments">No comments yet.</li>';
+        }
+
+        // Re-run markdown rendering for newly injected comment content
+        if (typeof window.renderMarkdownContent === 'function') {
+            window.renderMarkdownContent();
+        }
     })
     .catch((error) => {
         console.error(error);

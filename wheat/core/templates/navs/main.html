@@ -15,6 +15,7 @@
                 <button type="submit">Logout</button>
             </form>
             {% else %}
+            <a href="{% url 'author_list' %}">Authors</a>
             <a href="{% url 'login' %}">Login</a>
             <a href="{% url 'signup' %}">Sign up</a>
             {% endif %}

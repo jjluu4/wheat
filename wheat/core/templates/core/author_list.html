@@ -21,7 +21,14 @@
                 <ul class="matrix">
                     {% for a in authors %}
                     <li>
-                        <a href="{% url 'author_profile' a.serial %}">{{ a.displayName }}</a>
+                        <a href="{% url 'author_profile' a.serial %}" class="author-card">
+                            {% if a.profileImage %}
+                                <div>
+                                    <img class="avatar avatar-small" src="{{ a.profileImage }}" alt="{{ a.displayName }} avatar">
+                                </div>
+                            {% endif %}
+                            <h3 class="profile-link">{{ a.displayName }}</h3>
+                        </a>
                     </li>
                     {% endfor %}
                 </ul>

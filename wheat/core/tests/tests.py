@@ -41,6 +41,7 @@ class AuthorProfilePageTests(TestCase):
         )
 
     def test_profile_page_shows_author_and_only_public_entries(self):
+        """Profile page renders author info and only public entries for visitors."""
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
 
         self.assertEqual(resp.status_code, 200)
@@ -66,6 +67,7 @@ class AuthorEditPageTests(TestCase):
         )
 
     def test_edit_page_post_updates_author_and_redirects(self):
+        """Authenticated owner can edit their profile via POST and is redirected."""
         self.client.force_login(self.user)  # IMPORTANT: login before POST
 
         edit_url = reverse("author_edit", args=[self.author.serial])
@@ -94,6 +96,7 @@ class AuthorEditPageTests(TestCase):
 class GitHubAutoImportTests(TestCase):
     @patch("core.views.fetch_public_events")
     def test_profile_page_auto_imports_github_events_without_duplicates(self, mock_fetch):
+        """Profile page imports GitHub events once and avoids duplicates."""
         mock_fetch.return_value = [
             {
                 "id": "111",
@@ -140,6 +143,7 @@ class GitHubAutoImportTests(TestCase):
 
 class AuthorListPageTests(TestCase):
     def test_author_list_page(self):
+        """Author list page renders existing authors."""
         Author.objects.create(
             url="http://testserver/api/authors/test-author",
             host="http://testserver/api/",
@@ -168,6 +172,7 @@ class EntryCreateTests(TestCase):
         )
 
     def test_owner_can_create_plain_text_entry(self):
+        """Owner can create a plain text entry via the HTML form."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
         resp = self.client.post(
@@ -186,6 +191,7 @@ class EntryCreateTests(TestCase):
         self.assertEqual(entry.content_type, "text/plain")
 
     def test_owner_can_create_markdown_entry(self):
+        """Owner can create a markdown entry via the HTML form."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
         resp = self.client.post(
@@ -202,6 +208,7 @@ class EntryCreateTests(TestCase):
         self.assertEqual(entry.content_type, "text/markdown")
 
     def test_owner_can_create_image_entry_with_image_url(self):
+        """Owner can create an image entry when image_url is provided."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
         resp = self.client.post(
@@ -219,6 +226,7 @@ class EntryCreateTests(TestCase):
         self.assertEqual(entry.image_url, "https://example.com/photo.png")
 
     def test_image_entry_requires_image_url(self):
+        """Image entry creation fails if image_url is missing."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
         resp = self.client.post(
@@ -235,6 +243,7 @@ class EntryCreateTests(TestCase):
         self.assertEqual(Entry.objects.filter(author=self.author).count(), 0)
 
     def test_non_owner_cannot_create_entry(self):
+        """Non-owner cannot create an entry on someone else's profile."""
         other = User.objects.create_user(username="other", password="pass12345")
         self.client.force_login(other)
         url = reverse("entry_create", args=[self.author.serial])
@@ -251,6 +260,7 @@ class EntryCreateTests(TestCase):
         self.assertEqual(Entry.objects.filter(author=self.author).count(), 0)
 
     def test_create_entry_redirects_to_profile(self):
+        """Successful entry creation redirects back to the author's profile."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
         resp = self.client.post(
@@ -289,6 +299,7 @@ class EntryEditTests(TestCase):
         )
 
     def test_owner_can_edit_entry(self):
+        """Owner can edit an existing entry via the HTML form."""
         self.client.force_login(self.user)
         url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(
@@ -305,6 +316,7 @@ class EntryEditTests(TestCase):
         self.assertEqual(self.entry.content, "Updated content")
 
     def test_non_owner_cannot_edit_entry(self):
+        """Non-owner cannot edit another author's entry."""
         other = User.objects.create_user(username="other", password="pass12345")
         self.client.force_login(other)
         url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
@@ -344,6 +356,7 @@ class EntryDeleteTests(TestCase):
         )
 
     def test_owner_can_delete_entry_soft_delete(self):
+        """Owner can soft-delete an entry from their profile."""
         self.client.force_login(self.user)
         url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(url)
@@ -352,6 +365,7 @@ class EntryDeleteTests(TestCase):
         self.assertEqual(self.entry.visibility, "DELETED")
 
     def test_non_owner_cannot_delete_entry(self):
+        """Non-owner cannot delete another author's entry."""
         other = User.objects.create_user(username="other", password="pass12345")
         self.client.force_login(other)
         url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
@@ -361,6 +375,7 @@ class EntryDeleteTests(TestCase):
         self.assertEqual(self.entry.visibility, "PUBLIC")
 
     def test_deleted_entry_not_on_owner_profile(self):
+        """Soft-deleted entries no longer appear on the owner's profile."""
         self.entry.visibility = "DELETED"
         self.entry.save(update_fields=["visibility"])
         self.client.force_login(self.user)
@@ -427,6 +442,7 @@ class EntryViewPageInteractionTests(TestCase):
         )
 
     def test_authenticated_viewer_sees_like_and_comment_controls_on_public_entry_page(self):
+        """Authenticated viewer sees like/comment UI on a public entry page."""
         self.client.force_login(self.viewer_user)
         resp = self.client.get(reverse("view_entry", args=[self.owner.serial, self.public_entry.serial]))
 
@@ -437,6 +453,7 @@ class EntryViewPageInteractionTests(TestCase):
         self.assertContains(resp, "entry.js?v=likes-ui-1")
 
     def test_friend_sees_like_and_comment_controls_on_friends_entry_page(self):
+        """Friend sees like/comment UI on a friends-only entry page."""
         self.client.force_login(self.friend_user)
         resp = self.client.get(reverse("view_entry", args=[self.owner.serial, self.friends_entry.serial]))
 
@@ -475,17 +492,20 @@ class EntryProfileVisibilityTests(TestCase):
         )
 
     def test_visitor_sees_only_public_entries(self):
+        """Visitor sees only public entries on an author's profile."""
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertContains(resp, "Public entry")
         self.assertNotContains(resp, "Unlisted entry")
 
     def test_owner_sees_all_non_deleted_entries(self):
+        """Owner sees all non-deleted entries on their own profile."""
         self.client.force_login(self.owner)
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertContains(resp, "Public entry")
         self.assertContains(resp, "Unlisted entry")
 
     def test_owner_sees_new_entry_and_edit_delete_links(self):
+        """Owner sees controls to create, edit, and delete entries."""
         self.client.force_login(self.owner)
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertContains(resp, "New entry")
@@ -493,6 +513,7 @@ class EntryProfileVisibilityTests(TestCase):
         self.assertContains(resp, "Delete")
 
     def test_visitor_does_not_see_new_entry_or_edit_delete(self):
+        """Visitor does not see entry creation or edit/delete controls."""
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertNotContains(resp, "New entry")
         self.assertNotContains(resp, "Edit profile")

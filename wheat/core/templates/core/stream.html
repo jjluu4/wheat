@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <title>{{ author.displayName }}</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <script src="{% static 'js/entry.js' %}?v=likes-ui-1"></script>
+    <script src="{% static 'js/entry.js' %}?v=likes-ui-2"></script>
 </head>
 
 <body>
@@ -30,6 +30,9 @@
         </div>
 
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{% static 'js/markdown-renderer.js' %}?v=comments-md-1"></script>
 </body>
 
 </html>

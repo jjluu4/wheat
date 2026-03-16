@@ -19,6 +19,7 @@ class FollowAPITest(APITestCase):
         Follow.objects.create(actor=self.author1, target=self.author3, status="ACCEPTED")
 
     def testFollowingList(self):
+        """Authenticated author sees only accepted follows in following list."""
         self.client.login(username="user1", password="password1")
         response = self.client.get(f"/api/authors/{self.author1.serial}/following")
 
@@ -31,6 +32,7 @@ class FollowAPITest(APITestCase):
         self.assertNotIn(self.author2.displayName, following)
     
     def testFollowRequests(self):
+        """Authenticated author sees only pending follow requests in requests list."""
         self.client.login(username="user1", password="password1")
         response = self.client.get(f"/api/authors/{self.author1.serial}/follow_requests")
 

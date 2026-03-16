@@ -38,7 +38,7 @@ class Author(models.Model):
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, default="")
     description = models.TextField(blank=True, default="")
-    profileImage = models.URLField(blank=True, default="")
+    profileImage = models.URLField(blank=True, default="https://placehold.co/600x400")
     web = models.URLField(blank=True, default="")
 
     def get_followers(self):
@@ -62,7 +62,7 @@ class Entry(models.Model):
 
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='entries')
     title = models.CharField(max_length=255, default="Untitled")
-    content = models.TextField()
+    content = models.TextField(blank=True, default="")
     content_type = models.CharField(max_length=100, default='text/plain')
     
     image_url = models.URLField(blank=True, default="")

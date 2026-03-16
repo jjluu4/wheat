@@ -40,18 +40,12 @@
                     <a class="button-link" href="{% url 'follow_requests' author.serial %}">View Follow Requests</a>
                     <a class="button-link" href="{% url 'followers_list' author.serial %}">View Followers</a>
                     <a class="button-link" href="{% url 'following_list' author.serial %}">View Following</a>
+                    <a class="button-link" href="{{ author.github }}">GitHub</a>
                 </div>
                 {% endif %}
-
-                {% if author.profileImage %}
-                <img class="avatar" src="{{ author.profileImage }}" alt="profile image" />
-                {% endif %}
-
                 <p>{{ author.description }}</p>
 
-                <p>
-                    <a class="button-link" href="{{ author.github }}">GitHub</a>
-                </p>
+               
             </div>
 
             <h2>{% if is_owner %}Your Entries{% else %}Public Entries{% endif %}</h2>
@@ -78,7 +72,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="{% static 'js/markdown-renderer.js' %}"></script>
+    <script src="{% static 'js/markdown-renderer.js' %}?v=comments-md-1"></script>
 </body>
 
 </html>

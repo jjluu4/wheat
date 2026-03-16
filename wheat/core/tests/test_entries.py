@@ -11,12 +11,14 @@ class AuthorsApiTests(APITestCase):
         self.author = Author.objects.create(user=self.user, displayName="User1", serial=uuid.uuid4(), url=uuid.uuid4())
 
     def testAllAuthorsGet(self):
+        """GET /api/authors returns an authors collection."""
         resp = self.client.get("/api/authors")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "authors")
         self.assertIn("authors", resp.data)
 
     def testSingleAuthorGet(self):
+        """GET /api/authors/{id}/ returns a single author."""
         resp = self.client.get(f"/api/authors/{self.author.serial}/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "author")
@@ -37,6 +39,7 @@ class EntriesApiTests(APITestCase):
         self.friends_entry = Entry.objects.create(author=self.owner, url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", content="Friends entry", content_type="text/plain", visibility="FRIENDS", published=timezone.now())
 
     def testAuthorEntriesListUnauthOnlyPublic(self):
+        """Unauthenticated user sees only public entries in author entries list."""
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "entries")
@@ -46,6 +49,7 @@ class EntriesApiTests(APITestCase):
         self.assertNotIn("Friends entry", contents)
 
     def testAuthorEntriesListFriendSeesFriends(self):
+        """Friend can see public and friends-only entries in author entries list."""
         self.client.login(username="friend", password="pass12345")
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/")
         self.assertEqual(resp.status_code, 200)
@@ -55,22 +59,26 @@ class EntriesApiTests(APITestCase):
         self.assertIn("Friends entry", contents)
 
     def testSingleEntryGetPublicUnauth(self):
+        """Unauthenticated user can fetch a single public entry."""
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "entry")
         self.assertEqual(resp.data["content"], "Public entry")
 
     def testSingleEntryGetFriendsRequiresAuth(self):
+        """Fetching a friends-only entry without authentication is rejected."""
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/")
         self.assertEqual(resp.status_code, 401)
 
     def testSingleEntryGetFriendsFriendCanView(self):
+        """Friend can fetch a friends-only entry."""
         self.client.login(username="friend", password="pass12345")
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["content"], "Friends entry")
 
     def testOwnerCanCreateEntryViaApi(self):
+        """Entry owner can create entries via the API."""
         self.client.login(username="owner", password="pass12345")
         payload = {
             "content": "Created via API",
@@ -84,12 +92,14 @@ class EntriesApiTests(APITestCase):
         self.assertEqual(resp.data["contentType"], "text/markdown")
 
     def testNonOwnerCannotCreateEntryViaApi(self):
+        """Non-owner cannot create entries for another author via the API."""
         self.client.login(username="friend", password="pass12345")
         payload = {"content": "Nope", "contentType": "text/plain", "visibility": "PUBLIC"}
         resp = self.client.post(f"/api/authors/{self.owner.serial}/entries/", data=payload, format="json")
         self.assertEqual(resp.status_code, 403)
 
     def testOwnerCanEditEntryViaApi(self):
+        """Entry owner can update their entry via the API."""
         self.client.login(username="owner", password="pass12345")
         payload = {"content": "Updated via API", "contentType": "text/plain", "visibility": "PUBLIC"}
         resp = self.client.put(
@@ -101,6 +111,7 @@ class EntriesApiTests(APITestCase):
         self.assertEqual(resp.data["content"], "Updated via API")
 
     def testOwnerCanDeleteEntry(self):
+        """Entry owner can soft-delete an entry via the API."""
         self.client.login(username="owner", password="pass12345")
         resp = self.client.delete(f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/")
         self.assertEqual(resp.status_code, 204)

@@ -78,6 +78,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         return f"/api/authors/{comment.entry.author.serial}/entries/{comment.entry.serial}/comments/{comment.serial}/likes/"
 
     def test_like_public_entry(self):
+        """Stranger can like a public entry and likes collection reflects it."""
         self.client.force_login(self.stranger_user)
         resp = self.client.post(
             self.like_url(self.stranger),
@@ -95,6 +96,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(likes_resp.data["src"][0]["author"]["displayName"], "Stranger")
 
     def test_like_friends_entry_as_friend(self):
+        """Friend can like a friends-only entry."""
         self.client.force_login(self.friend_user)
         resp = self.client.post(
             self.like_url(self.friend),
@@ -106,6 +108,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["object"], self.friends_entry.url)
 
     def test_like_friends_entry_as_non_friend_is_blocked(self):
+        """Non-friend cannot like a friends-only entry."""
         self.client.force_login(self.stranger_user)
         resp = self.client.post(
             self.like_url(self.stranger),
@@ -116,6 +119,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_duplicate_entry_like_is_idempotent(self):
+        """Liking the same entry twice returns existing like and keeps count at one."""
         self.client.force_login(self.stranger_user)
 
         first = self.client.post(
@@ -136,6 +140,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(likes_resp.data["count"], 1)
 
     def test_like_public_comment(self):
+        """Stranger can like a public comment and comment likes collection reflects it."""
         self.client.force_login(self.stranger_user)
         resp = self.client.post(
             self.like_url(self.stranger),
@@ -152,6 +157,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertIn("id", likes_resp.data["src"][0])
 
     def test_like_hidden_comment_is_blocked(self):
+        """Non-author, non-friend cannot like a hidden friends-only comment."""
         self.client.force_login(self.stranger_user)
         resp = self.client.post(
             self.like_url(self.stranger),
@@ -162,6 +168,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_author_liked_returns_entry_and_comment_likes(self):
+        """GET /liked/ for an author returns both entry and comment likes."""
         self.client.force_login(self.friend_user)
         self.client.post(
             self.like_url(self.friend),
@@ -182,6 +189,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertIn(self.public_comment.url, objects)
 
     def test_single_entry_embeds_likes_collection(self):
+        """Single entry API payload embeds a likes collection with correct count."""
         self.client.force_login(self.stranger_user)
         self.client.post(
             self.like_url(self.stranger),
@@ -196,6 +204,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["likes"]["count"], 1)
 
     def test_author_entries_embed_likes_collection(self):
+        """Author entries API embeds likes collection for each entry."""
         self.client.force_login(self.stranger_user)
         self.client.post(
             self.like_url(self.stranger),
@@ -209,6 +218,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["src"][0]["likes"]["count"], 1)
 
     def test_friends_entry_comments_friend_sees_all(self):
+        """Friend sees all comments on a friends-only entry."""
         self.client.force_login(self.friend_user)
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/comments/")
 
@@ -218,11 +228,13 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertIn("Former friend comment", contents)
 
     def test_friends_entry_comments_non_friend_blocked(self):
+        """Non-friend is blocked from seeing comments on a friends-only entry."""
         self.client.force_login(self.stranger_user)
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/comments/")
         self.assertEqual(resp.status_code, 403)
 
     def test_friends_entry_comment_author_sees_only_own_comment(self):
+        """Former friend can see only their own comment on a friends-only entry."""
         self.client.force_login(self.former_user)
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/comments/")
 
@@ -231,6 +243,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(contents, ["Former friend comment"])
 
     def test_author_commented_get_filters_hidden_comments(self):
+        """Author commented API hides comments the viewer should not see."""
         self.client.force_login(self.stranger_user)
         resp = self.client.get(f"/api/authors/{self.former.serial}/commented/")
 
@@ -238,6 +251,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["count"], 0)
 
     def test_author_commented_post_blocks_inaccessible_entry(self):
+        """Comment POST is rejected when viewer cannot see the target entry."""
         self.client.force_login(self.stranger_user)
         resp = self.client.post(
             f"/api/authors/{self.stranger.serial}/commented/",
@@ -252,6 +266,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_comment_author_can_fetch_single_hidden_comment(self):
+        """Comment author can fetch their own hidden comment."""
         self.client.force_login(self.former_user)
         resp = self.client.get(f"/api/authors/{self.former.serial}/commented/{self.former_comment.serial}/")
 
@@ -259,6 +274,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["content"], "Former friend comment")
 
     def test_unauthenticated_user_cannot_like_entry(self):
+        """Unauthenticated user cannot like any entry."""
         resp = self.client.post(
             self.like_url(self.stranger),
             data={"type": "like", "object": self.public_entry.url},
@@ -268,6 +284,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 401)
 
     def test_cannot_like_as_different_author(self):
+        """User cannot send likes as another author."""
         self.client.force_login(self.friend_user)
 
         resp = self.client.post(
@@ -279,6 +296,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_owner_can_like_own_entry(self):
+        """Entry owner can like their own entry."""
         self.client.force_login(self.owner_user)
 
         resp = self.client.post(
@@ -291,6 +309,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["object"], self.public_entry.url)
 
     def test_like_entry_with_invalid_object_url_returns_400(self):
+        """Liking with an invalid object URL returns a 400 error."""
         self.client.force_login(self.stranger_user)
 
         resp = self.client.post(
@@ -302,6 +321,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_like_entry_with_missing_object_returns_400(self):
+        """Liking without an object field returns a 400 error."""
         self.client.force_login(self.stranger_user)
 
         resp = self.client.post(
@@ -313,6 +333,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_like_nonexistent_entry_returns_404(self):
+        """Liking a non-existent entry returns a 404 error."""
         self.client.force_login(self.stranger_user)
         missing_entry_url = f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}/"
 
@@ -325,6 +346,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_owner_can_like_own_friends_only_entry(self):
+        """Owner can like their own friends-only entry."""
         self.client.force_login(self.owner_user)
 
         resp = self.client.post(
@@ -336,6 +358,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 201)
 
     def test_admin_with_author_profile_can_like_friends_only_entry(self):
+        """Admin with an author profile can like a friends-only entry."""
         admin_author = self.make_author(self.admin_user, "Admin")
         self.client.force_login(self.admin_user)
 
@@ -349,6 +372,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["object"], self.friends_entry.url)
 
     def test_unlisted_entry_can_be_liked_by_stranger(self):
+        """Unlisted entry can be liked by a stranger."""
         unlisted_entry = self.make_entry(self.owner, "Unlisted entry", visibility="UNLISTED")
         self.client.force_login(self.stranger_user)
 
@@ -361,6 +385,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 201)
 
     def test_deleted_entry_cannot_be_liked_by_non_staff(self):
+        """Non-staff user cannot like a deleted entry."""
         self.public_entry.visibility = "DELETED"
         self.public_entry.save(update_fields=["visibility"])
         self.client.force_login(self.stranger_user)
@@ -374,6 +399,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_duplicate_comment_like_is_idempotent(self):
+        """Comment likes are idempotent and only one like is stored per author."""
         self.client.force_login(self.stranger_user)
 
         first = self.client.post(
@@ -395,6 +421,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(likes_resp.data["count"], 1)
 
     def test_friend_can_like_comment_on_friends_only_entry(self):
+        """Friend can like a comment on a friends-only entry."""
         self.client.force_login(self.friend_user)
 
         resp = self.client.post(
@@ -407,6 +434,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["object"], self.friend_comment.url)
 
     def test_comment_author_can_like_own_hidden_comment(self):
+        """Comment author can like their own hidden comment."""
         self.client.force_login(self.former_user)
 
         resp = self.client.post(
@@ -419,6 +447,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["object"], self.former_comment.url)
 
     def test_unauthenticated_user_cannot_like_comment(self):
+        """Unauthenticated user cannot like a comment."""
         resp = self.client.post(
             self.like_url(self.stranger),
             data={"type": "like", "object": self.public_comment.url},
@@ -428,6 +457,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 401)
 
     def test_like_nonexistent_comment_returns_404(self):
+        """Liking a non-existent comment returns a 404 error."""
         self.client.force_login(self.stranger_user)
         missing_comment_url = f"http://testserver/api/authors/{self.friend.serial}/commented/{uuid.uuid4()}/"
 
@@ -440,6 +470,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_single_comment_payload_embeds_like_count(self):
+        """Single comment API payload embeds like count information."""
         self.client.force_login(self.stranger_user)
         self.client.post(
             self.like_url(self.stranger),
@@ -453,6 +484,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["likes"]["count"], 1)
 
     def test_unauthenticated_user_can_see_likes_on_public_entry(self):
+        """Unauthenticated user can view likes on a public entry."""
         self.client.force_login(self.stranger_user)
         self.client.post(
             self.like_url(self.stranger),
@@ -466,15 +498,18 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["count"], 1)
 
     def test_unauthenticated_user_cannot_see_likes_on_friends_only_entry(self):
+        """Unauthenticated user cannot see likes on a friends-only entry."""
         resp = self.client.get(self.entry_likes_url(self.friends_entry))
         self.assertEqual(resp.status_code, 401)
 
     def test_non_friend_cannot_see_likes_on_friends_only_entry(self):
+        """Non-friend cannot see likes on a friends-only entry."""
         self.client.force_login(self.stranger_user)
         resp = self.client.get(self.entry_likes_url(self.friends_entry))
         self.assertEqual(resp.status_code, 403)
 
     def test_friend_can_see_likes_on_friends_only_entry(self):
+        """Friend can see likes on a friends-only entry."""
         self.client.force_login(self.friend_user)
         self.client.post(
             self.like_url(self.friend),
@@ -487,6 +522,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["count"], 1)
 
     def test_owner_can_see_likes_on_own_friends_only_entry(self):
+        """Owner can see likes on their own friends-only entry."""
         self.client.force_login(self.friend_user)
         self.client.post(
             self.like_url(self.friend),
@@ -500,6 +536,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["count"], 1)
 
     def test_author_liked_filters_hidden_likes_for_viewer(self):
+        """Author liked collection filters out likes the viewer cannot see."""
         self.client.force_login(self.friend_user)
         self.client.post(
             self.like_url(self.friend),
@@ -520,6 +557,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["src"][0]["object"], self.public_entry.url)
 
     def test_non_friend_cannot_see_hidden_comment_likes(self):
+        """Non-friend cannot see likes on a hidden comment."""
         self.client.force_login(self.former_user)
         self.client.post(
             self.like_url(self.former),
@@ -532,6 +570,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_multiple_users_liking_same_entry_updates_count(self):
+        """Multiple users liking the same entry increments the like count."""
         self.client.force_login(self.owner_user)
         self.client.post(
             self.like_url(self.owner),
@@ -551,6 +590,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.data["count"], 2)
 
     def test_entry_likes_pagination_fields_are_correct(self):
+        """Entry likes endpoint exposes correct pagination metadata."""
         self.client.force_login(self.owner_user)
         self.client.post(
             self.like_url(self.owner),
@@ -580,6 +620,7 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(len(resp.data["src"]), 1)
 
     def test_owner_sees_all_comments_on_friends_only_entry(self):
+        """Owner sees all comments on their friends-only entry."""
         self.client.force_login(self.owner_user)
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/comments/")
 
@@ -589,21 +630,25 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertIn("Former friend comment", contents)
 
     def test_unauthenticated_user_cannot_see_comments_on_friends_only_entry(self):
+        """Unauthenticated user cannot see comments on a friends-only entry."""
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/comments/")
         self.assertEqual(resp.status_code, 403)
 
     def test_non_friend_cannot_fetch_single_hidden_comment(self):
+        """Non-friend cannot fetch a single hidden comment."""
         self.client.force_login(self.stranger_user)
         resp = self.client.get(f"/api/authors/{self.former.serial}/commented/{self.former_comment.serial}/")
         self.assertEqual(resp.status_code, 403)
 
     def test_friend_can_fetch_single_comment_on_friends_only_entry(self):
+        """Friend can fetch a single comment on a friends-only entry."""
         self.client.force_login(self.friend_user)
         resp = self.client.get(f"/api/authors/{self.friend.serial}/commented/{self.friend_comment.serial}/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["content"], "Friends-only comment")
 
     def test_non_friend_comment_post_does_not_create_comment(self):
+        """Non-friend POSTing a comment to a friends-only entry does not create it."""
         before = Comment.objects.filter(entry=self.friends_entry, author=self.stranger).count()
 
         self.client.force_login(self.stranger_user)

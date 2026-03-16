@@ -21,8 +21,11 @@
                 
                 <ul>
                     {% for req in requests %}
-                    <li>
-                        <a class="profile-link" href="{% url 'author_profile' author.serial %}">
+                    <li class="follow-item">
+                        {% if req.actor.profileImage %}
+                            <img class="avatar avatar-small" src="{{ req.actor.profileImage }}" alt="{{ req.actor.displayName }} avatar">
+                        {% endif %}
+                        <a class="profile-link" href="{% url 'author_profile' req.actor.serial %}">
                             {{ req.actor.displayName }}
                         </a>
                         wants to follow you.

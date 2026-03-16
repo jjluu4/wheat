@@ -16,6 +16,8 @@
             div.innerHTML = html;
         }
     }
+    window.renderMarkdownContent = run;
+
     if (document.readyState === "loading") {
         window.addEventListener("load", run);
     } else {
