@@ -1,4 +1,3 @@
-<br><br><br>
 # Overview
 
 <p>The Wheat Social Distribution API allows for easy communication with the Wheat Social Distribution Web App. Using the Django Rest Framework, one can send and receive simple HTTP requests and responses to and from the Wheat Social Distribution Web App’s server. All of the information one needs to interact with this API can be found in the following document.</p>
