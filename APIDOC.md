@@ -1,3 +1,4 @@
+<br><br><br>
 # Overview
 
 <p>The Wheat Social Distribution API allows for easy communication with the Wheat Social Distribution Web App. Using the Django Rest Framework, one can send and receive simple HTTP requests and responses to and from the Wheat Social Distribution Web App’s server. All of the information one needs to interact with this API can be found in the following document.</p>
@@ -20,7 +21,7 @@
 
 <p>As mentioned previously, some HTTP requests will require login in order to be successfully carried out. To achieve this, the format in the example GET request below can be applied to any type of CURL request. </p>
 
-> curl --user example_username:example_password -X GET http:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/1ff24238-e302-40a9-b20c-96e6b32b23b1/
+> curl --user example_username:example_password -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/1ff24238-e302-40a9-b20c-96e6b32b23b1/
 
 <p>There are various types of HTTP requests that one can make. For the Wheat Social Distribution API there are up to four types of API requests that can be made depending on the particular endpoint. A summary of these different types with example CURL requests can be viewed below. </p>
 
@@ -28,17 +29,17 @@ ___
 #### Request Types
 | Request Type | Usage | Example Curl |
 | --------------- | --------------- | --------------- |
-| GET | Retrieves data from the server. For this API, data is retrieved in the form of a JSON. | curl -X GET http:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/  |
-| PUT | Modifies data in the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X PUT http:\//127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ -H "Content-Type: application/json" -d @/example/path.json |
-| POST | Sends data to the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X POST http:\//127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13/entries/ -H "Content-Type: application/json" -d @/example/path.json |
-| DELETE | Deletes data from the server. With this API, data is typically not deleted, but rather marked as “Deleted” such that it won’t ever show up in the UI, but can still technically be accessed later | curl -X DELETE http:\/\/127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ |
+| GET | Retrieves data from the server. For this API, data is retrieved in the form of a JSON. | curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/  |
+| PUT | Modifies data in the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ -H "Content-Type: application/json" -d @/example/path.json |
+| POST | Sends data to the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13/entries/ -H "Content-Type: application/json" -d @/example/path.json |
+| DELETE | Deletes data from the server. With this API, data is typically not deleted, but rather marked as “Deleted” such that it won’t ever show up in the UI, but can still technically be accessed later | curl -X DELETE /api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ |
 
 ___
 #### Pagination
 
 Pagination, where a request will return the **x** th page of results with **y** results per page, can be used with certain endpoints by using the format seen in the example below. One can find which endpoints do and do not support pagination further down in this documentation, in the section on API Endpoints.
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors?page=**x**&size=**y**
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors?page=**x**&size=**y**
 
 ___
 ## Responses
@@ -669,7 +670,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors
 
 > **RETURNS “Authors Object” with Code=200**
 
@@ -686,7 +687,7 @@ ___
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/
 
 > **RETURNS “Author Object” with Code=200**
 
@@ -695,7 +696,7 @@ Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in databas
 ___
 #### PUT Request with curl
 
-> curl --user example_username:example_password -X PUT http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+> curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
 
 > **EDITS Author in database with Code=200**
 
@@ -718,7 +719,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/
 
 > **RETURNS “Entries Object” with Code=200**
 
@@ -727,7 +728,7 @@ Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in databas
 ___
 #### POST Request with curl
 
-> curl --user example_username:example_password -X POST http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
 
 > **CREATES Entry in database with Code=201**
 
@@ -746,7 +747,7 @@ ___
 ___
 #### GET Request with curl
 
-> curl -X GET http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
+> curl -X GET http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
 
 > **RETURNS “Entry Object” with Code=200**
 
@@ -755,7 +756,7 @@ Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>404 [Occur
 ___
 #### PUT Request with curl
 
-> curl --user example_username:example_password -X PUT http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+> curl --user example_username:example_password -X PUT http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
 
 > **EDITS Entry in database with Code=200**
 
@@ -766,7 +767,7 @@ Possible Error Codes: <br>400 [Occurs if the contentType is listed as “Image�
 ___
 #### DELETE Request with curl
 
-> curl -X DELETE http:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
+> curl -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
 
 > **DELETES “Entry Object” with Code=204**
 
@@ -782,7 +783,7 @@ ___
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/follow_requests
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/follow_requests
 
 > **RETURNS JSON Array of “Author Objects” with Code=200**
 
@@ -799,7 +800,7 @@ ___
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following
 
 > **RETURNS “Following Object” with Code=200**
 
@@ -820,7 +821,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/
 
 > **RETURNS “Comments Object” with Code=200**
 
@@ -829,7 +830,7 @@ Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in databas
 ___
 #### POST Request with curl
 
-> curl --user example_username:example_password -X POST http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
 
 > **CREATES Comment in database with Code=201**
 
@@ -852,7 +853,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/
 
 > **RETURNS “Comments Object” with Code=200**
 
@@ -869,7 +870,7 @@ ___
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/d379a3ed-734e-4419-b86f-3ba27af4d7d7
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/d379a3ed-734e-4419-b86f-3ba27af4d7d7
 
 > **RETURNS “Comment Object” with Code=200**
 
@@ -890,7 +891,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/
 
 > **RETURNS “Likes Object” with Code=200**
 
@@ -899,7 +900,7 @@ Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in databas
 ___
 #### POST Request with curl
 
-> curl --user example_username:example_password -X POST http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
 
 > **CREATES Like in database with Code=201**
 
@@ -922,7 +923,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/
 
 > **RETURNS “Likes Object” with Code=200**
 
@@ -943,7 +944,7 @@ Paginated:
 ___
 #### GET Request with curl
 
-> curl -X GET http:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/46704e66-a196-4536-919b-a736d55c7b61/comments/0db3fdc6-06fd-4afe-a39a-ca7c42dd3d1a/likes/
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/46704e66-a196-4536-919b-a736d55c7b61/comments/0db3fdc6-06fd-4afe-a39a-ca7c42dd3d1a/likes/
 
 > **RETURNS “Likes Object” with Code=200**
 
