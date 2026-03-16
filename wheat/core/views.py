@@ -64,11 +64,13 @@ def index(request):
 
 
 def author_list(request):
+    """Render a list of all authors ordered by display name."""
     authors = Author.objects.order_by("displayName")
     return render(request, "core/author_list.html", {"authors": authors})
 
 
 def author_profile(request, author_serial):
+    """Show an author's profile page and their visible entries."""
     author = get_object_or_404(Author, serial=author_serial)
 
     # Auto-import newest GitHub events as PUBLIC entries
@@ -119,6 +121,7 @@ def author_profile(request, author_serial):
 
 @login_required
 def author_edit(request, author_serial):
+    """Allow an authenticated author (or staff) to edit their profile."""
     author = get_object_or_404(Author, serial=author_serial)
 
     # Only the owner (or staff) can edit
@@ -139,6 +142,7 @@ def author_edit(request, author_serial):
 
 
 def signup(request):
+    """Handle user signup and auto-create an Author profile."""
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -168,15 +172,12 @@ def signup(request):
     return render(request, "registration/signup.html", {"form": form})
 
 def logged_out(request):
+    """Simple logged-out confirmation page."""
     return render(request, "registration/logged_out.html")
 
 @login_required
 def my_profile(request):
-    """
-    Send the logged-in user to THEIR author profile page.
-    If a user exists without an Author profile (e.g., created via createsuperuser),
-    create one automatically so this never breaks.
-    """
+    """Redirect the logged-in user to their own author profile, creating one if needed."""
     try:
         author = request.user.author_profile
     except Author.DoesNotExist:
@@ -198,11 +199,7 @@ def my_profile(request):
 
 @login_required
 def my_stream(request):
-    """
-    Sends the logged-in user to their stream.
-    If a user exists without an Author profile (e.g., created via createsuperuser),
-    redirects to my_profile to create one automatically.
-    """
+    """Render the logged-in user's stream of entries from others."""
     try:
         author = request.user.author_profile
     except Author.DoesNotExist:
@@ -242,6 +239,7 @@ def author_owns_profile(request, author):
 
 @login_required
 def create_entry(request, author_serial):
+    """HTML view to create a new entry for the given author."""
     author = get_object_or_404(Author, serial=author_serial)
 
     if not author_owns_profile(request, author):
@@ -268,6 +266,7 @@ def create_entry(request, author_serial):
 
 @login_required
 def edit_entry(request, author_serial, entry_serial):
+    """HTML view to edit an existing entry by UUID."""
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
@@ -287,6 +286,7 @@ def edit_entry(request, author_serial, entry_serial):
 
 @login_required
 def edit_entry_legacy(request, author_serial, entry_id):
+    """Backward-compatible HTML edit view that accepts a legacy integer entry id."""
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, pk=entry_id, author=author)
     return edit_entry(request, author_serial=author.serial, entry_serial=entry.serial)
@@ -294,6 +294,7 @@ def edit_entry_legacy(request, author_serial, entry_id):
 
 @login_required
 def delete_entry(request, author_serial, entry_serial):
+    """HTML view to soft-delete an entry by setting its visibility to DELETED."""
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
@@ -310,6 +311,7 @@ def delete_entry(request, author_serial, entry_serial):
     return render(request, "core/entry_confirm_delete.html", {"author": author, "entry": entry})
 
 def view_entry(request, author_serial, entry_serial):
+    """HTML view for a single entry, enforcing visibility and friendship rules."""
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, serial=entry_serial, author=author)
 
@@ -335,6 +337,7 @@ def view_entry(request, author_serial, entry_serial):
 
 @login_required
 def follow_author(request, author_serial):
+    """Create or re-request a follow from the current user to the target author."""
     actor = get_object_or_404(Author, user=request.user)
     target = get_object_or_404(Author, serial=author_serial)
 
@@ -351,6 +354,7 @@ def follow_author(request, author_serial):
 
 @login_required
 def accept_follow(request, author_serial):
+    """Accept a pending follow request from the specified author."""
     target = get_object_or_404(Author, user=request.user)
     actor = get_object_or_404(Author, serial=author_serial)
 
@@ -371,6 +375,7 @@ def accept_follow(request, author_serial):
 
 @login_required
 def reject_follow(request, author_serial):
+    """Reject a pending follow request from the specified author."""
     target = get_object_or_404(Author, user=request.user)
     actor = get_object_or_404(Author, serial=author_serial)
 
@@ -391,6 +396,7 @@ def reject_follow(request, author_serial):
 
 @login_required
 def follow_requests(request, author_serial):
+    """HTML view listing pending follow requests for the current user."""
     target = get_object_or_404(Author, user=request.user)
 
     requestList = Follow.objects.filter(
@@ -402,6 +408,7 @@ def follow_requests(request, author_serial):
 
 @login_required
 def following(request, author_serial):
+    """HTML view listing authors the current user is following."""
     author = get_object_or_404(Author, user=request.user)
 
     followingQuery = Follow.objects.filter(
@@ -417,6 +424,7 @@ def following(request, author_serial):
 
 @login_required
 def followers(request, author_serial):
+    """HTML view listing authors who follow the current user."""
     author = get_object_or_404(Author, user=request.user)
 
     followerQuery = Follow.objects.filter(
@@ -432,6 +440,7 @@ def followers(request, author_serial):
 
 @login_required
 def unfollow(request, author_serial):
+    """Remove an accepted follow relationship from the current user to the target author."""
     actor = get_object_or_404(Author, user=request.user)
     target = get_object_or_404(Author, serial=author_serial)
 
@@ -451,6 +460,7 @@ def unfollow(request, author_serial):
 
 @login_required
 def delete_entry_legacy(request, author_serial, entry_id):
+    """Backward-compatible HTML delete view that accepts a legacy integer entry id."""
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, pk=entry_id, author=author)
     return delete_entry(request, author_serial=author.serial, entry_serial=entry.serial)
@@ -570,6 +580,7 @@ def get_follow_requests_api(request, author_serial):
 
 
 def get_pagination_params(request, default_size=5):
+    """Parse page/size query params and return sanitized pagination values."""
     try:
         page = int(request.GET.get("page", 1))
         if page < 1:
@@ -617,6 +628,7 @@ def build_likes_collection(queryset, serializer_class, collection_id, page=1, si
 
 
 def serialize_like_item(like):
+    """Serialize either an EntryLike or CommentLike into its API representation."""
     if isinstance(like, EntryLike):
         return EntryLikeSerializer(like).data
     return CommentLikeSerializer(like).data
@@ -1035,6 +1047,7 @@ def author_liked(request, author_serial):
 
 @api_view(["GET"])
 def entry_likes(request, author_serial, entry_serial):
+    """API endpoint listing likes on a specific entry,"""
     entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     requesting_author = get_requesting_author(request)
 
@@ -1050,6 +1063,7 @@ def entry_likes(request, author_serial, entry_serial):
 
 @api_view(["GET"])
 def comment_likes(request, author_serial, entry_serial, comment_serial):
+    """API endpoint listing likes on a specific comment"""
     entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     comment = get_object_or_404(Comment, serial=comment_serial, entry=entry)
     requesting_author = get_requesting_author(request)
