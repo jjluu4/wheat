@@ -617,9 +617,11 @@ def build_likes_collection(queryset, serializer_class, collection_id, page=1, si
     offset = (page - 1) * size
     total = queryset.count()
     page_items = list(queryset[offset : offset + size])
+    web_url = collection_id.replace("/api/", "/")
     return {
         "type": "likes",
         "id": collection_id,
+        "web": web_url,
         "page_number": page,
         "size": size,
         "count": total,
@@ -648,14 +650,52 @@ def build_mixed_likes_collection(items, collection_id, page, size):
 
 
 def build_entry_payload(entry, request):
+    """Build the full API payload for an entry, including author, likes, and initial comments."""
     payload = EntrySerializer(entry).data
     payload["author"] = AuthorSerializer(entry.author).data
+    base_url = request.build_absolute_uri("/").rstrip("/")
+    html_web_url = f"{base_url}/authors/{entry.author.serial}/entries/{entry.serial}/"
+    payload["web"] = html_web_url
+    content_text = (entry.content or "").strip()
+    if content_text:
+        payload["description"] = (content_text[:197] + "...") if len(content_text) > 200 else content_text
+
     likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
     payload["likes"] = build_likes_collection(
         likes_qs,
         EntryLikeSerializer,
         build_entry_likes_url(request, entry),
     )
+
+    # Embed a first page of comments when the viewer is allowed to see them
+    requesting_author = get_requesting_author(request)
+    visible_comments = filter_comments_for_viewer(
+        Comment.objects.filter(entry=entry).select_related("author", "entry__author").order_by("-published"),
+        entry,
+        requesting_author,
+        request.user,
+    )
+
+    if visible_comments.exists():
+        page = 1
+        size = 5
+        page_comments = list(visible_comments[:size])
+        comments_data = [build_comment_payload(comment, request) for comment in page_comments]
+
+        base_url = request.build_absolute_uri("/").rstrip("/")
+        comments_id = f"{base_url}/api/authors/{entry.author.serial}/entries/{entry.serial}/comments/"
+        web_url = f"{base_url}/authors/{entry.author.serial}/entries/{entry.serial}/"
+
+        payload["comments"] = {
+            "type": "comments",
+            "id": comments_id,
+            "web": web_url,
+            "page_number": page,
+            "size": size,
+            "count": visible_comments.count(),
+            "src": comments_data,
+        }
+
     return payload
 
 
