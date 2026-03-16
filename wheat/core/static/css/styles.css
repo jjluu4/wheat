@@ -173,6 +173,22 @@ input:focus, textarea:focus {
     border-color: wheat;
 }
 
+/* Spinners */
+select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #ffffff20;
+    background: #00000060;
+    color: #eef0ff;
+    outline: none;
+    cursor: pointer;
+}
+
+select:focus {
+    border-color: wheat;
+}
+
 /* Django errors */
 .errorlist {
     list-style: none;

@@ -45,13 +45,14 @@
             {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
             <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
             <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
+            <br><br>
             {% endif %}
+            <button type="button" onclick="toggleComments('{{ entry.serial }}')">All Comments</button>
             {% if request.user.is_authenticated %}
+            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">New Comment</button>
             <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
-            <span class="like-count">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</span>
-            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
             {% endif %}
-            <button type="button" onclick="toggleComments('{{ entry.serial }}')">Comments</button>
+            <span class="like-count">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</span>
         </div>
     </div>
 
