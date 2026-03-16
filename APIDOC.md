@@ -929,7 +929,7 @@ ___
 Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to make another author like an entry], <br>404 [Occurs if Author Serial does not exist in database]
 
 ___
-## Comment Likes API - Get the List of Likes on a Comment
+## Comment Likes API - Get the list of likes on a comment
 
 ___
 #### Endpoint Pattern
