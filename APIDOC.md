@@ -838,7 +838,7 @@ Creates a new Comment in the database under the Author with the corresponding se
 Possible Error Codes: <br>400 [Occurs if syntax is incorrect for provided Comment Object], <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to post a comment for an author they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
 
 ___
-## Comments API - Get a list of comments an author has made
+## Comments API - Get a list of comments made under an entry
 
 ___
 #### Endpoint Pattern
