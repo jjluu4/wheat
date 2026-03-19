@@ -94,7 +94,7 @@ class AuthorEditPageTests(TestCase):
 
 
 class GitHubAutoImportTests(TestCase):
-    @patch("core.views.fetch_public_events")
+    @patch("core.views.author_views.fetch_public_events")
     def test_profile_page_auto_imports_github_events_without_duplicates(self, mock_fetch):
         """Profile page imports GitHub events once and avoids duplicates."""
         mock_fetch.return_value = [
