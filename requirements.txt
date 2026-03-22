@@ -4,3 +4,4 @@ djangorestframework==3.16.1
 sqlparse==0.5.5
 whitenoise==6.12.0
 drf-yasg==1.21.15
+pillow==12.1.1

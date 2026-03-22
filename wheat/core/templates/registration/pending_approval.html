@@ -1,0 +1,23 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Pending Approval</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=1">
+</head>
+
+<body>
+    <div class="page">
+        {% include '../navs/main.html' %}
+
+        <div class="center-wrap">
+            <div class="card auth-card">
+                <p>Your account requires approval before you can access the platform.</p>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

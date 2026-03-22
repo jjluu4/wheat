@@ -9,6 +9,7 @@ urlpatterns = [
 
     path("accounts/signup/", authentication_views.signup, name="signup"),
     path("accounts/logged_out", authentication_views.logged_out, name="logged_out"),
+    path("accounts/pending_approval", authentication_views.pending_approval, name="pending_approval"),
 
     path("authors/", author_views.author_list, name="author_list"),
 
