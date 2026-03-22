@@ -13,7 +13,16 @@ from ..permissions import (
     filter_comments_for_viewer,
 )
 
-from ..helpers import get_pagination_params, build_likes_collection, build_comment_likes_url, build_comment_payload
+from ..helpers import (
+    get_pagination_params,
+    build_comment_payload,
+    build_author_api_url,
+    build_author_commented_collection_id,
+    build_author_commented_collection_web,
+    build_entry_comments_collection_id,
+    build_entry_web_url,
+    resolve_object_by_url,
+)
 
 @api_view(['GET', 'POST'])
 def author_commented(request, author_serial):
@@ -42,6 +51,8 @@ def author_commented(request, author_serial):
 
         return Response({ 
             "type": "comments",
+            "id": build_author_commented_collection_id(author, request),
+            "web": build_author_commented_collection_web(author, request),
             "page_number": page,
             "size": size,
             "count": total,
@@ -72,21 +83,23 @@ def author_commented(request, author_serial):
         if not entry_url:
             return Response({"error": "Entry URL is required"}, status=400)
 
-        try:
-            match=re.search(r'/authors/([^/]+)/entries/([^/]+)', entry_url)
-            if not match:
-                return Response({"error": "Invalid entry URL format"}, status=400)
+        entry = resolve_object_by_url(Entry, entry_url)
+        if entry is None:
+            try:
+                match=re.search(r'/authors/([^/]+)/entries/([^/]+)', entry_url)
+                if not match:
+                    return Response({"error": "Invalid entry URL format"}, status=400)
 
-            entry=get_object_or_404(Entry, serial=match.groups()[1], author__serial=match.groups()[0])
-        except Exception:
-            return Response({"error": f"Invalid entry URL"}, status=400)
+                entry=get_object_or_404(Entry, serial=match.groups()[1], author__serial=match.groups()[0])
+            except Exception:
+                return Response({"error": f"Invalid entry URL"}, status=400)
 
         if not can_view_entry(entry, requestingAuthor, request.user):
             return Response({"error": "You don't have permission to comment on this entry"}, status=403)
 
         comment_serial=uuid.uuid4()
         comment=Comment.objects.create(
-            url=f"{request.build_absolute_uri('/')}api/authors/{author_serial}/commented/{comment_serial}/",
+            url=f"{build_author_api_url(author, request)}/commented/{comment_serial}/",
             serial=comment_serial,
             author=author,
             entry=entry,
@@ -115,10 +128,7 @@ def author_commented_single(request, author_serial, comment_serial):
     if not can_view_comment(comment, requesting_author, request.user):
         return Response({"error": "You don't have permission to view this comment"}, status=403)
 
-    comment_data = build_comment_payload(comment, request)
-    comment_data['web']=f"{request.build_absolute_uri('/').rstrip('/')}/authors/{author.serial}/comments/{comment.serial}"
-
-    return Response(comment_data)
+    return Response(build_comment_payload(comment, request))
 
 @api_view(['GET'])
 def entry_comments(request, author_serial, entry_serial):
@@ -151,6 +161,8 @@ def entry_comments(request, author_serial, entry_serial):
 
     return Response({
         "type": "comments",
+        "id": build_entry_comments_collection_id(entry, request),
+        "web": build_entry_web_url(entry, request),
         "page_number": page,
         "size": size,
         "count": visible_comments.count(),

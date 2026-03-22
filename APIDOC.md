@@ -2,6 +2,8 @@
 
 <p>The Wheat Social Distribution API allows for easy communication with the Wheat Social Distribution Web App. Using the Django Rest Framework, one can send and receive simple HTTP requests and responses to and from the Wheat Social Distribution Web App’s server. All of the information one needs to interact with this API can be found in the following document.</p>
 
+<p>All API object <code>id</code> fields are FQIDs: full URLs that uniquely identify the object on its home node.</p>
+
 # Where to Start
 
 <p>For the time being, the Wheat Social Distribution API is only available for use locally. As such, all one must technically do in order to begin making requests towards the API is be on the local server that the target node is currently running on, and know what the hostname of the local node is. </p>

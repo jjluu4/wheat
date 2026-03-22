@@ -12,12 +12,28 @@ from ..permissions import (
     can_view_comment,
 )
 
-from ..helpers import get_pagination_params, LIKES_PAGE_SIZE, build_likes_collection, build_entry_likes_url, build_comment_likes_url
+from ..helpers import (
+    get_pagination_params,
+    LIKES_PAGE_SIZE,
+    build_likes_collection,
+    build_entry_likes_url,
+    build_comment_likes_url,
+    build_author_api_url,
+    resolve_object_by_url,
+)
 
 ENTRY_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
 COMMENT_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/commented/(?P<comment>[0-9a-f-]+)/?$")
 
 def resolve_like_target(object_url):
+    entry = resolve_object_by_url(Entry, object_url)
+    if entry is not None:
+        return "entry", entry
+
+    comment = resolve_object_by_url(Comment, object_url)
+    if comment is not None:
+        return "comment", comment
+
     entry_match = ENTRY_OBJECT_RE.search(object_url or "")
     if entry_match:
         entry = get_object_or_404(
@@ -39,8 +55,7 @@ def resolve_like_target(object_url):
     return None, None
 
 def build_like_url(request, author, like_serial):
-    base_url = request.build_absolute_uri("/").rstrip("/")
-    return f"{base_url}/api/authors/{author.serial}/liked/{like_serial}/"
+    return f"{build_author_api_url(author, request)}/liked/{like_serial}/"
 
 def serialize_like_item(like):
     """Serialize either an EntryLike or CommentLike into its API representation."""
@@ -55,6 +70,7 @@ def build_mixed_likes_collection(items, collection_id, page, size):
     return {
         "type": "likes",
         "id": collection_id,
+        "web": collection_id.replace("/api/", "/", 1),
         "page_number": page,
         "size": size,
         "count": len(items),
@@ -129,7 +145,7 @@ def author_liked(request, author_serial):
     ]
     items = sorted(entry_likes + comment_likes, key=lambda like: like.published, reverse=True)
 
-    collection_id = f"{request.build_absolute_uri('/').rstrip('/')}/api/authors/{author.serial}/liked/"
+    collection_id = f"{build_author_api_url(author, request)}/liked/"
     return Response(build_mixed_likes_collection(items, collection_id, page, size))
 
 @api_view(["GET"])
