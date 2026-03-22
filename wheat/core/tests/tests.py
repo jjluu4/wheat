@@ -1,6 +1,8 @@
+import base64
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch
 import uuid
 from core.models import Author, Entry
@@ -208,25 +210,30 @@ class EntryCreateTests(TestCase):
         self.assertEqual(entry.content_type, "text/markdown")
 
     def test_owner_can_create_image_entry_with_image_url(self):
-        """Owner can create an image entry when image_url is provided."""
+        """Owner can create an image entry when an image file is uploaded."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
+        image = SimpleUploadedFile(
+            "photo.gif",
+            base64.b64decode("R0lGODdhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs="),
+            content_type="image/gif",
+        )
         resp = self.client.post(
             url,
             data={
                 "content": "My photo",
                 "content_type": "image",
-                "image_url": "https://example.com/photo.png",
+                "uploaded_image": image,
                 "visibility": "PUBLIC",
             },
         )
         self.assertEqual(resp.status_code, 302)
         entry = Entry.objects.get(author=self.author)
         self.assertEqual(entry.content_type, "image")
-        self.assertEqual(entry.image_url, "https://example.com/photo.png")
+        self.assertTrue(entry.image_url)
 
     def test_image_entry_requires_image_url(self):
-        """Image entry creation fails if image_url is missing."""
+        """Image entry creation fails if no image file is uploaded."""
         self.client.force_login(self.user)
         url = reverse("entry_create", args=[self.author.serial])
         resp = self.client.post(
@@ -234,12 +241,11 @@ class EntryCreateTests(TestCase):
             data={
                 "content": "No url",
                 "content_type": "image",
-                "image_url": "",
                 "visibility": "PUBLIC",
             },
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "provide an image url")
+        self.assertContains(resp, "Please upload an image or change entry type")
         self.assertEqual(Entry.objects.filter(author=self.author).count(), 0)
 
     def test_non_owner_cannot_create_entry(self):
