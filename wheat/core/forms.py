@@ -14,7 +14,7 @@ class EntryForm(forms.ModelForm):
     CONTENT_TYPE_CHOICES = [
         ("text/plain", "Plain text"),
         ("text/markdown", "CommonMark (Markdown)"),
-        ("image", "Image (by URL)"),
+        ("image", "Image (Upload)"),
     ]
 
     title = forms.CharField(required=False)
@@ -27,6 +27,12 @@ class EntryForm(forms.ModelForm):
         ]
     )
 
+    uploaded_image = forms.ImageField(
+        required=False,
+        label="Upload Image",
+        help_text="Upload an image for image entries"
+    )
+
     class Meta:
         model = Entry
         fields = ["title", "content", "content_type", "image_url", "visibility"]
@@ -35,13 +41,13 @@ class EntryForm(forms.ModelForm):
         cleaned = super().clean()
         title = (cleaned.get("title") or "").strip()
         ctype = cleaned.get("content_type")
-        image_url = (cleaned.get("image_url") or "").strip()
+        uploaded_image = cleaned.get("uploaded_image")
         content = (cleaned.get("content") or "").strip()
 
-        if ctype == "image" and not image_url:
-            self.add_error("image_url", "provide an image url")
+        if ctype == "image" and not uploaded_image:
+            self.add_error("uploaded_image", "Please upload an image or change entry type")
 
         cleaned["title"] = title or getattr(self.instance, "title", "") or "Untitled"
-        cleaned["image_url"] = image_url
+        cleaned["uploaded_image"] = uploaded_image
         cleaned["content"] = content
         return cleaned

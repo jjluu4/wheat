@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 from .views import author_views, entry_views, follow_views, stream_views, authentication_views, views
 from .apis import author_api, comment_api, entry_api, follow_api, like_api
@@ -52,4 +54,5 @@ urlpatterns = [
     # Backward-compatible legacy routes
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/edit/", entry_views.edit_entry_legacy, name="entry_edit_legacy"),
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/delete/", entry_views.delete_entry_legacy, name="entry_delete_legacy"),
-]
+
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

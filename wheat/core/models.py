@@ -152,3 +152,24 @@ class Follow(models.Model):
                 fields=["actor", "target"]
             )
         ]
+
+def get_image_upload_path(instance, filename):
+    ext=filename.split('.')[-1].lower()
+    if ext not in ['jpg', 'png']:
+        ext='jpg'
+    return f"{instance.serial}.{ext}"
+
+class Image(models.Model):
+    serial = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    image = models.ImageField(upload_to=get_image_upload_path)
+    url = models.URLField(unique=True, blank=True)
+    uploaded_at = models.DateTimeField(default=timezone.now)
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='images')
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.url:
+            base_host = self.author.host.rstrip("/")
+            ext = self.image.name.split('.')[-1] if self.image else 'jpg'
+            self.url = f"/media/{self.serial}.{ext}"
+            super().save(update_fields=['url'])

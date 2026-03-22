@@ -19,7 +19,7 @@
             </h1>
 
             <div class="card">
-                <form method="post">
+                <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
 
                     {{ form.non_field_errors }}
@@ -46,10 +46,11 @@
                         {{ form.content.errors }}
                     </div>
 
-                    <div class="form-row">
-                        <label for="{{ form.image_url.id_for_label }}">Image URL (for image entries)</label>
-                        {{ form.image_url }}
-                        {{ form.image_url.errors }}
+                    <div class="form-row" id="image-upload-field">
+                        <label for="{{ form.uploaded_image.id_for_label }}">Upload Image (for image entries)</label>
+                        {{ form.uploaded_image }}
+                        <p class="hint">Upload an image file (JPG, PNG)</p>
+                        {{ form.uploaded_image.errors }}
                     </div>
 
                     <div class="form-row">

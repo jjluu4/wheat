@@ -1,8 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import os
 
-from ..models import Author, Entry
+from ..models import Author, Entry, Image
 from ..forms import EntryForm
 
 def author_owns_profile(request, author):
@@ -21,12 +24,24 @@ def create_entry(request, author_serial):
         return HttpResponseForbidden("You cannot create entries for another author.")
 
     if request.method == "POST":
-        form = EntryForm(request.POST)
+        form = EntryForm(request.POST, request.FILES)
         if form.is_valid():
             entry = form.save(commit=False)
             entry.author = author
             base_host = author.host.rstrip("/")
             entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
+
+            if form.cleaned_data['content_type'] == 'image':
+                uploaded_image = form.cleaned_data.get('uploaded_image')
+                if uploaded_image:
+                    image = Image.objects.create(
+                        author=author,
+                        image=uploaded_image
+                    )
+                    entry.image_url = image.url
+            else:
+                entry.image_url = ""
+
             entry.save()
             return redirect("author_profile", author_serial=author.serial)
     else:
@@ -48,9 +63,21 @@ def edit_entry(request, author_serial, entry_serial):
         return HttpResponseForbidden("You cannot edit a deleted entry.")
     if not author_owns_profile(request, author):
         return HttpResponseForbidden("You cannot edit another author's entries.")
+
     if request.method == "POST":
-        form = EntryForm(request.POST, instance=entry)
+        form = EntryForm(request.POST, request.FILES, instance=entry)
         if form.is_valid():
+            if form.cleaned_data['content_type'] == 'image':
+                uploaded_image = form.cleaned_data.get('uploaded_image')
+                if uploaded_image:
+                    image = Image.objects.create(
+                        author=author,
+                        image=uploaded_image
+                    )
+                    form.instance.image_url = image.url
+            else:
+                form.instance.image_url = ""
+
             form.save()
             return redirect("author_profile", author_serial=author.serial)
     else:
