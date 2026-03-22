@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Author, Entry
+from .models import Author, Entry, RemoteNode
 
 
 class AuthorProfileForm(forms.ModelForm):
@@ -51,3 +51,40 @@ class EntryForm(forms.ModelForm):
         cleaned["uploaded_image"] = uploaded_image
         cleaned["content"] = content
         return cleaned
+
+
+class RemoteNodeForm(forms.ModelForm):
+    password = forms.CharField(
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Leave blank on edit to keep the current password.",
+    )
+
+    class Meta:
+        model = RemoteNode
+        fields = [
+            "name",
+            "base_url",
+            "api_base_url",
+            "username",
+            "password",
+            "is_active",
+            "notes",
+        ]
+        help_texts = {
+            "name": "Optional label to identify this remote node.",
+            "api_base_url": "Optional. Defaults to <base_url>/api.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._existing_password = self.instance.password if self.instance.pk else ""
+        if self.instance.pk:
+            self.fields["password"].required = False
+
+    def save(self, commit=True):
+        remote_node = super().save(commit=False)
+        if self.instance.pk and not self.cleaned_data.get("password"):
+            remote_node.password = self._existing_password
+        if commit:
+            remote_node.save()
+        return remote_node

@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Q, CheckConstraint, UniqueConstraint, F
 from django.conf import settings
+from django.core.exceptions import ValidationError
 import uuid
 
 # Core is only responsible for base offline functionality, other models for node and interconnectivity should be in a new app
@@ -173,3 +174,47 @@ class Image(models.Model):
             ext = self.image.name.split('.')[-1] if self.image else 'jpg'
             self.url = f"/media/{self.serial}.{ext}"
             super().save(update_fields=['url'])
+
+
+class RemoteNode(models.Model):
+    name = models.CharField(max_length=255, blank=True, default="")
+    base_url = models.URLField(unique=True)
+    api_base_url = models.URLField(blank=True, default="")
+    username = models.CharField(max_length=255)
+    password = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name or self.base_url
+
+    @staticmethod
+    def _normalize_url(value):
+        value = (value or "").strip()
+        if not value:
+            return ""
+        return value.rstrip("/")
+
+    def clean(self):
+        super().clean()
+
+        self.name = (self.name or "").strip()
+        self.base_url = self._normalize_url(self.base_url)
+        self.api_base_url = self._normalize_url(self.api_base_url)
+        self.username = (self.username or "").strip()
+        self.notes = (self.notes or "").strip()
+
+        if self.base_url and not self.api_base_url:
+            self.api_base_url = f"{self.base_url}/api"
+
+        duplicate_qs = RemoteNode.objects.filter(base_url=self.base_url)
+        if self.pk:
+            duplicate_qs = duplicate_qs.exclude(pk=self.pk)
+        if self.base_url and duplicate_qs.exists():
+            raise ValidationError({"base_url": "A remote node with this base URL already exists."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)

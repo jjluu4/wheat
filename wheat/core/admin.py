@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Author, Entry, Comment, EntryLike, CommentLike, Follow, Image
+from .models import Author, Entry, Comment, EntryLike, CommentLike, Follow, Image, RemoteNode
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin
 
@@ -14,6 +14,14 @@ admin.site.register(CommentLike)
 admin.site.register(Follow)
 admin.site.register(Image)
 # Register your models here.
+
+
+@admin.register(RemoteNode)
+class RemoteNodeAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "base_url", "api_base_url", "username", "is_active", "updated_at")
+    search_fields = ("name", "base_url", "api_base_url", "username")
+    list_filter = ("is_active",)
+    ordering = ("base_url", "name")
 
 @admin.action(description="Approve new users")
 def approve_pending_users(modeladmin, request, queryset):
