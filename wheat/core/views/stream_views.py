@@ -25,13 +25,12 @@ def my_stream(request):
         )
     
     allEntries = Entry.get_entries(author).order_by("-published")
-    entries = allEntries.exclude(author__serial=author.serial)    
 
     return render(
         request,
         "core/stream.html",
         {
             "author": author,
-            "entries": entries,
+            "entries": allEntries,
         },
         )

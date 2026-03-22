@@ -77,7 +77,8 @@ class Entry(models.Model):
         entryFilter = (
             Q(visibility="PUBLIC") | 
             Q(visibility="FRIENDS", author__in=friends) | 
-            Q(visibility="UNLISTED", author__in=following)
+            Q(visibility="UNLISTED", author__in=following) |
+            Q(author=viewer)
         )
 
         return Entry.objects.filter(entryFilter)
