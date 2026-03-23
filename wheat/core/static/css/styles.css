@@ -409,3 +409,81 @@ ul.matrix {
     display: flex;
     flex-direction: column;
 }
+
+/* dark light mode*/
+body.theme-light {
+    background-color: #f6f7fb;
+    color: #111827;
+}
+
+body.theme-light a {
+    color: #000000;
+}
+
+body.theme-light p,
+body.theme-light .small,
+body.theme-light label,
+body.theme-light .helptext {
+    color: #000000;
+}
+
+body.theme-light h1,
+body.theme-light h2 {
+    color: #111827;
+}
+
+body.theme-light .topnav {
+    background: #ffffffd0;
+    border-bottom: 1px solid #11182710;
+}
+
+body.theme-light .card {
+    background: #ffffffc8;
+    border: 1px solid #11182712;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+body.theme-light ul li {
+    background: #ffffffb3;
+    border: 1px solid #11182710;
+}
+
+body.theme-light button,
+body.theme-light a.button-link {
+    background: #111827;
+    color: wheat;
+}
+
+body.theme-light button:hover,
+body.theme-light a.button-link:hover {
+    background: #000000;
+}
+
+body.theme-light .navlinks a {
+    color: #374151;
+}
+
+body.theme-light .profile-link,
+body.theme-light .title-link,
+body.theme-light .title {
+    color: #111827;
+}
+
+body.theme-light input,
+body.theme-light textarea,
+body.theme-light select {
+    background: #ffffff;
+    border-color: #11182720;
+    color: #111827;
+}
+
+body.theme-light input:focus,
+body.theme-light textarea:focus,
+body.theme-light select:focus {
+    border-color: #111827;
+}
+
+.theme-toggle {
+    padding: 6px 10px;
+    border-radius: 10px;
+}
