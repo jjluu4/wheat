@@ -6,7 +6,7 @@
 
 # Where to Start
 
-<p>For the time being, the Wheat Social Distribution API is only available for use locally. As such, all one must technically do in order to begin making requests towards the API is be on the local server that the target node is currently running on, and know what the hostname of the local node is. </p>
+<p>All one must technically do in order to begin making requests towards the API is know what the hostname of the node they wish to make requests to. </p>
 
 <p>However, certain requests made at specific endpoints may require signing up to successfully complete. The ability to make GET requests towards friends-only entries, as well as POST, PUT and DELETE requests are dependent upon specific user permissions, and will be denied in all cases where the user is not logged in. To sign up, one must only go to the address where their local node is currently running, press the “Sign up” button in the top right corner, and enter whatever username and password one finds appealing. This username and password can then be utilized when making requests to the API (how to achieve this is discussed below). </p>
 
@@ -57,9 +57,13 @@ ___
 | 403 Forbidden | The user making this request does not have sufficient permissions to view the requested content. |
 | 404 Not Found | The requested content could not be found. |
 
+# Objects
+
+<p>The following section goes over the numerous JSON “Objects” that represent different parts of the Wheat Social Distribution Web App. These objects are utilized when interacting with API endpoints, both as data being sent to the server, and data being received from the server. This section covers the major endpoints that are associated with each object type, the requests and responses associated with those endpoints, and the make-up of each object, providing examples for reference. </p>
+
 # API Endpoints and Their Objects
 
-<p>The following section covers each of the API Endpoints that one can interact with while using this API. For each endpoint a template is provided for the general layout of each endpoint. An example curl command is also provided for each viable request type at each endpoint, as well as the response behavior that comes about from that command. A list of possible error response codes is also provided for each example. Example objects are provided for each API end point as well.</p>
+<p>The following section covers each of the API Endpoints that one can interact with while using this API. For each endpoint a template is provided for the general layout of each endpoint. An example curl command is also provided for each viable request type at each endpoint, as well as the response behavior that comes about from that command. A list of possible error response codes is also provided for each example. </p>
 
 ___
 ## Authors API - Retrieve a list of authors
@@ -284,10 +288,14 @@ ___
 
 > \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/
 
+> \<Node Address\>/api/entries/\<Entry FQID\>/
+
 ___
 #### GET Request with curl
 
 > curl -X GET http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
+
+> curl -X GET http<nolink>://127.0.0.1:8000/api/entries/http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
 
 > **RETURNS “Entry Object” with Code=200**
 
@@ -428,6 +436,27 @@ Represents a single entry on the Wheat Social Distribution Web App. Entry Object
 ```
 
 ___
+## Image Entry API - Get an entry's image directly.
+
+___
+#### Endpoint Pattern
+
+> \<Node Address\>/api/authors/<Author Serial\>/entries/\<Entry Serial\>/image/
+
+> \<Node Address\>/api/entries/\<Entry FQID\>/image/
+
+___
+#### GET Request with curl
+
+> curl -X GET http<nolink>://127.0.0.1:8000/api/authors/a7fd7cd9-5d3a-4721-b3c7-e6aa86589ad1/entries/7ad06688-edad-404c-8640-f3c508ea54ba/image/
+
+> curl -X GET http<nolink>://127.0.0.1:8000/api/entries/http<nolink>://127.0.0.1:8000/api/authors/a7fd7cd9-5d3a-4721-b3c7-e6aa86589ad1/entries/7ad06688-edad-404c-8640-f3c508ea54ba/image/
+
+> **RETURNS base-64 encoded Image directly**
+
+Possible Error Codes: <br>400 [Occurs if user provides invalid image data], <br>403 [Occurs if user has not logged in], <br>404 [Occurs if the requested image cannot be found or is not an image entry.]
+
+___
 ## Follow Requests API - Get a list of follow requests for an author
 
 ___
@@ -441,7 +470,7 @@ ___
 
 > **RETURNS JSON Array of “Author Objects” with Code=200**
 
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to view follow requests of an author they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
+Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to view an image they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
 
 ___
 ## Author Object
@@ -477,7 +506,7 @@ Represents a single user on the Wheat Social Distribution Web App.
 ```
 
 ___
-## Following API - Get the list of people an author is following
+## Author Following API - Get the list of people an author is following
 
 ___
 #### Endpoint Pattern
@@ -524,6 +553,86 @@ Represents a set of Authors who are followed by another specified author on the 
     ]
 }
 ```
+
+___
+## Following API - Check if an author is following another author on a different node. Unfollow a remote user through the API. Make a follow request to a remote author.
+
+___
+#### Endpoint Pattern
+
+api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>
+> \<Node Address\>/api/authors/\<Author Serial\>/following/\<Foreign Author FQID\>
+
+___
+#### GET Request with curl
+
+> curl -X GET http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+
+> **RETURNS “Is Following Boolean Value” with Code=200**
+
+Example of return dict: {"is_following": False}
+
+Possible Error Codes: <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to a follow request for an author they do not have permission to], <br> 404 [Occurs if either author is not retrievable]
+
+___
+#### PUT Request with curl
+
+> curl --user example_username:example_password -X PUT hhttp<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+
+> **Creates follow request in database with Code=204**
+
+Creates a follow request towards an author on a remote node with the corresponding serial in the database contained in “exampleFile.json”. If successful returns Code=204
+
+Possible Error Codes:<br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to a follow request for an author they do not have permission to], <br> 404 [Occurs if either author is not retrievable]
+
+___
+#### DELETE Request with curl
+
+> curl -X DELETE http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+
+> **Unfollows foreign author with Code=204**
+
+Possible Error Codes: <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to unfollow an author for an author they do not have permission to], <br> 404 [Occurs if acting author is not retrievable]
+
+___
+## Followers API - Check if an author is followed by another author on a different node. Remove a remote author as a follower through the API. Accept a follow request to a remote author.
+
+___
+#### Endpoint Pattern
+
+api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>
+> \<Node Address\>/api/authors/\<Author Serial\>/followers/\<Foreign Author FQID\>
+
+___
+#### GET Request with curl
+
+> curl -X GET http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/followers/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+
+> **RETURNS “Is Follower Boolean Value” with Code=200**
+
+Example of return dict: {"is_follower": True}
+
+Possible Error Codes: <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts check follower status for an author they do not have permission to], <br> 404 [Occurs if author is not retrievable]
+
+___
+#### PUT Request with curl
+
+> curl --user example_username:example_password -X PUT hhttp<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+
+> **Creates follow request in database with Code=204**
+
+Creates a follow request towards an author on a remote node with the corresponding serial in the database contained in “exampleFile.json”. If successful returns Code=204
+
+Possible Error Codes:<br>400 [Occurs if request could not be properly processed], <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to accept a follow request on behalf of an author they do not have permission to], <br> 404 [Occurs if either author is not retrievable]
+
+___
+#### DELETE Request with curl
+
+> curl -X DELETE http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+
+> **Unfollows foreign author with Code=204**
+
+Possible Error Codes:<br>400 [Occurs if request could not be properly processed], <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to remove an author as a follower on behalf of an author they do not have permission to], <br> 404 [Occurs if author is not retrievable]
 
 ___
 ## Commented API - Get a list of an author’s comments. Post a comment through the API.
@@ -1015,6 +1124,49 @@ Represents a set of Likes on the Wheat Social Distribution Web App.
     ]
 }
 ```
+
+___
+## Inbox API - Post an Entry/Like/Comment/Follow Request to a Remote Stream. Edit an Entry/Follow Request in a remote node. Mark a remote entry as deleted.
+
+___
+#### Endpoint Pattern
+
+> \<Node Address\>/api/authors/\<Author Serial\>/inbox
+
+___
+#### POST Request with curl
+
+> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/inbox -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+
+> **CREATES Entry/Comment/Like/Follow Request in database with Code=201**
+
+Checks the type of object contained in “exampleFile.json” and will create a new object in the database accordingly. If successful, returns Code=201. May return a Code=204 if both nodes do not have each other enabled in their list of remote nodes.
+
+Possible Error Codes: <br>400 [Occurs if Entry object is listed as an image when it is not one], <br>401 [Occurs if User is not authenticated], <br>403 [Occurs if user attempts to post an entry for an author they do not have permission to], 
+
+___
+#### PUT Request with curl
+
+> curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/inbox/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+
+> **EDITS Entry in database with Code=200**
+
+Takes in a json representation of a remote “Entry Object” through “exampleFile.json” and edits the Entry with the corresponding FQID in the database. If successful, returns Code=200. May return a Code=204 if both nodes do not have each other enabled in their list of remote nodes.
+
+Possible Error Codes: <br>400 [Occurs if Entry object is listed as an image when it is not one], <br>401 [Occurs if User is not authenticated], <br>403 [Occurs if user attempts to edit a like or comment, or an entry for an author they do not have permission to], 
+
+___
+#### DELETE Request with curl
+
+> curl -X DELETE http<nolink>:\//127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/inbox/
+
+> **DELETES “Entry Object” with Code=204**
+
+Takes in a json representation of a remote “Entry Object” through “exampleFile.json” and sets the Entry with the corresponding FQID to “deleted” in the database. If successful, returns Code=204. May also return a Code=204 if both nodes do not have each other enabled in their list of remote nodes.
+
+Possible Error Codes: <br>403 [Occurs if User attempts to delete a Comment, Like, or Follow]
+
+
 
 ___
 <br><br><br>
