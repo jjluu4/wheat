@@ -50,7 +50,9 @@
         <div class="small edit" style="display: flex; align-items: center; gap: 10px;">
 
             {% if request.user.is_authenticated %}
+            
             <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
+           
             <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
             {% endif %}
             <button type="button" onclick="toggleComments('{{ entry.serial }}')">All Comments</button>

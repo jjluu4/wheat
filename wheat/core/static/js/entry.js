@@ -21,6 +21,11 @@ function updateEntryLikeCount(entryNode, count) {
 }
 
 function postLike(userSerial, objectUrl, csrfToken) {
+    const localObjectUrl = toSameNodeApiPath(objectUrl);
+    if (!localObjectUrl) {
+        return Promise.reject(new Error('Rejected cross-node or non-api like target'));
+    }
+
     return fetch(`/api/authors/${userSerial}/liked/`, {
         method: 'POST',
         headers: {
@@ -29,7 +34,7 @@ function postLike(userSerial, objectUrl, csrfToken) {
         },
         body: JSON.stringify({
             type: 'like',
-            object: objectUrl,
+            object: localObjectUrl,
         }),
     }).then(async (response) => {
         let data = {};
@@ -40,6 +45,21 @@ function postLike(userSerial, objectUrl, csrfToken) {
         }
         return { response, data };
     });
+}
+
+function toSameNodeApiPath(value) {
+    if (!value) return value;
+    const str = String(value);
+    if (str.startsWith("/api/")) return str;
+
+    try {
+        const url = new URL(str, window.location.origin);
+        if (url.origin !== window.location.origin) return null;
+        if (!url.pathname.startsWith('/api/')) return null;
+        return `${url.pathname}${url.search}${url.hash}`;
+    } catch (_) {
+        return null;
+    }
 }
 
 function refreshEntryLikeCount(entrySerial) {
@@ -64,7 +84,7 @@ function toggleLike(entrySerial) {
     const userSerial = getCurrentUserSerial(entryNode);
     if (!userSerial) return;
 
-    const objectUrl = `${window.location.origin}/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
+    const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
     postLike(userSerial, objectUrl, getCsrfToken(entryNode))
         .then(({ response, data }) => {
             if (response.ok) {
@@ -115,7 +135,7 @@ function submitComment(event) {
         },
         body: JSON.stringify({
             type: 'comment',
-            entry: `${window.location.origin}/api/authors/${authorSerial}/entries/${entrySerial}/`,
+            entry: `/api/authors/${authorSerial}/entries/${entrySerial}/`,
             content: formData.get('content')
         })
 
