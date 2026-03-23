@@ -1,12 +1,12 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
-import base64, urllib, mimetypes, io
+import base64, urllib, mimetypes, io, requests
 from PIL import Image as PILImage
 
-from ..auth import require_auth_for_view
-from ..models import Author, Entry, Image
+from ..auth import require_auth_for_view, add_auth_headers
+from ..models import Author, Entry, Image, RemoteNode
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
@@ -181,8 +181,47 @@ def get_author_image_entry(request, author_serial, entry_serial):
     GET: Get an entry converted to binary as an image.
     """
     require_auth_for_view(False)
-    entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
-    return serve_image(request, entry)
+
+    try:
+        entry = Entry.objects.get(serial=entry_serial, author__serial=author_serial)
+        return serve_image(request, entry)
+        
+    except Entry.DoesNotExist:
+        try:
+            author = Author.objects.get(serial=author_serial)
+        except Author.DoesNotExist:
+            return Response({"error": "Author and Entry not found."}, status=404)
+            
+        parsed_url = urllib.parse.urlparse(author.host)
+        if not parsed_url.netloc:
+            return Response({"error": "Invalid author FQID format"},status=400)
+        remote_host = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        
+        try:
+            remote_node = RemoteNode.objects.get(base_url=remote_host, is_active=True)
+
+            headers = {'Accept': 'application/json','User-Agent': 'SocialDistribution/1.0'}
+            headers = add_auth_headers(headers, remote_node)
+            
+            base_url = author.host.rstrip('/')
+            remote_image_url = f"{base_url}/authors/{author_serial}/entries/{entry_serial}/image"
+            
+            remote_response = requests.get(
+                remote_image_url,
+                headers=headers,
+                timeout=10
+            )
+            
+            if remote_response.status_code == 200:
+                content_type = remote_response.headers.get('Content-Type', 'image/jpeg')
+                return HttpResponse(remote_response.content, content_type=content_type)
+            else:
+                return Response({"error": "Remote image fetch failed."}, status=remote_response.status_code)
+                
+        except RemoteNode.DoesNotExist:
+            return Response({"error": "Image not found locally, and remote node not configured."}, status=404)
+        except requests.exceptions.RequestException:
+            return Response({"error": "Failed to connect to remote node."}, status=503)
 
 @api_view(["GET"])
 def get_fqid_image_entry(request, entry_fqid):
@@ -193,8 +232,43 @@ def get_fqid_image_entry(request, entry_fqid):
     """
     require_auth_for_view(False)
     decoded_fqid = urllib.parse.unquote(entry_fqid)
-    entry = get_object_or_404(Entry, url=decoded_fqid)
-    return serve_image(request, entry)
+
+    try:
+        entry = Entry.objects.get(url=decoded_fqid)
+        return serve_image(request, entry)
+    except Entry.DoesNotExist:
+        parsed_url = urllib.parse.urlparse(decoded_fqid)
+        if not parsed_url.netloc:
+            return Response({"error": "Invalid author FQID format"},status=400)
+        remote_host = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+        try:
+            remote_node = RemoteNode.objects.get(base_url=remote_host, is_active=True)
+
+            headers = {'Accept': 'application/json','User-Agent': 'SocialDistribution/1.0'}
+            headers = add_auth_headers(headers, remote_node)
+            
+            remote_image_url = f"{decoded_fqid.rstrip('/')}/image"
+            
+            remote_response = requests.get(
+                remote_image_url,
+                headers=headers,
+                timeout=10
+            )
+            
+            if remote_response.status_code == 200:
+                content_type = remote_response.headers.get('Content-Type', 'image/jpeg')
+                
+                return HttpResponse(remote_response.content, content_type=content_type)
+            elif remote_response.status_code == 404:
+                return Response({"error": "Image not found on remote node."}, status=404)
+            else:
+                return Response({"error": f"Remote node returned status {remote_response.status_code}"}, status=502)
+                
+        except RemoteNode.DoesNotExist:
+            return Response({"error": "Image not found locally, and remote node not configured."}, status=404)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"Failed to connect to remote node: {str(e)}"}, status=503)
 
 def serve_image(request, entry):
     """
