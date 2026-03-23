@@ -48,7 +48,7 @@
                
             </div>
 
-            <h2>{% if is_owner %}Your Entries{% else %}Public Entries{% endif %}</h2>
+            <h2>{{ entries_heading }}</h2>
 
             {% if author.user_id == request.user.id or request.user.is_staff %}
             <p>
@@ -64,7 +64,7 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p>{% if is_owner %}No entries yet.{% else %}No public entries yet.{% endif %}</p>
+                <p>{% if is_owner %}No entries yet.{% elif entries_heading == "Visible Entries" %}No visible entries yet.{% else %}No public entries yet.{% endif %}</p>
                 {% endif %}
             </div>
         </div>

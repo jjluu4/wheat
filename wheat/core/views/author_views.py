@@ -6,6 +6,7 @@ import uuid
 from ..models import Author, Entry, Follow
 from ..github import fetch_public_events
 from ..github_to_entries import save_event_as_entry
+from ..permissions import get_requesting_author
 
 def author_list(request):
     """Render a list of all authors ordered by display name."""
@@ -16,6 +17,7 @@ def author_list(request):
 def author_profile(request, author_serial):
     """Show an author's profile page and their visible entries."""
     author = get_object_or_404(Author, serial=author_serial)
+    requesting_author = get_requesting_author(request)
 
     # Auto-import newest GitHub events as PUBLIC entries
     # (should not duplicate if save_event_as_entry uses unique URL)
@@ -35,15 +37,24 @@ def author_profile(request, author_serial):
 
     if is_owner:
         entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
+        entries_heading = "Your Entries"
+    elif requesting_author:
+        entries = (
+            Entry.get_entries(requesting_author)
+            .filter(author=author)
+            .exclude(visibility="DELETED")
+        )
+        entries_heading = "Visible Entries"
     else:
         entries = Entry.objects.filter(author=author, visibility="PUBLIC")
+        entries_heading = "Public Entries"
 
     entries = entries.order_by("-published")
 
     followStatus = None
-    if request.user.is_authenticated:
+    if requesting_author and requesting_author != author:
         follow = Follow.objects.filter(
-            actor=request.user.author_profile,
+            actor=requesting_author,
             target=author
         ).first()
 
@@ -58,6 +69,7 @@ def author_profile(request, author_serial):
             "author": author,
             "entries": entries,
             "is_owner": is_owner,
+            "entries_heading": entries_heading,
             "followStatus": followStatus,
         },
     )
