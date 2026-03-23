@@ -3,9 +3,11 @@ from django.shortcuts import get_object_or_404
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
-from ..auth import is_local_author_authenticated, is_remote_node_authenticated
+
+from ..auth import is_remote_node_authenticated
 from ..helpers import build_comment_payload, build_entry_payload, normalize_url, resolve_object_by_url
 from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem
+
 
 def create_or_update_author(author_payload, request):
     if not isinstance(author_payload, dict):
@@ -166,7 +168,6 @@ def build_item_id_from_payload(payload):
 def inbox_item(request, author_serial):
     inbox_owner = get_object_or_404(Author, serial=author_serial)
 
-    # Spec: inbox is node-to-node communication endpoint.
     if not is_remote_node_authenticated(request):
         return Response({"error": "Authentication required"}, status=401)
 
@@ -191,7 +192,7 @@ def inbox_item(request, author_serial):
         response = Response(build_comment_payload(comment, request), status=201)
     elif object_type == "follow":
         follow, error = create_or_update_follow(payload, request, inbox_owner)
-        if error:   
+        if error:
             return Response({"error": error}, status=400)
         response = Response(
             {

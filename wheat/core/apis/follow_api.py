@@ -39,6 +39,7 @@ def forward_follow_request_to_remote_inbox(actor, target):
         return
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def get_following_list(request, author_serial):
     """
     Retrieves the list of authors that the specified author is following
@@ -63,6 +64,7 @@ def get_following_list(request, author_serial):
         })
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def get_follow_requests_api(request, author_serial):
     """
     Retrieves all pending follow requests for the specified author, returns a list of follow request objects
@@ -115,6 +117,7 @@ def followers_api(request, author_serial):
     })
 
 @api_view(['GET', 'DELETE', 'PUT'])
+@authentication_classes([SessionAuthentication])
 def following_api(request, author_serial, foreign_author_fqid):
     """
     Handles operations to manage a single following relationship.

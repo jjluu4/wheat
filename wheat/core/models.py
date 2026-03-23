@@ -36,7 +36,7 @@ class Author(models.Model):
 
     url = models.URLField(unique=True)
     host = models.URLField()
-    displayName = models.CharField(max_length=255)
+    displayName = models.CharField(max_length=32)
     github = models.URLField(blank=True, default="")
     description = models.TextField(blank=True, default="")
     profileImage = models.URLField(blank=True, default="https://placehold.co/600x400")

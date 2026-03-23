@@ -8,6 +8,7 @@ from ..auth import is_remote_node_authenticated, require_auth_for_view
 from ..models import Author
 from ..serializers import AuthorSerializer
 
+
 @api_view(['GET'])
 @authentication_classes([SessionAuthentication])
 def all_authors(request):
@@ -21,60 +22,58 @@ def all_authors(request):
     require_auth_for_view(False)
 
     try:
-        page=int(request.GET.get('page', 1))
+        page = int(request.GET.get('page', 1))
         if page < 1:
-            page=1
-    except:
-        page=1
+            page = 1
+    except Exception:
+        page = 1
 
     try:
-        size=int(request.GET.get('size', 5))
+        size = int(request.GET.get('size', 5))
         if size < 1:
-            size=5
-    except:
-        size=5
+            size = 5
+    except Exception:
+        size = 5
 
-    offset=(page-1)*size
-
-    serializer=AuthorSerializer(Author.objects.all()[offset:offset+size], many=True)
-
+    offset = (page - 1) * size
+    serializer = AuthorSerializer(Author.objects.all()[offset:offset + size], many=True)
     return Response({"type": "authors", "authors": serializer.data})
 
+
 @api_view(['GET', 'PUT'])
-def single_author(request, author_serial): 
+def single_author(request, author_serial):
     """
     Handles operations on a single author profile
 
     GET: Retrieve the author's profile information
     PUT: Update the author's profile. Requires authentication as the author
     """
-    author=get_object_or_404(Author, serial=author_serial)
+    author = get_object_or_404(Author, serial=author_serial)
 
-    if request.method=='GET':
+    if request.method == 'GET':
         require_auth_for_view(False)
-        serializer=AuthorSerializer(author)
+        serializer = AuthorSerializer(author)
         return Response(serializer.data)
 
-    elif request.method=='PUT':
-        require_auth_for_view(True)
-        if not request.user.is_authenticated:
-            return Response(data={"error": "Authentication required to update profile"},status=401)
+    require_auth_for_view(True)
+    if not request.user.is_authenticated:
+        return Response(data={"error": "Authentication required to update profile"}, status=401)
 
-        if not hasattr(request.user,'author_profile') or request.user.author_profile!=author:
-            return Response(data={"error": "You don't have permission to update this profile"},status=403)
+    if not hasattr(request.user, 'author_profile') or request.user.author_profile != author:
+        return Response(data={"error": "You don't have permission to update this profile"}, status=403)
 
-        for field in ['displayName', 'github', 'profileImage']:
-            if field in request.data:
-                setattr(author, field, request.data[field])
+    for field in ['displayName', 'github', 'profileImage']:
+        if field in request.data:
+            setattr(author, field, request.data[field])
 
-        author.save()
+    author.save()
+    serializer = AuthorSerializer(author)
+    return Response(serializer.data)
 
-        serializer=AuthorSerializer(author)
-        return Response(serializer.data)
 
 @api_view(['GET'])
 @authentication_classes([SessionAuthentication])
-def single_author_fqid(request, author_fqid): 
+def single_author_fqid(request, author_fqid):
     """
     Retrieves an author's profile information by fqid.
 
