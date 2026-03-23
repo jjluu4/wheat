@@ -83,7 +83,7 @@ class Entry(models.Model):
             Q(author=viewer)
         )
 
-        return Entry.objects.filter(entryFilter)
+        return Entry.objects.filter(entryFilter).exclude(visibility="DELETED")
 
 
 

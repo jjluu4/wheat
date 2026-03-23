@@ -523,3 +523,43 @@ class EntryProfileVisibilityTests(TestCase):
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertNotContains(resp, "New entry")
         self.assertNotContains(resp, "Edit profile")
+
+
+class StreamDeletedEntryVisibilityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="stream-owner", password="pass12345")
+        self.author = Author.objects.create(
+            user=self.user,
+            url="http://testserver/api/authors/stream-owner",
+            host="http://testserver/api/",
+            displayName="StreamOwner",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/stream-owner/",
+        )
+        Entry.objects.create(
+            url="http://testserver/api/authors/stream-owner/entries/live",
+            author=self.author,
+            title="Live entry",
+            content="Visible stream content",
+            content_type="text/plain",
+            visibility="PUBLIC",
+            published=timezone.now(),
+        )
+        Entry.objects.create(
+            url="http://testserver/api/authors/stream-owner/entries/deleted",
+            author=self.author,
+            title="Deleted entry",
+            content="Should not appear",
+            content_type="text/plain",
+            visibility="DELETED",
+            published=timezone.now(),
+        )
+
+    def test_owner_stream_excludes_soft_deleted_entries(self):
+        """Owner stream excludes entries marked DELETED."""
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse("my_stream"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Visible stream content")
+        self.assertNotContains(resp, "Should not appear")
