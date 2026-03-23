@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+import urllib
 
 from ..auth import require_auth_for_view
 from ..models import Author
@@ -68,3 +69,16 @@ def single_author(request, author_serial):
 
         serializer=AuthorSerializer(author)
         return Response(serializer.data)
+
+@api_view(['GET'])
+def single_author_fqid(request, author_fqid): 
+    """
+    Retrieves an author's profile information by fqid.
+
+    GET: Retrieve the author's profile information.
+    """
+    require_auth_for_view(False)
+
+    decoded_fqid = urllib.parse.unquote(author_fqid)
+    author = get_object_or_404(Author, url=decoded_fqid)
+    return Response(AuthorSerializer(author).data)
