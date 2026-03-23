@@ -81,7 +81,6 @@ def following_api(request, author_serial, foreign_author_fqid):
         return Response(data="You don't have permission to manage this following list.", status=403)
     
     decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
-    
     foreign_author = Author.objects.filter(url=decoded_fqid).first()
     
     if request.method == "GET":

@@ -13,6 +13,7 @@ from ..permissions import (
     can_view_entry,
 )
 from ..helpers import get_pagination_params, build_entry_payload
+from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
 def single_entry(request, author_serial, entry_serial):
@@ -154,14 +155,34 @@ def author_entries(request, author_serial):
         return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(["GET"])
+def get_entry_fqid(request, entry_fqid):
+    """
+    Handles getting an entry by fqid.
+    Friends-only posts require authentication.
+
+    GET: Retrieve the entry based on its fqid.
+    """
+    require_auth_for_view(False)
+    decoded_fqid = urllib.parse.unquote(entry_fqid)
+    entry = get_object_or_404(Entry, url=decoded_fqid)
+
+    requestingAuthor = get_requesting_author(request)
+
+    # Ensure the user has permissions to view the entry.
+    if not can_view_entry(entry, requestingAuthor, request.user):
+        return Response({"error": "You do not have permission to view this entry."}, status=403)
+    
+    return Response(EntrySerializer(entry).data)
+
+@api_view(["GET"])
 def get_author_image_entry(request, author_serial, entry_serial):
     """
     Handles the retrieval of an image by author and entry serials.
 
     GET: Get an entry converted to binary as an image.
     """
-    entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     require_auth_for_view(False)
+    entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     return serve_image(request, entry)
 
 @api_view(["GET"])
@@ -171,9 +192,9 @@ def get_fqid_image_entry(request, entry_fqid):
 
     GET: Get an entry converted to binary as an image.
     """
+    require_auth_for_view(False)
     decoded_fqid = urllib.parse.unquote(entry_fqid)
     entry = get_object_or_404(Entry, url=decoded_fqid)
-    require_auth_for_view(False)
     return serve_image(request, entry)
 
 def serve_image(request, entry):
@@ -184,7 +205,7 @@ def serve_image(request, entry):
 
     # Ensure the user has permissions to view the entry.
     if not can_view_entry(entry, requestingAuthor, request.user):
-        return Response({"error": "You do not have permission to get this image entry."}, status=403)
+        return Response({"error": "You do not have permission to view this image entry."}, status=403)
 
     # Ensure correct content type
     if not entry.content_type.startswith("image") or entry.content_type.startswith("application/"):

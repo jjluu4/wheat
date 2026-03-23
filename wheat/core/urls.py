@@ -55,6 +55,7 @@ urlpatterns = [
     path("api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>", follow_api.following_api, name="api_following"),
     path("api/authors/<uuid:author_serial>/followers/<path:foreign_author_fqid>", follow_api.follower_api, name="api_followers"),
     path('api/authors/<uuid:author_serial>/inbox', inbox_api.inbox_item, name='api_inbox_item'),
+    path("api/entries/<path:entry_fqid>/", entry_api.get_entry_fqid, name="api_entry_fqid"),
 
 
     # Canonical stable routes use entry serial (UUID), not DB pk
