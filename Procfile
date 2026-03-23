@@ -1,1 +1,1 @@
-web: gunicorn lab3.wsgi --chdir lab3
+web: gunicorn wheat.wsgi --chdir wheat
