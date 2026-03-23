@@ -22,6 +22,32 @@ def add_auth_headers(headers, remote):
     return headers
 
 
+def get_remote_node_from_request(request):
+    auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth_header.startswith("Basic "):
+        return None
+    try:
+        encoded = auth_header[6:]
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+    return RemoteNode.objects.filter(username=username, password=password, is_active=True).first()
+
+
+def is_remote_node_authenticated(request):
+    return get_remote_node_from_request(request) is not None
+
+
+def is_local_author_authenticated(request, author):
+    return (
+        request.user.is_authenticated
+        and hasattr(request.user, "author_profile")
+        and request.user.author_profile == author
+    )
+
+
 class AuthMiddleware(MiddlewareMixin):
     """middleware requiring basic auth for API calls"""
 

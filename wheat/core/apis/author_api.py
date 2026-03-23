@@ -1,13 +1,15 @@
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import urllib
 
-from ..auth import require_auth_for_view
+from ..auth import is_remote_node_authenticated, require_auth_for_view
 from ..models import Author
 from ..serializers import AuthorSerializer
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def all_authors(request):
     """
     Retrieves a paginated list of all authors on this node
@@ -71,6 +73,7 @@ def single_author(request, author_serial):
         return Response(serializer.data)
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def single_author_fqid(request, author_fqid): 
     """
     Retrieves an author's profile information by fqid.
@@ -78,6 +81,8 @@ def single_author_fqid(request, author_fqid):
     GET: Retrieve the author's profile information.
     """
     require_auth_for_view(False)
+    if not (request.user.is_authenticated or is_remote_node_authenticated(request)):
+        return Response({"error": "Authentication required"}, status=401)
 
     decoded_fqid = urllib.parse.unquote(author_fqid)
     author = get_object_or_404(Author, url=decoded_fqid)

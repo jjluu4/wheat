@@ -1,7 +1,8 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
-from core.models import Author, Follow
+from core.models import Author, Follow, RemoteNode
 import uuid
+import base64
 
 
 class FollowAPITest(APITestCase):
@@ -17,6 +18,14 @@ class FollowAPITest(APITestCase):
     
         Follow.objects.create(actor=self.author2, target=self.author1, status="REQUESTED")
         Follow.objects.create(actor=self.author1, target=self.author3, status="ACCEPTED")
+        self.remote_node = RemoteNode.objects.create(
+            name="remote-auth-node",
+            base_url="http://remote-auth-node.example.com",
+            api_base_url="http://remote-auth-node.example.com/api",
+            username="remote_user",
+            password="remote_pass",
+            is_active=True,
+        )
 
     def testFollowingList(self):
         """Authenticated author sees only accepted follows in following list."""
@@ -42,5 +51,20 @@ class FollowAPITest(APITestCase):
 
         self.assertIn(self.author2.displayName, followRequests)
         self.assertNotIn(self.author3.displayName, followRequests)
+
+    def test_follower_check_allows_remote_basic_auth(self):
+        """Remote node basic auth can call follower check endpoint."""
+        follow = Follow.objects.get(actor=self.author2, target=self.author1)
+        follow.status = "ACCEPTED"
+        follow.save(update_fields=["status"])
+        fqid = self.author2.url
+        encoded = base64.b64encode(b"remote_user:remote_pass").decode("utf-8")
+        response = self.client.get(
+            f"/api/authors/{self.author1.serial}/followers/{fqid}",
+            HTTP_AUTHORIZATION=f"Basic {encoded}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get("type"), "author")
+        self.assertEqual(response.data.get("id"), str(self.author2.url))
     
     

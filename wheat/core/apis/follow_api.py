@@ -1,11 +1,42 @@
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import urllib
-
-from ..auth import require_auth_for_view
-from ..models import Author, Follow
+import requests
+from ..auth import (
+    add_auth_headers,
+    is_local_author_authenticated,
+    is_remote_node_authenticated,
+    require_auth_for_view,
+)
+from ..helpers import normalize_url
+from ..models import Author, Follow, RemoteNode
 from ..serializers import AuthorSerializer
+
+
+def forward_follow_request_to_remote_inbox(actor, target):
+    target_host = normalize_url(getattr(target, "host", ""))
+    if not target_host or "testserver" in target_host:
+        return
+
+    base_url = target_host[:-4] if target_host.endswith("/api") else target_host
+    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    if remote is None:
+        return
+
+    inbox_url = f"{target_host}/authors/{target.serial}/inbox"
+    payload = {
+        "type": "follow",
+        "summary": f"{actor.displayName} wants to follow {target.displayName}",
+        "actor": AuthorSerializer(actor).data,
+        "object": AuthorSerializer(target).data,
+    }
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
+    try:
+        requests.post(inbox_url, json=payload, headers=headers, timeout=5)
+    except requests.RequestException:
+        return
 
 @api_view(['GET'])
 def get_following_list(request, author_serial):
@@ -19,8 +50,8 @@ def get_following_list(request, author_serial):
 
     if not request.user.is_authenticated:
         return Response(data="Authentication is required to retrieve the following list.", status=401)
-    
-    if author.user != request.user:
+
+    if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to view this following list.", status=403)
     
     followingList = author.get_following()
@@ -43,8 +74,8 @@ def get_follow_requests_api(request, author_serial):
 
     if not request.user.is_authenticated:
         return Response(data="Authentication is required to retrieve these follow requests.", status=401)
-    
-    if author.user != request.user:
+
+    if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to view these follow requests.", status=403)
     
     requestList = Follow.objects.filter(target=author, status="REQUESTED")
@@ -63,6 +94,26 @@ def get_follow_requests_api(request, author_serial):
 
     return Response(data)
 
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+def followers_api(request, author_serial):
+    """
+    GET followers collection for an author.
+    """
+    author = get_object_or_404(Author, serial=author_serial)
+    require_auth_for_view(True)
+
+    if not (is_local_author_authenticated(request, author) or is_remote_node_authenticated(request)):
+        return Response(data="Authentication is required.", status=401)
+
+    followers = Author.objects.filter(following__target=author, following__status="ACCEPTED")
+    serializer = AuthorSerializer(followers, many=True)
+    return Response({
+        "type": "followers",
+        "followers": serializer.data,
+    })
+
 @api_view(['GET', 'DELETE', 'PUT'])
 def following_api(request, author_serial, foreign_author_fqid):
     """
@@ -77,7 +128,7 @@ def following_api(request, author_serial, foreign_author_fqid):
         return Response(data="Authentication is required.", status=401)
     
     author = get_object_or_404(Author, serial=author_serial)
-    if author.user != request.user:
+    if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to manage this following list.", status=403)
     
     decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
@@ -105,21 +156,12 @@ def following_api(request, author_serial, foreign_author_fqid):
             follow.status = "REQUESTED"
             follow.save()
 
-            serializedActor = AuthorSerializer(author)
-            serializedTarget = AuthorSerializer(foreign_author)
+            forward_follow_request_to_remote_inbox(author, foreign_author)
 
-            payload = {
-                "type": "follow",
-                "summary": f"{author.displayName} wants to follow {foreign_author.displayName}",
-                "actor": serializedActor.data,
-                "target": serializedTarget.data,
-            }
-        
-        # TODO: A follow request should be sent to the target's inbox API.
-        
         return Response(status=204)
 
 @api_view(['GET', 'DELETE', 'PUT'])
+@authentication_classes([SessionAuthentication])
 def follower_api(request, author_serial, foreign_author_fqid):
     """
     Handles operations to manage a single follower relationship.
@@ -128,30 +170,38 @@ def follower_api(request, author_serial, foreign_author_fqid):
     DELETE: Removes a foreign author as a follower.
     PUT: Accepts a follow request from a foreign author.
     """
-    require_auth_for_view(True)
-    if not request.user.is_authenticated:
-        return Response(data="Authentication is required.", status=401)
-    
     author = get_object_or_404(Author, serial=author_serial)
-    if author.user != request.user:
-        return Response(data="You don't have permission to manage these followers.", status=403)
+    require_auth_for_view(True)
     
     decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
     foreign_author = Author.objects.filter(url=decoded_fqid).first()
-    
+
     if request.method == "GET":
+        # Local owner or authenticated remote node may check follower status.
+        if not (is_local_author_authenticated(request, author) or is_remote_node_authenticated(request)):
+            return Response(data="Authentication is required.", status=401)
         if not foreign_author:
-            return Response({"is_follower": False}, status=200)
+            return Response({"error": "Follower not found"}, status=404)
         
         is_follower = Follow.objects.filter(actor=foreign_author, target=author, status="ACCEPTED").exists()
-        return Response({"is_follower": is_follower}, status=200)
+        if not is_follower:
+            return Response({"error": "Follower not found"}, status=404)
+        return Response(AuthorSerializer(foreign_author).data, status=200)
 
     elif request.method == "DELETE":
+        if not is_local_author_authenticated(request, author):
+            if not request.user.is_authenticated:
+                return Response(data="Authentication is required.", status=401)
+            return Response(data="You don't have permission to manage these followers.", status=403)
         if foreign_author:
             Follow.objects.filter(actor=foreign_author, target=author).delete()
         return Response(status=204)
 
     elif request.method == "PUT":
+        if not is_local_author_authenticated(request, author):
+            if not request.user.is_authenticated:
+                return Response(data="Authentication is required.", status=401)
+            return Response(data="You don't have permission to manage these followers.", status=403)
         if not foreign_author:
             return Response({"error": "Foreign author not found."}, status=404)
 

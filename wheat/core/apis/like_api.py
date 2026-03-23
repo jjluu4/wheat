@@ -1,11 +1,14 @@
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
 import re
+import requests
 
-from ..auth import require_auth_for_view
-from ..models import Author, Entry, Comment, EntryLike, CommentLike
+from ..auth import add_auth_headers, require_auth_for_view
+from ..auth import is_remote_node_authenticated
+from ..models import Author, Entry, Comment, EntryLike, CommentLike, RemoteNode
 from ..serializers import CommentLikeSerializer, EntryLikeSerializer
 from ..permissions import (
     get_requesting_author,
@@ -20,6 +23,7 @@ from ..helpers import (
     build_entry_likes_url,
     build_comment_likes_url,
     build_author_api_url,
+    normalize_url,
     resolve_object_by_url,
 )
 
@@ -58,6 +62,24 @@ def resolve_like_target(object_url):
 def build_like_url(request, author, like_serial):
     return f"{build_author_api_url(author, request)}/liked/{like_serial}/"
 
+
+def forward_like_to_remote_inbox(like_payload, inbox_author):
+    inbox_host = normalize_url(getattr(inbox_author, "host", ""))
+    if not inbox_host or "testserver" in inbox_host:
+        return
+
+    base_url = inbox_host[:-4] if inbox_host.endswith("/api") else inbox_host
+    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    if remote is None:
+        return
+
+    inbox_url = f"{inbox_host}/authors/{inbox_author.serial}/inbox"
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
+    try:
+        requests.post(inbox_url, json=like_payload, headers=headers, timeout=5)
+    except requests.RequestException:
+        return
+
 def serialize_like_item(like):
     """Serialize either an EntryLike or CommentLike into its API representation."""
     if isinstance(like, EntryLike):
@@ -79,6 +101,7 @@ def build_mixed_likes_collection(items, collection_id, page, size):
     }
 
 @api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
 def author_liked(request, author_serial):
     author = get_object_or_404(Author, serial=author_serial)
 
@@ -114,7 +137,9 @@ def author_liked(request, author_serial):
             )
             like.url = build_like_url(request, author, like.serial)
             like.save(update_fields=["url"])
-            return Response(EntryLikeSerializer(like).data, status=201)
+            response_data = EntryLikeSerializer(like).data
+            forward_like_to_remote_inbox(response_data, target.author)
+            return Response(response_data, status=201)
 
         if not can_view_comment(target, requesting_author, request.user):
             return Response({"error": "You don't have permission to like this comment"}, status=403)
@@ -130,7 +155,9 @@ def author_liked(request, author_serial):
         )
         like.url = build_like_url(request, author, like.serial)
         like.save(update_fields=["url"])
-        return Response(CommentLikeSerializer(like).data, status=201)
+        response_data = CommentLikeSerializer(like).data
+        forward_like_to_remote_inbox(response_data, target.author)
+        return Response(response_data, status=201)
 
     page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)
     requesting_author = get_requesting_author(request)
@@ -151,6 +178,7 @@ def author_liked(request, author_serial):
     return Response(build_mixed_likes_collection(items, collection_id, page, size))
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 def entry_likes(request, author_serial, entry_serial):
     """API endpoint listing likes on a specific entry,"""
     require_auth_for_view(False) #handled manually
@@ -158,7 +186,7 @@ def entry_likes(request, author_serial, entry_serial):
     requesting_author = get_requesting_author(request)
 
     if not can_view_entry(entry, requesting_author, request.user):
-        if not request.user.is_authenticated and entry.visibility == "FRIENDS":
+        if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
             return Response({"error": "Authentication required"}, status=401)
         return Response({"error": "You don't have permission to view likes on this entry"}, status=403)
 
@@ -168,6 +196,7 @@ def entry_likes(request, author_serial, entry_serial):
 
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 def comment_likes(request, author_serial, entry_serial, comment_serial):
     """API endpoint listing likes on a specific comment"""
     require_auth_for_view(False) #handled manually
@@ -176,7 +205,7 @@ def comment_likes(request, author_serial, entry_serial, comment_serial):
     requesting_author = get_requesting_author(request)
 
     if not can_view_comment(comment, requesting_author, request.user):
-        if not request.user.is_authenticated and entry.visibility == "FRIENDS":
+        if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
             return Response({"error": "Authentication required"}, status=401)
         return Response({"error": "You don't have permission to view likes on this comment"}, status=403)
 

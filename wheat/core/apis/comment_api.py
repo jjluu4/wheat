@@ -1,11 +1,14 @@
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
 import re
+import requests
 
-from ..auth import require_auth_for_view
-from ..models import Author, Entry, Comment
+from ..auth import add_auth_headers, require_auth_for_view
+from ..auth import is_remote_node_authenticated
+from ..models import Author, Entry, Comment, RemoteNode
 
 from ..permissions import (
     get_requesting_author,
@@ -23,9 +26,32 @@ from ..helpers import (
     build_entry_comments_collection_id,
     build_entry_web_url,
     resolve_object_by_url,
+    normalize_url,
 )
 
+
+def forward_comment_to_remote_inbox(comment, entry):
+    entry_author = entry.author
+    entry_host = normalize_url(getattr(entry_author, "host", ""))
+    if not entry_host or "testserver" in entry_host:
+        return
+
+    base_url = entry_host[:-4] if entry_host.endswith("/api") else entry_host
+    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    if remote is None:
+        return
+
+    inbox_url = f"{entry_host}/authors/{entry_author.serial}/inbox"
+    payload = build_comment_payload(comment, None)
+    payload["entry"] = (entry.url or "").strip()
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
+    try:
+        requests.post(inbox_url, json=payload, headers=headers, timeout=5)
+    except requests.RequestException:
+        return
+
 @api_view(['GET', 'POST'])
+@authentication_classes([SessionAuthentication])
 def author_commented(request, author_serial):
     """
     Handles operations on an authors comments
@@ -111,11 +137,12 @@ def author_commented(request, author_serial):
             content=comment_text
         )
 
-        # TODO: forwarding
+        forward_comment_to_remote_inbox(comment, entry)
 
         return Response(build_comment_payload(comment, request), status=201)
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def author_commented_single(request, author_serial, comment_serial):
     """
     Retrieves a specific comment made by an author
@@ -132,11 +159,15 @@ def author_commented_single(request, author_serial, comment_serial):
     requesting_author = get_requesting_author(request)
 
     if not can_view_comment(comment, requesting_author, request.user):
+        # Keep historical API behavior: unauthenticated non-remote requests get 403 here.
+        if comment.entry.visibility == "FRIENDS" and not request.user.is_authenticated and not is_remote_node_authenticated(request):
+            return Response({"error": "You don't have permission to view this comment"}, status=403)
         return Response({"error": "You don't have permission to view this comment"}, status=403)
 
     return Response(build_comment_payload(comment, request))
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def entry_comments(request, author_serial, entry_serial):
     """
     Retrieves paginated comments for a specific entry
@@ -157,6 +188,9 @@ def entry_comments(request, author_serial, entry_serial):
     )
 
     if not can_view_entry(entry, requesting_author, request.user) and not visible_comments.exists():
+        # Keep historical API behavior for unauthenticated local callers.
+        if entry.visibility == "FRIENDS" and not request.user.is_authenticated and not is_remote_node_authenticated(request):
+            return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
         return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
 
     page, size = get_pagination_params(request)
