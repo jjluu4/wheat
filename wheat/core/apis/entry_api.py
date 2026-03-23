@@ -1,4 +1,4 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
@@ -15,6 +15,7 @@ from ..helpers import get_pagination_params, build_entry_payload
 from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
+@authentication_classes([])
 def single_entry(request, author_serial, entry_serial):
     """
     Handles operations on a single entry.
@@ -72,6 +73,7 @@ def single_entry(request, author_serial, entry_serial):
         return Response(status=204)
 
 @api_view(["GET", "POST"])
+@authentication_classes([])
 def author_entries(request, author_serial):
     """
     Handles operations on an authors entries collection
@@ -154,6 +156,7 @@ def author_entries(request, author_serial):
         return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(["GET"])
+@authentication_classes([])
 def get_entry_fqid(request, entry_fqid):
     """
     Handles getting an entry by fqid.
@@ -174,6 +177,7 @@ def get_entry_fqid(request, entry_fqid):
     return Response(EntrySerializer(entry).data)
 
 @api_view(["GET"])
+@authentication_classes([])
 def get_author_image_entry(request, author_serial, entry_serial):
     """
     Handles the retrieval of an image by author and entry serials.
@@ -185,6 +189,7 @@ def get_author_image_entry(request, author_serial, entry_serial):
     return serve_image(request, entry)
 
 @api_view(["GET"])
+@authentication_classes([])
 def get_fqid_image_entry(request, entry_fqid):
     """
     Handles the retrieval of an image by fqid.

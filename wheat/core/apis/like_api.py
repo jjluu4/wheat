@@ -1,4 +1,4 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
@@ -151,6 +151,7 @@ def author_liked(request, author_serial):
     return Response(build_mixed_likes_collection(items, collection_id, page, size))
 
 @api_view(["GET"])
+@authentication_classes([])
 def entry_likes(request, author_serial, entry_serial):
     """API endpoint listing likes on a specific entry,"""
     require_auth_for_view(False) #handled manually
@@ -168,6 +169,7 @@ def entry_likes(request, author_serial, entry_serial):
 
 
 @api_view(["GET"])
+@authentication_classes([])
 def comment_likes(request, author_serial, entry_serial, comment_serial):
     """API endpoint listing likes on a specific comment"""
     require_auth_for_view(False) #handled manually

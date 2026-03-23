@@ -1,4 +1,4 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
@@ -57,6 +57,7 @@ def create_remote_entry(request, entryAuthor, base_host):
     return entry
     
 @api_view(["POST", "PUT", "DELETE"])
+@authentication_classes([])
 def inbox_item(request, author_serial):
     base_host = request.get_host()
     authorContent = request.data.get('author')
