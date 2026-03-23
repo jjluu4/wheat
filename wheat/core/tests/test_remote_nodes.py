@@ -34,6 +34,15 @@ class RemoteNodeViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response["Location"])
 
+    def test_unauthenticated_user_redirected_to_login_for_delete(self):
+        response = self.client.get(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
+        response = self.client.post(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
     def test_non_staff_user_gets_403_for_staff_views(self):
         self.client.force_login(self.regular_user)
 
@@ -47,6 +56,12 @@ class RemoteNodeViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
         response = self.client.post(reverse("remote_node_toggle", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(reverse("remote_node_delete", args=[self.node.pk]))
         self.assertEqual(response.status_code, 403)
 
     def test_staff_user_can_view_remote_node_pages(self):
@@ -158,6 +173,56 @@ class RemoteNodeViewTests(TestCase):
         self.client.force_login(self.staff_user)
         response = self.client.get(reverse("remote_node_toggle", args=[self.node.pk]))
         self.assertEqual(response.status_code, 405)
+
+    def test_staff_can_view_delete_confirmation_page(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Delete Remote Node")
+        self.assertContains(response, "Partner Node")
+        self.assertContains(response, "https://partner.example.com")
+        self.assertContains(response, "partner-user")
+
+    def test_delete_confirmation_get_does_not_remove_node(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(RemoteNode.objects.filter(pk=self.node.pk).exists())
+
+    def test_staff_can_delete_remote_node(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("remote_node_list"))
+        self.assertFalse(RemoteNode.objects.filter(pk=self.node.pk).exists())
+
+    def test_delete_only_removes_target_node(self):
+        other_node = RemoteNode.objects.create(
+            name="Other Node",
+            base_url="https://other.example.com",
+            api_base_url="https://other.example.com/api",
+            username="other-user",
+            password="other-pass",
+            is_active=False,
+            notes="Secondary partner",
+        )
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 302)
+
+        self.assertFalse(RemoteNode.objects.filter(pk=self.node.pk).exists())
+        self.assertTrue(RemoteNode.objects.filter(pk=other_node.pk).exists())
+
+    def test_delete_nonexistent_node_returns_404(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("remote_node_delete", args=[999999]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_deleted_node_no_longer_appears_in_list(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse("remote_node_delete", args=[self.node.pk]), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Partner Node")
 
     def test_staff_nav_shows_manage_nodes_link(self):
         self.client.force_login(self.staff_user)

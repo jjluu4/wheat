@@ -34,4 +34,6 @@ Staff users can manage remote node credentials through the web UI at `/staff/nod
 - Required inputs are the remote node URL, username, and password.
 - The API URL is optional. If left blank, it defaults to `<remote_url>/api`.
 - Nodes can be disabled without being deleted, which keeps the configuration available for later federation work.
+- Disabling a node temporarily pauses its use. Deleting a node permanently removes the saved configuration from this node.
+- Deleting a node only affects local configuration. It does not send any request to the remote server.
 - This feature only stores configuration locally for future node-to-node integration. It does not yet make outbound federation requests on its own.
