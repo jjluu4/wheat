@@ -63,10 +63,12 @@
         {% if request.user.is_authenticated %}
         <form onsubmit="submitComment(event)" style="display: none;" data-user-serial="{{ request.user.author_profile.serial }}">
             {% csrf_token %}
-            <textarea name="content" placeholder="Comment..." required></textarea>
-            
-            <button type="submit">Post Comment</button>
-            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
+            <div class="form-row">
+                <textarea name="content" placeholder="Comment..."></textarea>
+                <button type="submit">Post Comment</button>
+                <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
+            </div>
+        
         </form>
         {% endif %}
     </div>
