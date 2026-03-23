@@ -182,13 +182,15 @@ def serve_image(request, entry):
     """
     requestingAuthor = get_requesting_author(request)
 
-    # Authenticate 
+    # Ensure the user has permissions to view the entry.
     if not can_view_entry(entry, requestingAuthor, request.user):
         return Response({"error": "You do not have permission to get this image entry."}, status=403)
 
+    # Ensure correct content type
     if not entry.content_type.startswith("image") or entry.content_type.startswith("application/"):
         return Response({"error": f"The requested entry is not an image."}, status=404)
     
+    # For standard locally stored images
     if entry.image_url:
         image = get_object_or_404(Image, url=entry.image_url)
 
@@ -201,6 +203,7 @@ def serve_image(request, entry):
             return HttpResponse(image_data, content_type=mime_type)
         except IOError:
             return Response({"error": "The requested image file could not be read."}, status=404)
+    # For base64 encoded images (as per the project page)
     else:
         content = entry.content.strip()
 
