@@ -4,9 +4,12 @@ from django.http import HttpResponseForbidden
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
+import requests
+import json
 
-from ..models import Author, Entry, Image
+from ..models import Author, Entry, Image, RemoteNode
 from ..forms import EntryForm
+from ..apis import entry_api
 
 def author_owns_profile(request, author):
     #as an author, other authors cannot modify my entries, so that I don't get impersonated.
@@ -43,6 +46,29 @@ def create_entry(request, author_serial):
                 entry.image_url = ""
 
             entry.save()
+            
+            remoteNodes = RemoteNode.objects.filter(is_active=True)
+            
+            if len(remoteNodes) > 0:
+                    
+                for node in remoteNodes:
+                    payload_request = requests.get(entry.url)
+                    if payload_request.status_code == 200:
+                        payload = json.loads(payload_request.text) 
+                        outgoingUrl = f"{node.api_base_url}/authors/{author.serial}/inbox"
+                        response = requests.post(outgoingUrl, json=payload)
+                        if response.status_code == 201 or response.status_code == 204:
+                            return redirect("author_profile", author_serial=author.serial)
+                
+                '''
+                if entry.visibility == "PUBLIC":
+                    pass
+                elif entry.visibility == "UNLISTED":
+                    pass
+                elif entry.visibility == "FRIENDS":
+                    pass
+                '''
+            
             return redirect("author_profile", author_serial=author.serial)
     else:
         form = EntryForm(
@@ -79,6 +105,21 @@ def edit_entry(request, author_serial, entry_serial):
                 form.instance.image_url = ""
 
             form.save()
+            
+            remoteNodes = RemoteNode.objects.filter(is_active=True)
+            
+            if len(remoteNodes) > 0:
+                    
+                for node in remoteNodes:
+                    payload_request = requests.get(entry.url)
+                    if payload_request.status_code == 200:
+                        payload = json.loads(payload_request.text) 
+                        outgoingUrl = f"{node.api_base_url}/authors/{author.serial}/inbox"
+                        response = requests.put(outgoingUrl, json=payload)
+                        if response.status_code == 200 or response.status_code == 201 or response.status_code == 204:
+                            return redirect("author_profile", author_serial=author.serial)                    
+                    
+            
             return redirect("author_profile", author_serial=author.serial)
     else:
         form = EntryForm(instance=entry)
@@ -107,7 +148,23 @@ def delete_entry(request, author_serial, entry_serial):
 
     if request.method == "POST":
         entry.visibility = "DELETED"
+        
+        remoteNodes = RemoteNode.objects.filter(is_active=True)
+        
+        if len(remoteNodes) > 0:
+                
+            for node in remoteNodes:
+                payload_request = requests.get(entry.url)
+                if payload_request.status_code == 200:
+                    payload = json.loads(payload_request.text) 
+                    outgoingUrl = f"{node.api_base_url}/authors/{author.serial}/inbox"
+                    response = requests.delete(outgoingUrl, json=payload)
+                    if response.status_code == 200 or response.status_code == 201 or response.status_code == 204:
+                        entry.save(update_fields=["visibility"])
+                        return redirect("author_profile", author_serial=author.serial)
+        
         entry.save(update_fields=["visibility"])
+        
         return redirect("author_profile", author_serial=author.serial)
 
     return render(request, "core/entry_confirm_delete.html", {"author": author, "entry": entry})
