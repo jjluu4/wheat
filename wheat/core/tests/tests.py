@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch
 import uuid
-from core.models import Author, Entry
+from core.models import Author, Entry, Follow
 from django.contrib.auth import get_user_model
 
 # Tests here are mostly for APIs probably for pt1
@@ -42,6 +42,43 @@ class AuthorProfilePageTests(TestCase):
             published=timezone.now(),
         )
 
+        Entry.objects.create(
+            url="http://testserver/api/authors/test-author/entries/3",
+            author=self.author,
+            content="Unlisted post",
+            content_type="text/plain",
+            visibility="UNLISTED",
+            published=timezone.now(),
+        )
+
+        self.follower_user = User.objects.create_user(username="follower", password="pass12345")
+        self.follower_author = Author.objects.create(
+            user=self.follower_user,
+            url="http://testserver/api/authors/follower",
+            host="http://testserver/api/",
+            displayName="Follower",
+            github="",
+            description="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/follower",
+        )
+
+        self.friend_user = User.objects.create_user(username="friend", password="pass12345")
+        self.friend_author = Author.objects.create(
+            user=self.friend_user,
+            url="http://testserver/api/authors/friend",
+            host="http://testserver/api/",
+            displayName="Friend",
+            github="",
+            description="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/friend",
+        )
+
+        Follow.objects.create(actor=self.follower_author, target=self.author, status="ACCEPTED")
+        Follow.objects.create(actor=self.friend_author, target=self.author, status="ACCEPTED")
+        Follow.objects.create(actor=self.author, target=self.friend_author, status="ACCEPTED")
+
     def test_profile_page_shows_author_and_only_public_entries(self):
         """Profile page renders author info and only public entries for visitors."""
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
@@ -50,7 +87,30 @@ class AuthorProfilePageTests(TestCase):
         self.assertContains(resp, "Skar")
         self.assertContains(resp, "Hello! This is my profile.")
         self.assertContains(resp, "Public post")
+        self.assertNotContains(resp, "Unlisted post")
         self.assertNotContains(resp, "Friends post")
+
+    def test_profile_page_shows_unlisted_entries_to_followers(self):
+        """Accepted followers can see unlisted entries on the author's profile page."""
+        self.client.force_login(self.follower_user)
+
+        resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Public post")
+        self.assertContains(resp, "Unlisted post")
+        self.assertNotContains(resp, "Friends post")
+
+    def test_profile_page_shows_friends_entries_to_friends(self):
+        """Mutual accepted follows can see friends-only entries on the author's profile page."""
+        self.client.force_login(self.friend_user)
+
+        resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Public post")
+        self.assertContains(resp, "Unlisted post")
+        self.assertContains(resp, "Friends post")
 
 
 class AuthorEditPageTests(TestCase):
