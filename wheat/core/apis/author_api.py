@@ -1,4 +1,4 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import urllib
@@ -40,6 +40,7 @@ def all_authors(request):
     return Response({"type": "authors", "authors": serializer.data})
 
 @api_view(['GET', 'PUT'])
+@authentication_classes([])
 def single_author(request, author_serial): 
     """
     Handles operations on a single author profile
