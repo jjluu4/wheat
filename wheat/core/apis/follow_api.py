@@ -8,7 +8,6 @@ from ..models import Author, Follow
 from ..serializers import AuthorSerializer
 
 @api_view(['GET'])
-@authentication_classes([])
 def get_following_list(request, author_serial):
     """
     Retrieves the list of authors that the specified author is following
@@ -33,7 +32,6 @@ def get_following_list(request, author_serial):
         })
 
 @api_view(['GET'])
-@authentication_classes([])
 def get_follow_requests_api(request, author_serial):
     """
     Retrieves all pending follow requests for the specified author, returns a list of follow request objects
@@ -66,7 +64,6 @@ def get_follow_requests_api(request, author_serial):
     return Response(data)
 
 @api_view(['GET', 'DELETE', 'PUT'])
-@authentication_classes([])
 def following_api(request, author_serial, foreign_author_fqid):
     """
     Handles operations to manage a single following relationship.
@@ -123,7 +120,6 @@ def following_api(request, author_serial, foreign_author_fqid):
         return Response(status=204)
 
 @api_view(['GET', 'DELETE', 'PUT'])
-@authentication_classes([])
 def follower_api(request, author_serial, foreign_author_fqid):
     """
     Handles operations to manage a single follower relationship.

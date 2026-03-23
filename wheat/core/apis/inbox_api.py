@@ -57,7 +57,6 @@ def create_remote_entry(request, entryAuthor, base_host):
     return entry
     
 @api_view(["POST", "PUT", "DELETE"])
-@authentication_classes([])
 def inbox_item(request, author_serial):
     base_host = request.get_host()
     authorContent = request.data.get('author')

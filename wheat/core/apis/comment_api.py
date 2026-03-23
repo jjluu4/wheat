@@ -26,7 +26,6 @@ from ..helpers import (
 )
 
 @api_view(['GET', 'POST'])
-@authentication_classes([])
 def author_commented(request, author_serial):
     """
     Handles operations on an authors comments
@@ -117,7 +116,6 @@ def author_commented(request, author_serial):
         return Response(build_comment_payload(comment, request), status=201)
 
 @api_view(['GET'])
-@authentication_classes([])
 def author_commented_single(request, author_serial, comment_serial):
     """
     Retrieves a specific comment made by an author
@@ -139,7 +137,6 @@ def author_commented_single(request, author_serial, comment_serial):
     return Response(build_comment_payload(comment, request))
 
 @api_view(['GET'])
-@authentication_classes([])
 def entry_comments(request, author_serial, entry_serial):
     """
     Retrieves paginated comments for a specific entry
