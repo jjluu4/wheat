@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
+from ..auth import require_auth_for_view
 from ..models import Author, Follow
 from ..serializers import AuthorSerializer
 
@@ -12,6 +13,7 @@ def get_following_api(request, author_serial):
     
     Requires authentication as the author
     """
+    require_auth_for_view(True)
     author = get_object_or_404(Author, serial=author_serial)
 
     if not request.user.is_authenticated:
@@ -35,6 +37,7 @@ def get_follow_requests_api(request, author_serial):
 
     Requires authentication as the author
     """
+    require_auth_for_view(True)
     author = get_object_or_404(Author, serial=author_serial)
 
     if not request.user.is_authenticated:

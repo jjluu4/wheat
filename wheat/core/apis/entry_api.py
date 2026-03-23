@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
+from ..auth import require_auth_for_view
 from ..models import Author, Entry
 from ..permissions import (
     get_requesting_author,
@@ -19,6 +20,7 @@ def single_entry(request, author_serial, entry_serial):
     requestingAuthor = get_requesting_author(request)
 
     if request.method == "GET":
+        require_auth_for_view(False)
         if not can_view_entry(entry, requestingAuthor, request.user):
             if entry.visibility == "DELETED":
                 return Response({"error": "Entry not found"}, status=404)
@@ -37,6 +39,7 @@ def single_entry(request, author_serial, entry_serial):
         return Response({"error": "You don't have permission to modify this entry"}, status=403)
 
     if request.method == "PUT":
+        require_auth_for_view(True)
         if "title" in request.data:
             entry.title = (request.data.get("title") or "").strip() or entry.title
         if "content" in request.data:
@@ -59,6 +62,7 @@ def single_entry(request, author_serial, entry_serial):
         return Response(build_entry_payload(entry, request), status=200)
 
     if request.method == "DELETE":
+        require_auth_for_view(True)
         entry.visibility = "DELETED"
         entry.save(update_fields=["visibility"])
         return Response(status=204)
@@ -78,6 +82,7 @@ def author_entries(request, author_serial):
         requestingAuthor = request.user.author_profile
 
     if request.method == "GET":
+        require_auth_for_view(False)
         page, size = get_pagination_params(request)
         offset = (page - 1) * size
 
@@ -110,6 +115,7 @@ def author_entries(request, author_serial):
         )
 
     elif request.method == "POST":
+        require_auth_for_view(True)
         if not request.user.is_authenticated or not requestingAuthor:
             return Response({"error": "Authentication required to create entry"}, status=401)
 

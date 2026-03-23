@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 import uuid
 import re
 
+from ..auth import require_auth_for_view
 from ..models import Author, Entry, Comment, EntryLike, CommentLike
 from ..serializers import CommentLikeSerializer, EntryLikeSerializer
 from ..permissions import (
@@ -82,6 +83,7 @@ def author_liked(request, author_serial):
     author = get_object_or_404(Author, serial=author_serial)
 
     if request.method == "POST":
+        require_auth_for_view(True)
         if not request.user.is_authenticated:
             return Response({"error": "Authentication required"}, status=401)
 
@@ -151,6 +153,7 @@ def author_liked(request, author_serial):
 @api_view(["GET"])
 def entry_likes(request, author_serial, entry_serial):
     """API endpoint listing likes on a specific entry,"""
+    require_auth_for_view(False) #handled manually
     entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     requesting_author = get_requesting_author(request)
 
@@ -167,6 +170,7 @@ def entry_likes(request, author_serial, entry_serial):
 @api_view(["GET"])
 def comment_likes(request, author_serial, entry_serial, comment_serial):
     """API endpoint listing likes on a specific comment"""
+    require_auth_for_view(False) #handled manually
     entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     comment = get_object_or_404(Comment, serial=comment_serial, entry=entry)
     requesting_author = get_requesting_author(request)
