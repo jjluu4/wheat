@@ -1,12 +1,12 @@
-import requests
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import urllib
 
-from ..auth import require_auth_for_view, add_auth_headers
+from ..auth import require_auth_for_view
 from ..models import Author, RemoteNode
 from ..serializers import AuthorSerializer
+from ..helpers import fetch_remote_resource
 
 @api_view(['GET'])
 def all_authors(request):
@@ -83,36 +83,4 @@ def single_author_fqid(request, author_fqid):
     except:
         ...
 
-    if not decoded_fqid.startswith(('http://', 'https://')):
-        decoded_fqid = 'http://' + decoded_fqid
-
-    parsed_url = urllib.parse.urlparse(decoded_fqid)
-    if not parsed_url.netloc:
-        return Response({"error": "Invalid author FQID format"},status=400)
-
-    remote_host = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    
-    try:
-        remote_node = RemoteNode.objects.get(base_url=remote_host, is_active=True)
-
-        headers = {'Accept': 'application/json','User-Agent': 'SocialDistribution/1.0'}
-        headers = add_auth_headers(headers, remote_node)
-
-        response = requests.get(
-            decoded_fqid,
-            headers=headers,
-            timeout=10
-        )
-
-        if response.status_code == 200:
-            return Response(response.json())
-        elif response.status_code == 404:
-            return Response({"error": "Author not found on remote node"}, status=404)
-        else:
-            return Response({"error": f"Remote node returned status {response.status_code}"},status=502)
-
-    except RemoteNode.DoesNotExist:
-        return Response({"error": "Remote node not configured or inactive"},status=400)
-
-    except requests.exceptions.RequestException as e:
-        return Response({"error": f"Failed to connect to remote node: {str(e)}"},status=503)
+    return fetch_remote_resource(author_fqid)
