@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
-from .views import author_views, entry_views, follow_views, stream_views, authentication_views, views
+from .views import author_views, entry_views, follow_views, stream_views, authentication_views, remote_node_views, views
 from .apis import author_api, comment_api, entry_api, follow_api, like_api
 
 urlpatterns = [
@@ -10,6 +10,11 @@ urlpatterns = [
     path("accounts/signup/", authentication_views.signup, name="signup"),
     path("accounts/logged_out", authentication_views.logged_out, name="logged_out"),
     path("accounts/pending_approval", authentication_views.pending_approval, name="pending_approval"),
+
+    path("staff/nodes/", remote_node_views.remote_node_list, name="remote_node_list"),
+    path("staff/nodes/add/", remote_node_views.remote_node_add, name="remote_node_add"),
+    path("staff/nodes/<int:pk>/edit/", remote_node_views.remote_node_edit, name="remote_node_edit"),
+    path("staff/nodes/<int:pk>/toggle/", remote_node_views.remote_node_toggle, name="remote_node_toggle"),
 
     path("authors/", author_views.author_list, name="author_list"),
 
