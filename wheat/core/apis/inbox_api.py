@@ -13,7 +13,7 @@ from ..permissions import (
 from ..helpers import get_pagination_params, build_entry_payload
 from ..serializers import AuthorSerializer
     
-@api_view(["POST"])
+@api_view(["POST", "PUT", "DELETE"])
 def inbox_item(request, author_serial):
     base_host = request.get_host()
     authorContent = request.data.get('author')
@@ -74,6 +74,38 @@ def inbox_item(request, author_serial):
             entry.save()
             
             return Response(build_entry_payload(entry, request), status=201)
+        
+        elif object_type == "follow":
+            pass
+        elif object_type == "like":
+            pass
+        elif object_type == "comment":
+            pass
+    
+    if request.method == "PUT":
+        require_auth_for_view(True)
+        
+        object_type = request.data.get("type")
+        
+        if object_type == "entry":
+            
+            pass
+        
+        elif object_type == "follow":
+            pass
+        elif object_type == "like":
+            pass
+        elif object_type == "comment":
+            pass
+    
+    if request.method == "DELETE":
+        require_auth_for_view(True)
+        
+        object_type = request.data.get("type")
+        
+        if object_type == "entry":
+            
+            pass
         
         elif object_type == "follow":
             pass
