@@ -1,3 +1,4 @@
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -5,7 +6,9 @@ from django.http import HttpResponse
 import base64, urllib, mimetypes, io, requests
 from PIL import Image as PILImage
 
-from ..auth import require_auth_for_view, add_auth_headers
+from ..auth import require_auth_for_view
+from ..auth import is_remote_node_authenticated
+from ..auth import add_auth_headers
 from ..models import Author, Entry, Image, RemoteNode
 from ..permissions import (
     get_requesting_author,
@@ -15,6 +18,7 @@ from ..helpers import get_pagination_params, build_entry_payload
 from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
+@authentication_classes([SessionAuthentication])
 def single_entry(request, author_serial, entry_serial):
     """
     Handles operations on a single entry.
@@ -29,7 +33,7 @@ def single_entry(request, author_serial, entry_serial):
             if entry.visibility == "DELETED":
                 return Response({"error": "Entry not found"}, status=404)
 
-            if not request.user.is_authenticated and entry.visibility == "FRIENDS":
+            if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
                 return Response({"error": "Authentication required"}, status=401)
 
             return Response({"error": "You don't have permission to view this entry"}, status=403)
@@ -72,6 +76,7 @@ def single_entry(request, author_serial, entry_serial):
         return Response(status=204)
 
 @api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
 def author_entries(request, author_serial):
     """
     Handles operations on an authors entries collection
@@ -89,6 +94,7 @@ def author_entries(request, author_serial):
         require_auth_for_view(False)
         page, size = get_pagination_params(request)
         offset = (page - 1) * size
+        remote_authenticated = is_remote_node_authenticated(request)
 
         qs = Entry.objects.filter(author=author).exclude(visibility="DELETED").order_by("-published")
 
@@ -98,6 +104,8 @@ def author_entries(request, author_serial):
 
         if is_owner or request.user.is_staff or is_friend:
             pass  
+        elif remote_authenticated:
+            qs = qs.filter(visibility="PUBLIC")
         elif is_follower:
             qs = qs.exclude(visibility="FRIENDS")
         else:
@@ -154,6 +162,7 @@ def author_entries(request, author_serial):
         return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 def get_entry_fqid(request, entry_fqid):
     """
     Handles getting an entry by fqid.
@@ -169,11 +178,14 @@ def get_entry_fqid(request, entry_fqid):
 
     # Ensure the user has permissions to view the entry.
     if not can_view_entry(entry, requestingAuthor, request.user):
+        if entry.visibility == "FRIENDS" and not request.user.is_authenticated and not is_remote_node_authenticated(request):
+            return Response({"error": "Authentication required"}, status=401)
         return Response({"error": "You do not have permission to view this entry."}, status=403)
     
     return Response(EntrySerializer(entry).data)
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 def get_author_image_entry(request, author_serial, entry_serial):
     """
     Handles the retrieval of an image by author and entry serials.
@@ -224,6 +236,7 @@ def get_author_image_entry(request, author_serial, entry_serial):
             return Response({"error": "Failed to connect to remote node."}, status=503)
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 def get_fqid_image_entry(request, entry_fqid):
     """
     Handles the retrieval of an image by fqid.

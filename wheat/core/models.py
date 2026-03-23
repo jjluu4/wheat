@@ -83,7 +83,7 @@ class Entry(models.Model):
             Q(author=viewer)
         )
 
-        return Entry.objects.filter(entryFilter)
+        return Entry.objects.filter(entryFilter).exclude(visibility="DELETED")
 
 
 
@@ -219,3 +219,19 @@ class RemoteNode(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class InboxItem(models.Model):
+    owner = models.ForeignKey(Author, on_delete=models.CASCADE, related_name="inbox_items")
+    item_type = models.CharField(max_length=20)
+    item_id = models.URLField()
+    payload = models.JSONField(default=dict)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                name="unique_inbox_item_per_owner",
+                fields=["owner", "item_id"],
+            )
+        ]

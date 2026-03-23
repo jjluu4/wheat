@@ -9,17 +9,18 @@ from .models import RemoteNode
 _thread_local = threading.local()
 AUTH_REALM = 'Basic realm="Node to Node API"'
 
+
 def require_auth_for_view(require=True):
-    """declares that a given view should require authentication. call at the top of views that need auth"""
+    """Compatibility shim for existing views that annotate auth requirements."""
     _thread_local.require_auth = require
 
-def add_auth_headers(headers, remote):
-    """adds basic auth headers to a request for a remote node"""
 
+def add_auth_headers(headers, remote):
+    """Adds basic auth headers to a request for a remote node."""
     if remote and remote.username and remote.password:
         auth_string = f"{remote.username}:{remote.password}"
         encoded_auth = base64.b64encode(auth_string.encode()).decode()
-        headers['Authorization'] = f'Basic {encoded_auth}'
+        headers["Authorization"] = f"Basic {encoded_auth}"
     return headers
 
 
@@ -64,18 +65,39 @@ def parse_remote_node_auth(request):
     return remote_node
 
 
+def get_remote_node_from_request(request):
+    remote_node = getattr(request, "remote_node", None)
+    if remote_node is not None:
+        return remote_node
+    return parse_remote_node_auth(request)
+
+
+def is_remote_node_authenticated(request):
+    return get_remote_node_from_request(request) is not None
+
+
+def is_local_author_authenticated(request, author):
+    return (
+        request.user.is_authenticated
+        and hasattr(request.user, "author_profile")
+        and request.user.author_profile == author
+    )
+
+
 def require_remote_node_auth(request):
-    if getattr(request, "remote_node", None) is not None:
+    if get_remote_node_from_request(request) is not None:
         return None
-    return _build_auth_failure_response(getattr(request, "remote_auth_error", None) or "Authentication required")
+    return _build_auth_failure_response(
+        getattr(request, "remote_auth_error", None) or "Authentication required"
+    )
 
 
 class AuthMiddleware(MiddlewareMixin):
-    """middleware requiring basic auth for API calls"""
+    """Parses remote node basic auth early and exposes the matched remote node on the request."""
 
     def process_request(self, request):
-        if hasattr(_thread_local, 'require_auth'):
-            delattr(_thread_local, 'require_auth')
+        if hasattr(_thread_local, "require_auth"):
+            delattr(_thread_local, "require_auth")
         parse_remote_node_auth(request)
         return None
 

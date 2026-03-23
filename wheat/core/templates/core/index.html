@@ -23,7 +23,7 @@
                     <img class="avatar avatar-small" src="{{ request.user.author_profile.profileImage }}" alt="{{ request.user.author_profile.displayName }} avatar">
                     <h2 style="color: wheat; margin: 0;">{{ request.user.author_profile.displayName }}</h2>
                 </div>
-                <h2>What’s new?</h2>
+                <h2>What's new?</h2>
                 <p>Share something with your followers.</p>
                 <a class="button-link" href="{% url 'entry_create' request.user.author_profile.serial %}">
                    + Create Entry
@@ -57,8 +57,7 @@
 
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="{% static 'js/markdown-renderer.js' %}?v=comments-md-1"></script>
+    <script type="module" src="{% static 'js/markdown-renderer.js' %}?v=comments-md-3"></script>
 </body>
 
 </html>
