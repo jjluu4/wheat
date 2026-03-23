@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 import uuid
 import re
 
+from ..auth import require_auth_for_view
 from ..models import Author, Entry, Comment
 
 from ..permissions import (
@@ -35,6 +36,7 @@ def author_commented(request, author_serial):
     author=get_object_or_404(Author, serial=author_serial)
 
     if request.method=='GET':
+        require_auth_for_view(False)
         page, size = get_pagination_params(request)
         offset=(page - 1) * size
         requestingAuthor = get_requesting_author(request)
@@ -60,6 +62,8 @@ def author_commented(request, author_serial):
         })
 
     elif request.method=='POST':
+        require_auth_for_view(True)
+
         if not request.user.is_authenticated:
             return Response({"error": "Authentication required"}, status=401)
 
@@ -118,6 +122,8 @@ def author_commented_single(request, author_serial, comment_serial):
 
     Depends on post visibility (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
     """
+    require_auth_for_view(False) #handles manually
+
     author=get_object_or_404(Author, serial=author_serial)
     comment=get_object_or_404(Comment, serial=comment_serial, author=author)
 
@@ -137,6 +143,8 @@ def entry_comments(request, author_serial, entry_serial):
 
     Depends on post visibility (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
     """
+    require_auth_for_view(False) #handles manually
+
     entry=get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     entry_author=entry.author
 

@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
+from ..auth import require_auth_for_view
 from ..models import Author
 from ..serializers import AuthorSerializer
 
@@ -14,6 +15,8 @@ def all_authors(request):
         - page: Page number (default: 1)
         - size: Number of authors per page (default: 5)
     """
+    require_auth_for_view(False)
+
     try:
         page=int(request.GET.get('page', 1))
         if page < 1:
@@ -45,10 +48,12 @@ def single_author(request, author_serial):
     author=get_object_or_404(Author, serial=author_serial)
 
     if request.method=='GET':
+        require_auth_for_view(False)
         serializer=AuthorSerializer(author)
         return Response(serializer.data)
 
     elif request.method=='PUT':
+        require_auth_for_view(True)
         if not request.user.is_authenticated:
             return Response(data={"error": "Authentication required to update profile"},status=401)
 
