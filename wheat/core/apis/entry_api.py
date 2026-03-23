@@ -1,9 +1,13 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
+import base64
+import urllib
+import mimetypes
 
 from ..auth import require_auth_for_view
-from ..models import Author, Entry
+from ..models import Author, Entry, Image
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
@@ -148,3 +152,67 @@ def author_entries(request, author_serial):
         entry.save(update_fields=["url"])
 
         return Response(build_entry_payload(entry, request), status=201)
+
+@api_view(["GET"])
+def get_author_image_entry(request, author_serial, entry_serial):
+    """
+    Handles the retrieval of an image by author and entry serials.
+
+    GET: Get an entry converted to binary as an image.
+    """
+    entry = get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
+    require_auth_for_view(False)
+    return serve_image(request, entry)
+
+@api_view(["GET"])
+def get_fqid_image_entry(request, entry_fqid):
+    """
+    Handles the retrieval of an image by fqid.
+
+    GET: Get an entry converted to binary as an image.
+    """
+    decoded_fqid = urllib.parse.unquote(entry_fqid)
+    entry = get_object_or_404(Entry, url=decoded_fqid)
+    require_auth_for_view(False)
+    return serve_image(request, entry)
+
+def serve_image(request, entry):
+    """
+    Serves the image from an entry as binary, either from a locally stored image or from a base64 encoded image.
+    """
+    requestingAuthor = get_requesting_author(request)
+
+    # Authenticate 
+    if not can_view_entry(entry, requestingAuthor, request.user):
+        return Response({"error": "You do not have permission to get this image entry."}, status=403)
+
+    if not entry.content_type.startswith("image") or entry.content_type.startswith("application/"):
+        return Response({"error": f"The requested entry is not an image."}, status=404)
+    
+    if entry.image_url:
+        image = get_object_or_404(Image, url=entry.image_url)
+
+        try:
+            with image.image.open('rb') as f:
+                image_data = f.read()
+            
+            mime_type, _ = mimetypes.guess_type(image.image.name)
+            
+            return HttpResponse(image_data, content_type=mime_type)
+        except IOError:
+            return Response({"error": "The requested image file could not be read."}, status=404)
+    else:
+        content = entry.content.strip()
+
+        if content.startswith("data:"):
+            try:
+                content = content.split(",", 1)[1]
+            except IndexError:
+                pass
+
+        try:
+            image_data = base64.b64decode(content)
+            mime_type = entry.content_type.replace(";base64", "").replace("; base64", "")
+            return HttpResponse(image_data, content_type=mime_type)
+        except Exception:
+            return Response({"error": "Invalid image data."}, status=400)

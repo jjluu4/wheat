@@ -50,6 +50,8 @@ urlpatterns = [
     path('api/authors/<uuid:author_serial>/liked/', like_api.author_liked, name='api_author_liked'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/', like_api.entry_likes, name='api_entry_likes'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/<uuid:comment_serial>/likes/', like_api.comment_likes, name='api_comment_likes'),
+    path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/image/', entry_api.get_author_image_entry, name='get_author_image_entry'),
+    path('api/entries/<path:entry_fqid>/image/', entry_api.get_fqid_image_entry, name='get_fqid_image_entry'),
 
 
     # Canonical stable routes use entry serial (UUID), not DB pk
