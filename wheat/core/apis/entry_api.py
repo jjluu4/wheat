@@ -2,9 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
-import base64
-import urllib
-import mimetypes
+import base64, urllib, mimetypes, io
+from PIL import Image as PILImage
 
 from ..auth import require_auth_for_view
 from ..models import Author, Entry, Image
@@ -237,6 +236,21 @@ def serve_image(request, entry):
         try:
             image_data = base64.b64decode(content)
             mime_type = entry.content_type.replace(";base64", "").replace("; base64", "")
+
+            if mime_type == "image" or not mime_type:
+                try:
+                    # Convert the raw bytes into a stream that Pillow can read
+                    image_stream = io.BytesIO(image_data)
+                    img = PILImage.open(image_stream)
+                    
+                    # Use pillow to get the format of a base64 image if not specified.
+                    detected_format = img.format.lower()
+                    
+                    mime_type = f"image/{detected_format}"
+                    
+                except Exception as e:
+                    print(f"Pillow Image Error: {e}")
+                    return Response({"error": "The decoded data is not a valid or readable image."}, status=400)
             return HttpResponse(image_data, content_type=mime_type)
         except Exception:
             return Response({"error": "Invalid image data."}, status=400)

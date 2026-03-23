@@ -4,8 +4,9 @@ from django.shortcuts import get_object_or_404
 import urllib
 
 from ..auth import require_auth_for_view
-from ..models import Author
+from ..models import Author, RemoteNode
 from ..serializers import AuthorSerializer
+from ..helpers import fetch_remote_resource
 
 @api_view(['GET'])
 def all_authors(request):
@@ -55,11 +56,6 @@ def single_author(request, author_serial):
 
     elif request.method=='PUT':
         require_auth_for_view(True)
-        if not request.user.is_authenticated:
-            return Response(data={"error": "Authentication required to update profile"},status=401)
-
-        if not hasattr(request.user,'author_profile') or request.user.author_profile!=author:
-            return Response(data={"error": "You don't have permission to update this profile"},status=403)
 
         for field in ['displayName', 'github', 'profileImage']:
             if field in request.data:
@@ -80,5 +76,11 @@ def single_author_fqid(request, author_fqid):
     require_auth_for_view(False)
 
     decoded_fqid = urllib.parse.unquote(author_fqid)
-    author = get_object_or_404(Author, url=decoded_fqid)
-    return Response(AuthorSerializer(author).data)
+
+    try:
+        author = get_object_or_404(Author, url=decoded_fqid)
+        return Response(AuthorSerializer(author).data)
+    except:
+        ...
+
+    return fetch_remote_resource(author_fqid)

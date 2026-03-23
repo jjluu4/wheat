@@ -1,5 +1,11 @@
 from .models import EntryLike, CommentLike, Comment
 from .serializers import EntrySerializer, AuthorSerializer, EntryLikeSerializer, CommentSerializer, CommentLikeSerializer
+from rest_framework.response import Response
+import urllib
+import requests
+
+from .auth import add_auth_headers
+from .models import RemoteNode
 
 from .permissions import (
     get_requesting_author,
@@ -193,3 +199,40 @@ def build_comment_payload(comment, request):
         build_comment_likes_url(request, comment),
     )
     return comment_data
+
+def fetch_remote_resource(fqid):
+    decoded_fqid = urllib.parse.unquote(fqid)
+
+    if not decoded_fqid.startswith(('http://', 'https://')):
+        decoded_fqid = 'http://' + decoded_fqid
+
+    parsed_url = urllib.parse.urlparse(decoded_fqid)
+    if not parsed_url.netloc:
+        return Response({"error": "Invalid FQID format"},status=400)
+
+    remote_host = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    
+    try:
+        remote_node = RemoteNode.objects.get(base_url=remote_host, is_active=True)
+
+        headers = {'Accept': 'application/json','User-Agent': 'SocialDistribution/1.0'}
+        headers = add_auth_headers(headers, remote_node)
+
+        response = requests.get(
+            decoded_fqid,
+            headers=headers,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            return Response(response.json())
+        elif response.status_code == 404:
+            return Response({"error": "Resource not found on remote node"}, status=404)
+        else:
+            return Response({"error": f"Remote node returned status {response.status_code}"},status=502)
+
+    except RemoteNode.DoesNotExist:
+        return Response({"error": "Remote node not configured or inactive"},status=400)
+
+    except requests.exceptions.RequestException as e:
+        return Response({"error": f"Failed to connect to remote node: {str(e)}"},status=503)

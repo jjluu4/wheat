@@ -1,7 +1,7 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
-import uuid
+import uuid, urllib, base64
 from core.models import Author, Entry, Follow
 
 
@@ -37,6 +37,15 @@ class EntriesApiTests(APITestCase):
 
         self.public_entry = Entry.objects.create(author=self.owner, url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", content="Public entry", content_type="text/plain", visibility="PUBLIC", published=timezone.now())
         self.friends_entry = Entry.objects.create(author=self.owner, url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", content="Friends entry", content_type="text/plain", visibility="FRIENDS", published=timezone.now())
+        self.valid_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAA2ElEQVR4nADIADf/BDXz4verCCMpcXxWC+YCixid+Mu9maNkCQHpN8GxHvAq2l6ZIoP8c9FwtYKXRvf0tokCXKcYA/FjP2qHJoG6TQEukT84DGn0K+qrAcb7Njtlq13Ox0rCxygUB39oHyYbYewyQARYGGz39IGxkhDUTj0wEPYcTPaZx5IbFAYByvSftPHtXMFyM6Nmuu0nN/jmLKbKZRmVAO9/B5FDLx8H1d7G7Q7YX3dKUtd6tSZe6gR80gbxFI7Ts+ktpXk2FBIKGdD8ykm0/ooBAAD//9rrXuup1DRZAAAAAElFTkSuQmCC="
+        self.public_image_entry = Entry.objects.create(
+            author=self.owner, 
+            url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", 
+            content=f"data:image/png;base64,{self.valid_base64}", 
+            content_type="image", 
+            visibility="PUBLIC", 
+            published=timezone.now()
+        )
 
     def testAuthorEntriesListUnauthOnlyPublic(self):
         """Unauthenticated user sees only public entries in author entries list."""
@@ -118,3 +127,53 @@ class EntriesApiTests(APITestCase):
         self.public_entry.refresh_from_db()
         self.assertEqual(self.public_entry.visibility, "DELETED")
 
+    def testGetEntryByFqidPublic(self):
+        """Anyone can fetch a public entry by its FQID."""
+        encoded_fqid = urllib.parse.quote(self.public_entry.url, safe='')
+        resp = self.client.get(f"/api/entries/{encoded_fqid}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["content"], "Public entry")
+
+    def testGetEntryByFqidFriends(self):
+        """Fetching a friends-only entry by FQID respects permissions."""
+        encoded_fqid = urllib.parse.quote(self.friends_entry.url, safe='')
+        
+        # Unauthenticated
+        resp_unauth = self.client.get(f"/api/entries/{encoded_fqid}/")
+        self.assertIn(resp_unauth.status_code, [401, 403])
+        
+        # Authenticated as friend
+        self.client.login(username="friend", password="pass12345")
+        resp_auth = self.client.get(f"/api/entries/{encoded_fqid}/")
+        self.assertEqual(resp_auth.status_code, 200)
+        self.assertEqual(resp_auth.data["content"], "Friends entry")
+
+    def testGetAuthorImageEntry(self):
+        """Fetching an image entry via author/entry serials returns raw binary."""
+        
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_image_entry.serial}/image/")
+        
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "image/png")
+        self.assertEqual(resp.content, base64.b64decode(self.valid_base64))
+
+    def testGetFqidImageEntry(self):
+        """Fetching an image entry via FQID returns raw binary."""
+        encoded_fqid = urllib.parse.quote(self.public_image_entry.url, safe='')
+        
+        resp = self.client.get(f"/api/entries/{encoded_fqid}/image/")
+        
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "image/png")
+        self.assertEqual(resp.content, base64.b64decode(self.valid_base64))
+
+    def testImageEntryInvalidType(self):
+        """Fetching the image endpoint on a text entry returns 404."""
+        # Test standard route
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/image/")
+        self.assertEqual(resp.status_code, 404)
+        
+        # Test FQID route
+        encoded_fqid = urllib.parse.quote(self.public_entry.url, safe='')
+        resp_fqid = self.client.get(f"/api/entries/{encoded_fqid}/image/")
+        self.assertEqual(resp_fqid.status_code, 404)
