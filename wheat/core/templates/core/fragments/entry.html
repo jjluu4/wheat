@@ -18,6 +18,12 @@
                 <img class="avatar avatar-small" src="{{ entry.author.profileImage }}" alt="{{ entry.author.displayName }} avatar">
             {% endif %}
             <a class="profile-link" href="{% url 'author_profile' entry.author.serial %}">{{ entry.author.displayName }}</a>
+            {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
+            <div style="margin-left: auto; display: flex; gap: 5px;">
+                <a class="button-edit" href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
+                <a class="button-delete" href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -41,19 +47,16 @@
     {% endif %}
     
     <div class="space-between">
-        <div class="small edit">
-            {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
-            <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
-            <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
-            <br><br>
+        <div class="small edit" style="display: flex; align-items: center; gap: 10px;">
+
+            {% if request.user.is_authenticated %}
+            <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
+            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
             {% endif %}
             <button type="button" onclick="toggleComments('{{ entry.serial }}')">All Comments</button>
-            {% if request.user.is_authenticated %}
-            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">New Comment</button>
-            <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
-            {% endif %}
-            <span class="like-count">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</span>
+
         </div>
+        <p class="like-count" style="color: wheat; font-weight: 500; align-self: center;">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</p>
     </div>
 
     <div class="new-comment"> <!--toggled by entry.js-->

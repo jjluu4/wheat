@@ -58,11 +58,11 @@
                         {{ form.visibility }}
                         {{ form.visibility.errors }}
                     </div>
-
-                    <button type="submit">
-                        {% if is_edit %}Save changes{% else %}Create entry{% endif %}
-                    </button>
-                    <a class="button-link" href="{% url 'author_profile' author.serial %}">Cancel</a>
+                    <div style="display: flex; gap: 10px;margin-bottom: 10px;">
+                        <button type="submit">{% if is_edit %}Save changes{% else %}Create entry{% endif %}</button>   
+                        <a class="button-link" href="{% url 'index' %}">Cancel</a>
+                    </div>
+                    </div>
                 </form>
             </div>
         </div>
