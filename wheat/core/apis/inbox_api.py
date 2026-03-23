@@ -1,17 +1,25 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
 
-from ..auth import require_auth_for_view
-from ..models import Author, Entry, RemoteNode
-from ..permissions import (
-    get_requesting_author,
-    can_view_entry,
-)
+from ..auth import require_remote_node_auth
+from ..models import Author, Entry
 
-from ..helpers import get_pagination_params, build_entry_payload
-from ..serializers import AuthorSerializer
+from ..helpers import build_entry_payload
+
+
+def normalize_remote_base_url(value):
+    value = (value or "").strip().rstrip("/")
+    if value.endswith("/api"):
+        value = value[:-4]
+    return value
+
+
+def payload_matches_authenticated_node(author_content, remote_node):
+    author_host = normalize_remote_base_url(author_content.get("host"))
+    author_id = (author_content.get("id") or "").strip()
+    return author_host == remote_node.base_url and author_id.startswith(f"{remote_node.base_url}/")
 
 def create_remote_author(authorContent, base_host):
     authorSerial = uuid.uuid4()
@@ -57,25 +65,33 @@ def create_remote_entry(request, entryAuthor, base_host):
     return entry
     
 @api_view(["POST", "PUT", "DELETE"])
+@authentication_classes([])
+@permission_classes([])
 def inbox_item(request, author_serial):
+    auth_response = require_remote_node_auth(request)
+    if auth_response is not None:
+        return auth_response
+
     base_host = request.get_host()
+    get_object_or_404(Author, serial=author_serial)
     authorContent = request.data.get('author')
-    base_url_match = authorContent["host"].replace("/api/", "")
-    matchRemoteNode = RemoteNode.objects.filter(is_active=True, base_url=base_url_match)
-    
-    if len(matchRemoteNode) == 0:
-        return Response({"NO CONTENT": "Post was not created. Foreign node is not active on this node."}, status=204)
-    
+    if not isinstance(authorContent, dict):
+        return Response({"error": "Author payload is required."}, status=400)
+
+    if not authorContent.get("id") or not authorContent.get("host") or not authorContent.get("displayName"):
+        return Response({"error": "Author payload must include id, host, and displayName."}, status=400)
+
+    if not payload_matches_authenticated_node(authorContent, request.remote_node):
+        return Response({"error": "Payload author does not match the authenticated remote node."}, status=403)
+
     try:
         entryAuthor = Author.objects.get(url=authorContent['id'])
-    except:
+    except Author.DoesNotExist:
         entryAuthor = create_remote_author(authorContent, base_host)
         
     
     if request.method == "POST":
-        require_auth_for_view(True)
-
-        if not author_serial!=entryAuthor.serial:
+        if author_serial == entryAuthor.serial:
             return Response(data={"error": "You don't have permission to post entries for this author."},status=403)
         
         object_type = request.data.get("type")
@@ -94,8 +110,6 @@ def inbox_item(request, author_serial):
             pass
     
     if request.method == "PUT":
-        #require_auth_for_view(True)
-        
         object_type = request.data.get("type")
         
         if object_type == "like":
@@ -104,7 +118,6 @@ def inbox_item(request, author_serial):
             return Response({"error": "Should not be editing comment objects"}, status=403)       
         
         if object_type == "entry":
-            
             try:
                 entry = Entry.objects.get(url=request.data.get("id"))
                 if "title" in request.data:
@@ -128,7 +141,7 @@ def inbox_item(request, author_serial):
 
                 entry.save()
                 return Response(build_entry_payload(entry, request), status=200)                
-            except:
+            except Entry.DoesNotExist:
                 entry = create_remote_entry(request, entryAuthor, base_host)
                 
                 return Response(build_entry_payload(entry, request), status=201)
@@ -137,8 +150,6 @@ def inbox_item(request, author_serial):
             pass
     
     if request.method == "DELETE":
-        require_auth_for_view(True)
-        
         object_type = request.data.get("type")
         
         if object_type == "follow":
@@ -149,14 +160,12 @@ def inbox_item(request, author_serial):
             return Response({"error": "Should not be deleting comment objects"}, status=403)        
         
         if object_type == "entry":
-            
-            require_auth_for_view(True)
             try:
                 entry = Entry.objects.get(url=request.data.get("id"))            
                 entry.visibility = "DELETED"    
                 entry.save(update_fields=["visibility"])
                 return Response(build_entry_payload(entry, request), status=204)
-            except:
+            except Entry.DoesNotExist:
                 entry = create_remote_entry(request, entryAuthor, base_host)
                 entry.visibility = "DELETED"    
                 entry.save(update_fields=["visibility"])

@@ -1,12 +1,13 @@
 from django.http import HttpResponse
 from django.utils.deprecation import MiddlewareMixin
-from django.conf import settings
 import base64
+import binascii
 import threading
 
 from .models import RemoteNode
 
 _thread_local = threading.local()
+AUTH_REALM = 'Basic realm="Node to Node API"'
 
 def require_auth_for_view(require=True):
     """declares that a given view should require authentication. call at the top of views that need auth"""
@@ -22,38 +23,61 @@ def add_auth_headers(headers, remote):
     return headers
 
 
+def _build_auth_failure_response(message):
+    return HttpResponse(message, status=401, headers={"WWW-Authenticate": AUTH_REALM})
+
+
+def parse_remote_node_auth(request):
+    request.is_remote_node = False
+    request.remote_node = None
+    request.remote_node_name = None
+    request.remote_auth_error = None
+    request.remote_auth_attempted = False
+
+    auth_header = request.META.get("HTTP_AUTHORIZATION")
+    if not auth_header:
+        return None
+
+    request.remote_auth_attempted = True
+
+    if not auth_header.startswith("Basic "):
+        request.remote_auth_error = "Authentication required"
+        return None
+
+    try:
+        encoded = auth_header[6:]
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except (ValueError, UnicodeDecodeError, binascii.Error):
+        request.remote_auth_error = "Invalid credentials"
+        return None
+
+    try:
+        remote_node = RemoteNode.objects.get(username=username, password=password, is_active=True)
+    except RemoteNode.DoesNotExist:
+        request.remote_auth_error = "Invalid credentials"
+        return None
+
+    request.is_remote_node = True
+    request.remote_node = remote_node
+    request.remote_node_name = remote_node.name or remote_node.base_url
+    return remote_node
+
+
+def require_remote_node_auth(request):
+    if getattr(request, "remote_node", None) is not None:
+        return None
+    return _build_auth_failure_response(getattr(request, "remote_auth_error", None) or "Authentication required")
+
+
 class AuthMiddleware(MiddlewareMixin):
     """middleware requiring basic auth for API calls"""
 
     def process_request(self, request):
         if hasattr(_thread_local, 'require_auth'):
             delattr(_thread_local, 'require_auth')
+        parse_remote_node_auth(request)
         return None
 
     def process_response(self, request, response):
-
-        if getattr(_thread_local, 'require_auth', False) and response.status_code==200 and not request.user.is_authenticated:
-            auth_header = request.META.get('HTTP_AUTHORIZATION')
-            if not auth_header:
-                return HttpResponse('Authentication required', status=401, headers={'WWW-Authenticate': 'Basic realm="Node to Node API"'})
-
-            if auth_header.startswith('Basic '):
-                try:
-                    encoded = auth_header[6:]
-                    decoded = base64.b64decode(encoded).decode('utf-8')
-                    username, password = decoded.split(':', 1)
-
-                    try:
-                        remote_node = RemoteNode.objects.get(username=username, password=password, is_active=True)
-                        request.is_remote_node = True
-                        request.remote_node = remote_node
-                        request.remote_node_name = remote_node.name or remote_node.base_url
-                        return response
-
-                    except RemoteNode.DoesNotExist:
-                        return HttpResponse('Invalid credentials',status=401,headers={'WWW-Authenticate': 'Basic realm="Node to Node API"'})
-
-                except (ValueError, UnicodeDecodeError):
-                    return HttpResponse('Invalid auth header format', status=400)
-
         return response
