@@ -46,6 +46,7 @@
                             <td>{{ node.updated_at|date:"Y-m-d H:i" }}</td>
                             <td>
                                 <a class="button-link" href="{% url 'remote_node_edit' node.pk %}">Edit</a>
+                                <a class="button-link" href="{% url 'remote_node_delete' node.pk %}">Delete</a>
                                 <form method="post" action="{% url 'remote_node_toggle' node.pk %}" style="display:inline;">
                                     {% csrf_token %}
                                     <button type="submit">{% if node.is_active %}Disable{% else %}Enable{% endif %}</button>

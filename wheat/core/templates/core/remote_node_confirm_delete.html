@@ -1,0 +1,41 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Delete Remote Node</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+
+<body>
+    <div class="page">
+
+        {% include '../navs/main.html' %}
+
+        <div class="container">
+            <h1>Delete Remote Node</h1>
+
+            <div class="card">
+                <p>Are you sure you want to remove this remote node configuration?</p>
+                <p>Disable temporarily pauses sharing. Delete permanently removes this saved configuration from this node.</p>
+
+                <p><strong>Label:</strong> {% if remote_node.name %}{{ remote_node.name }}{% else %}{{ remote_node.base_url }}{% endif %}</p>
+                <p><strong>Base URL:</strong> {{ remote_node.base_url }}</p>
+                <p><strong>API URL:</strong> {{ remote_node.api_base_url }}</p>
+                <p><strong>Username:</strong> {{ remote_node.username }}</p>
+                <p><strong>Status:</strong> {% if remote_node.is_active %}Active{% else %}Disabled{% endif %}</p>
+
+                <p>Deleting this node does not send any request to the remote server. It only removes the saved configuration from this node.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit">Yes, delete</button>
+                    <a href="{% url 'remote_node_list' %}" class="button-link">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

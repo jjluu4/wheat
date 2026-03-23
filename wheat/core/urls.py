@@ -14,6 +14,7 @@ urlpatterns = [
     path("staff/nodes/", remote_node_views.remote_node_list, name="remote_node_list"),
     path("staff/nodes/add/", remote_node_views.remote_node_add, name="remote_node_add"),
     path("staff/nodes/<int:pk>/edit/", remote_node_views.remote_node_edit, name="remote_node_edit"),
+    path("staff/nodes/<int:pk>/delete/", remote_node_views.remote_node_delete, name="remote_node_delete"),
     path("staff/nodes/<int:pk>/toggle/", remote_node_views.remote_node_toggle, name="remote_node_toggle"),
 
     path("authors/", author_views.author_list, name="author_list"),

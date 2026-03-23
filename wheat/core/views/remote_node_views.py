@@ -68,6 +68,25 @@ def remote_node_edit(request, pk):
 
 
 @login_required
+def remote_node_delete(request, pk):
+    forbidden = _forbid_non_staff(request)
+    if forbidden:
+        return forbidden
+
+    remote_node = get_object_or_404(RemoteNode, pk=pk)
+
+    if request.method == "POST":
+        remote_node.delete()
+        return redirect("remote_node_list")
+
+    return render(
+        request,
+        "core/remote_node_confirm_delete.html",
+        {"remote_node": remote_node},
+    )
+
+
+@login_required
 @require_POST
 def remote_node_toggle(request, pk):
     forbidden = _forbid_non_staff(request)
