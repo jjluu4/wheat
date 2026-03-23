@@ -91,8 +91,8 @@ body {
 
 /* Buttons */
 button, a.button-link {
-    background: #ffffff15;
-    color: #eef0ff;
+    background: wheat;
+    color: black;
     border: none;
     padding: 8px 12px;
     border-radius: 10px;
@@ -101,12 +101,25 @@ button, a.button-link {
     font-weight: 700;
 }
 
+.button-edit, .button-delete {
+    background: none;
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 13px;
+    padding-left: 5px;
+}
+
+.button-edit:hover, .button-delete:hover {
+    text-decoration: underline;
+}
+
 button:hover, a.button-link:hover {
     background: #ffffff30;
 }
 
 a.button-link {
-    background: #ffffff08;
+    background: wheat;
     text-decoration: none;
     display: inline-block;
     font-weight: 600;
@@ -138,12 +151,31 @@ p {
 
 /* Card */
 .card {
-    background: #ffffff02;
-    border: 1px solid #ffffff10;
-    border-radius: 12px;
-    box-shadow: 0 18px 15px #00000080;
-    padding: 12px;
+    background: #ffffff05;
+    border: 1px solid #ffffff12;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    padding: 16px;
+    margin-bottom: 16px;
 }
+
+.card:last-child {
+    margin-bottom: 0;
+}
+
+.card > :first-child {
+    margin-top: 0;
+}
+
+.card > :last-child {
+    margin-bottom: 0;
+}
+
+.card ul {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
 
 
 /* Forms */
@@ -171,6 +203,10 @@ input, textarea {
 
 input:focus, textarea:focus {
     border-color: wheat;
+}
+
+.form-row {
+    margin-bottom: 20px;
 }
 
 /* Spinners */
@@ -366,6 +402,7 @@ ul.matrix {
     flex-direction: row;
     justify-content: space-between;
     padding-bottom: 10px;
+    align-items: center;
 }
 
 .comments {
