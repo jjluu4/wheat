@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+from django.http import HttpRequest
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
@@ -10,6 +11,7 @@ import json
 from ..models import Author, Entry, Image, RemoteNode
 from ..forms import EntryForm
 from ..apis import entry_api
+from ..helpers import build_entry_payload
 
 def author_owns_profile(request, author):
     #as an author, other authors cannot modify my entries, so that I don't get impersonated.
@@ -111,13 +113,15 @@ def edit_entry(request, author_serial, entry_serial):
             if len(remoteNodes) > 0:
                     
                 for node in remoteNodes:
-                    payload_request = requests.get(entry.url)
-                    if payload_request.status_code == 200:
-                        payload = json.loads(payload_request.text) 
-                        outgoingUrl = f"{node.api_base_url}/authors/{author.serial}/inbox"
-                        response = requests.put(outgoingUrl, json=payload)
-                        if response.status_code == 200 or response.status_code == 201 or response.status_code == 204:
-                            return redirect("author_profile", author_serial=author.serial)                    
+                    #payload_request = requests.get(entry.url)
+                    req = HttpRequest()
+                    req.user = request.user
+                    payload_request = build_entry_payload(entry, req)
+                    #payload = json.loads(payload_request.text) 
+                    outgoingUrl = f"{node.api_base_url}/authors/{author.serial}/inbox"
+                    response = requests.put(outgoingUrl, json=payload_request)
+                    if response.status_code == 200 or response.status_code == 201 or response.status_code == 204:
+                        return redirect("author_profile", author_serial=author.serial)                   
                     
             
             return redirect("author_profile", author_serial=author.serial)
