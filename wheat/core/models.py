@@ -36,7 +36,7 @@ class Author(models.Model):
 
     url = models.URLField(unique=True)
     host = models.URLField()
-    displayName = models.CharField(max_length=255)
+    displayName = models.CharField(max_length=32)
     github = models.URLField(blank=True, default="")
     description = models.TextField(blank=True, default="")
     profileImage = models.URLField(blank=True, default="https://placehold.co/600x400")
@@ -68,7 +68,8 @@ class Entry(models.Model):
     
     image_url = models.URLField(blank=True, default="")
     published = models.DateTimeField(default=timezone.now)
-    visibility = models.CharField(max_length=10, choices=VISIBILITIES, default="PUBLIC")    
+    visibility = models.CharField(max_length=10, choices=VISIBILITIES, default="PUBLIC")
+    web = models.URLField(blank=True, default="")
     
     @staticmethod
     def get_entries(viewer):

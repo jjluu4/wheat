@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <title>{{ author.displayName }}</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <script src="{% static 'js/entry.js' %}?v=likes-ui-1"></script>
+    <script src="{% static 'js/entry.js' %}?v=likes-ui-2"></script>
 </head>
 
 <body>
@@ -14,11 +14,20 @@
         {% include '../navs/main.html' %}
 
         <div class="container">
-            <h1>{{ author.displayName }}</h1>
+            <h1 style="display: flex; align-items: center; justify-content: center; gap: 5px; margin: 5px 0 10px;flex-wrap: wrap;">
+                {% if author.profileImage %}
+                    <img class="avatar avatar-small" src="{{ author.profileImage }}" alt="{{ author.displayName }} avatar">
+                {% endif %}
+                {{ author.displayName }} 
+            </h1>
+            {% if author.description %}
+                <p style="text-align: center; margin: 0 0 10px;">{{ author.description }}</p>
+                {% endif %}
+
             {% if not request.user.is_authenticated %}
             {% elif author.serial == request.user.author_profile.serial %}
             {% else %}
-            <p>
+            <p style="display: flex; align-items: center; justify-content: center;">
                 {% if followStatus == 'ACCEPTED' %}
                     <a class="button-link" href="{% url 'unfollow_author' author.serial %}">
                         Unfollow
@@ -33,26 +42,27 @@
             </p>
 
             {% endif %}
-            <div class="card">
-                {% if author.user_id == request.user.id or request.user.is_staff %}
-                <div class="flex-row">
-                    <a class="button-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
+
+            {% if author.user_id == request.user.id or request.user.is_staff %}
+            <div style="display: flex; align-items: center; justify-content: center; padding: 10px 0; gap: 10px;">
+                <a class="button-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
+                <a class="button-link" href="{{ author.github }}">GitHub</a>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; padding: 10px 0; gap: 10px; ">
                     <a class="button-link" href="{% url 'follow_requests' author.serial %}">View Follow Requests</a>
                     <a class="button-link" href="{% url 'followers_list' author.serial %}">View Followers</a>
                     <a class="button-link" href="{% url 'following_list' author.serial %}">View Following</a>
-                    <a class="button-link" href="{{ author.github }}">GitHub</a>
-                </div>
-                {% endif %}
-                <p>{{ author.description }}</p>
-
+                    
+                
                
             </div>
+            {% endif %}
 
             <h2>{{ entries_heading }}</h2>
 
             {% if author.user_id == request.user.id or request.user.is_staff %}
             <p>
-                <a class="button-link" href="{% url 'entry_create' author.serial %}">New entry</a>
+                <a class="button-link" href="{% url 'entry_create' author.serial %}">+ New entry</a>
             </p>
             {% endif %}
 

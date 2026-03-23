@@ -10,6 +10,7 @@
             <a href="{% url 'author_list' %}">Authors</a>
             <a href="{% url 'my_stream' %}">My Stream</a>
             <a href="{% url 'my_profile' %}">My Profile</a>
+            <button class="button-link" id="theme-toggle">Theme</button>
             {% if request.user.is_staff %}
             <a href="{% url 'remote_node_list' %}">Manage Nodes</a>
             {% endif %}
@@ -25,3 +26,38 @@
         </div>
     </div>
 </div>
+<script>
+    (function () {
+        const body = document.body;
+        const btn = document.getElementById('theme-toggle');
+        if (!btn || !body) return;
+
+        const saved = localStorage.getItem('theme');
+        const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+
+        if (saved === 'theme-light' || saved === 'theme-dark') {
+            body.classList.remove('theme-light', 'theme-dark');
+            body.classList.add(saved);
+        } else if (prefersLight) {
+            body.classList.add('theme-light');
+            body.classList.remove('theme-dark');
+        } else {
+            body.classList.add('theme-dark');
+            body.classList.remove('theme-light');
+        }
+
+        function updateLabel() {
+            btn.textContent = body.classList.contains('theme-light') ? 'Dark Mode' : 'Light Mode';
+        }
+
+        updateLabel();
+
+        btn.addEventListener('click', function () {
+            const next = body.classList.contains('theme-light') ? 'theme-dark' : 'theme-light';
+            body.classList.remove('theme-light', 'theme-dark');
+            body.classList.add(next);
+            localStorage.setItem('theme', next);
+            updateLabel();
+        });
+    })();
+</script>

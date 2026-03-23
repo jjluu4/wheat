@@ -2,7 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 from .views import author_views, entry_views, follow_views, stream_views, authentication_views, remote_node_views, views
-from .apis import author_api, comment_api, entry_api, follow_api, like_api
+from .apis import author_api, comment_api, entry_api, follow_api, like_api, inbox_api
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -44,14 +44,20 @@ urlpatterns = [
     path("api/authors/<uuid:author_serial>/entries/", entry_api.author_entries, name="api_author_entries"),
     path("api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", entry_api.single_entry, name="api_single_entry"),    
     path("api/authors/<uuid:author_serial>/follow_requests", follow_api.get_follow_requests_api, name="api_follow_requests"),
-    path("api/authors/<uuid:author_serial>/following", follow_api.get_following_api, name="api_get_following"),
+    path("api/authors/<uuid:author_serial>/following", follow_api.get_following_list, name="api_get_following_list"),
     path('api/authors/<uuid:author_serial>/commented/', comment_api.author_commented, name='api_author_comments'),
     path('api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/', comment_api.author_commented_single, name='api_author_comments_single'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/', comment_api.entry_comments, name='api_entry_comments'),
     path('api/authors/<uuid:author_serial>/liked/', like_api.author_liked, name='api_author_liked'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/', like_api.entry_likes, name='api_entry_likes'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/<uuid:comment_serial>/likes/', like_api.comment_likes, name='api_comment_likes'),
-
+    path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/image/', entry_api.get_author_image_entry, name='get_author_image_entry'),
+    path('api/entries/<path:entry_fqid>/image/', entry_api.get_fqid_image_entry, name='get_fqid_image_entry'),
+    path("api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>", follow_api.following_api, name="api_following"),
+    path("api/authors/<uuid:author_serial>/followers/<path:foreign_author_fqid>", follow_api.follower_api, name="api_followers"),
+    path('api/authors/<uuid:author_serial>/inbox', inbox_api.inbox_item, name='api_inbox_item'),
+    path("api/entries/<path:entry_fqid>/", entry_api.get_entry_fqid, name="api_entry_fqid"),
+    path("api/authors/<path:author_fqid>/", author_api.single_author_fqid, name="api_author_fqid"),
 
     # Canonical stable routes use entry serial (UUID), not DB pk
     path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/edit/", entry_views.edit_entry, name="entry_edit"),
