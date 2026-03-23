@@ -6,9 +6,17 @@
 
 # Where to Start
 
-<p>For the time being, the Wheat Social Distribution API is only available for use locally. As such, all one must technically do in order to begin making requests towards the API is be on the local server that the target node is currently running on, and know what the hostname of the local node is. </p>
+<p>The Wheat Social Distribution API supports both local client usage and a limited set of remote node-to-node requests. Local browser and API clients use the project’s existing local authentication flow. Remote node-to-node requests currently use HTTP Basic Auth with credentials configured through the staff-only remote node management UI at <code>/staff/nodes/</code>.</p>
 
 <p>However, certain requests made at specific endpoints may require signing up to successfully complete. The ability to make GET requests towards friends-only entries, as well as POST, PUT and DELETE requests are dependent upon specific user permissions, and will be denied in all cases where the user is not logged in. To sign up, one must only go to the address where their local node is currently running, press the “Sign up” button in the top right corner, and enter whatever username and password one finds appealing. This username and password can then be utilized when making requests to the API (how to achieve this is discussed below). </p>
+
+## Remote Node Authentication
+
+<p>Node-to-node inbox requests require HTTP Basic Auth. The username and password must match an active remote node configured in the target server’s <code>/staff/nodes/</code> page. Requests with missing, malformed, or invalid Basic Auth headers receive a <code>401 Unauthorized</code> response and a <code>WWW-Authenticate: Basic realm="Node to Node API"</code> challenge.</p>
+
+<p>Example header:</p>
+
+> Authorization: Basic &lt;base64(username:password)&gt;
 
 # HTTP Requests and Responses
 
@@ -56,6 +64,30 @@ ___
 | 401 Unauthorized | The user making this request has not been authenticated to make the specified http request (In other words, logging in is probably required to make this request). |
 | 403 Forbidden | The user making this request does not have sufficient permissions to view the requested content. |
 | 404 Not Found | The requested content could not be found. |
+
+___
+## Inbox API - Receive remote objects for a local author
+
+___
+#### Endpoint Pattern
+
+> &lt;Node Address&gt;/api/authors/&lt;Author Serial&gt;/inbox
+
+___
+#### Authentication
+
+<p>This endpoint is intended for remote node-to-node traffic. It requires HTTP Basic Auth using an active remote node credential pair configured on the receiving server.</p>
+
+___
+#### POST Request with curl
+
+> curl -X POST http<nolink>:\//127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13/inbox -H "Authorization: Basic &lt;base64(username:password)&gt;" -H "Content-Type: application/json" -d @/example/path/remote-entry.json
+
+> **CREATES or UPDATES the received object with Code=200 or Code=201**
+
+<p>The incoming object must belong to the same remote node as the authenticated Basic Auth credential pair. Currently, entry create/update/delete traffic is enforced on this endpoint.</p>
+
+Possible Error Codes: <br>400 [Occurs if the payload is malformed], <br>401 [Occurs if Basic Auth is missing or invalid], <br>403 [Occurs if the payload author does not match the authenticated remote node], <br>404 [Occurs if the inbox owner does not exist]
 
 # API Endpoints and Their Objects
 

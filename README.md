@@ -36,4 +36,5 @@ Staff users can manage remote node credentials through the web UI at `/staff/nod
 - Nodes can be disabled without being deleted, which keeps the configuration available for later federation work.
 - Disabling a node temporarily pauses its use. Deleting a node permanently removes the saved configuration from this node.
 - Deleting a node only affects local configuration. It does not send any request to the remote server.
-- This feature only stores configuration locally for future node-to-node integration. It does not yet make outbound federation requests on its own.
+- Configured remote-node credentials are also used for node-to-node HTTP Basic Auth on the inbox API.
+- Browser and local web-app traffic continue to use the project’s existing local authentication; remote Basic Auth is only enforced on remote-only surfaces such as the inbox API.
