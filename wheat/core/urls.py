@@ -2,7 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 from .views import author_views, entry_views, follow_views, stream_views, authentication_views, remote_node_views, views
-from .apis import author_api, comment_api, entry_api, follow_api, like_api
+from .apis import author_api, comment_api, entry_api, follow_api, like_api, inbox_api
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -54,6 +54,7 @@ urlpatterns = [
     path('api/entries/<path:entry_fqid>/image/', entry_api.get_fqid_image_entry, name='get_fqid_image_entry'),
     path("api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>", follow_api.following_api, name="api_following"),
     path("api/authors/<uuid:author_serial>/followers/<path:foreign_author_fqid>", follow_api.follower_api, name="api_followers"),
+    path('api/authors/<uuid:author_serial>/inbox', inbox_api.inbox_item, name='api_inbox_item'),
 
 
     # Canonical stable routes use entry serial (UUID), not DB pk

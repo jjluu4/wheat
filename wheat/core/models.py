@@ -68,7 +68,8 @@ class Entry(models.Model):
     
     image_url = models.URLField(blank=True, default="")
     published = models.DateTimeField(default=timezone.now)
-    visibility = models.CharField(max_length=10, choices=VISIBILITIES, default="PUBLIC")    
+    visibility = models.CharField(max_length=10, choices=VISIBILITIES, default="PUBLIC")
+    web = models.URLField(blank=True, default="")
     
     @staticmethod
     def get_entries(viewer):
