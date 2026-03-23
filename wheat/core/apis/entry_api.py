@@ -15,7 +15,6 @@ from ..helpers import get_pagination_params, build_entry_payload
 from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
-@authentication_classes([])
 def single_entry(request, author_serial, entry_serial):
     """
     Handles operations on a single entry.
@@ -73,7 +72,6 @@ def single_entry(request, author_serial, entry_serial):
         return Response(status=204)
 
 @api_view(["GET", "POST"])
-@authentication_classes([])
 def author_entries(request, author_serial):
     """
     Handles operations on an authors entries collection
@@ -156,7 +154,6 @@ def author_entries(request, author_serial):
         return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(["GET"])
-@authentication_classes([])
 def get_entry_fqid(request, entry_fqid):
     """
     Handles getting an entry by fqid.
@@ -177,7 +174,6 @@ def get_entry_fqid(request, entry_fqid):
     return Response(EntrySerializer(entry).data)
 
 @api_view(["GET"])
-@authentication_classes([])
 def get_author_image_entry(request, author_serial, entry_serial):
     """
     Handles the retrieval of an image by author and entry serials.
@@ -228,7 +224,6 @@ def get_author_image_entry(request, author_serial, entry_serial):
             return Response({"error": "Failed to connect to remote node."}, status=503)
 
 @api_view(["GET"])
-@authentication_classes([])
 def get_fqid_image_entry(request, entry_fqid):
     """
     Handles the retrieval of an image by fqid.
