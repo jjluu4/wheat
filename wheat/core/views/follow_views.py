@@ -1,8 +1,17 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseNotFound
+import logging
 
+from ..apis.follow_api import (
+    forward_follow_request_to_remote_inbox,
+    notify_remote_follow_acceptance,
+    notify_remote_follow_rejection,
+    notify_remote_unfollow,
+)
 from ..models import Author, Follow
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def follow_author(request, author_serial):
@@ -18,6 +27,19 @@ def follow_author(request, author_serial):
     if not created and (follow.status == "DECLINED" or follow.status == "REJECTED"):
         follow.status = "REQUESTED"
         follow.save()
+
+    if follow.status != "ACCEPTED":
+        follow.status = "REQUESTED"
+        follow.save(update_fields=["status"])
+        # For remote targets this delivers to their inbox; for local/testserver it no-ops safely.
+        delivered, delivery_error = forward_follow_request_to_remote_inbox(actor, target)
+        if not delivered:
+            logger.warning(
+                "HTML follow request delivery failed actor=%s target=%s error=%s",
+                getattr(actor, "url", actor.serial),
+                getattr(target, "url", target.serial),
+                delivery_error,
+            )
     
     return redirect("author_profile", author_serial=target.serial)
 
@@ -36,6 +58,15 @@ def accept_follow(request, author_serial):
 
         follow.status = "ACCEPTED"
         follow.save()
+        if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
+            delivered, delivery_error = notify_remote_follow_acceptance(actor, target)
+            if not delivered:
+                logger.warning(
+                    "HTML follow acceptance callback failed follower=%s followed=%s error=%s",
+                    getattr(actor, "url", actor.serial),
+                    getattr(target, "url", target.serial),
+                    delivery_error,
+                )
 
         return redirect("author_profile", author_serial=target.serial)
     
@@ -57,6 +88,16 @@ def reject_follow(request, author_serial):
 
         follow.status = "REJECTED"
         follow.save()
+
+        if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
+            delivered, err = notify_remote_follow_rejection(actor, target)
+            if not delivered:
+                logger.warning(
+                    "HTML follow reject remote notify failed follower=%s followee=%s error=%s",
+                    getattr(actor, "url", actor.serial),
+                    getattr(target, "url", target.serial),
+                    err,
+                )
 
         return redirect("author_profile", author_serial=target.serial)
     
@@ -109,20 +150,22 @@ def followers(request, author_serial):
 
 @login_required
 def unfollow(request, author_serial):
-    """Remove an accepted follow relationship from the current user to the target author."""
+    """Remove a follow relationship (ACCEPTED or REQUESTED) from the current user to the target author."""
     actor = get_object_or_404(Author, user=request.user)
     target = get_object_or_404(Author, serial=author_serial)
 
-    try:
-        follow = Follow.objects.get(
-            actor=actor,
-            target=target,
-            status="ACCEPTED"
-        )
-
-        follow.delete()
-
-        return redirect("author_profile", author_serial=target.serial)
-    
-    except Follow.DoesNotExist:
+    follow = Follow.objects.filter(actor=actor, target=target).first()
+    if follow is None:
         return HttpResponseNotFound("Follow request cannot be found.")
+
+    follow.delete()
+    if getattr(target, "host", "") and "testserver" not in getattr(target, "host", ""):
+        delivered, err = notify_remote_unfollow(actor, target)
+        if not delivered:
+            logger.warning(
+                "HTML unfollow remote notify failed actor=%s target=%s error=%s",
+                getattr(actor, "url", actor.serial),
+                getattr(target, "url", target.serial),
+                err,
+            )
+    return redirect("author_profile", author_serial=target.serial)

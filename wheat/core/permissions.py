@@ -1,7 +1,10 @@
 def get_requesting_author(request):
-    if request.user.is_authenticated and hasattr(request.user, "author_profile"):
+    if not request.user.is_authenticated:
+        return None
+    try:
         return request.user.author_profile
-    return None
+    except Exception:  # RelatedObjectDoesNotExist when User has no Author row
+        return None
 
 
 def is_friend(author, requesting_author):

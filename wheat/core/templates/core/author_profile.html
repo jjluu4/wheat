@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <title>{{ author.displayName }}</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <script src="{% static 'js/entry.js' %}?v=likes-ui-2"></script>
+    <script src="{% static 'js/entry.js' %}?v=likes-ui-4"></script>
 </head>
 
 <body>
@@ -33,9 +33,9 @@
                         Unfollow
                     </a>
                 {% elif followStatus == 'REQUESTED' %}
-                    <a class="button-link" disabled>Requested</a>
+                    <a class="button-link" href="{% url 'unfollow_author' author.serial %}">Cancel request</a>
                 {% else %}
-                    <a class="button-link" href="{% url 'follow_author' author.serial %}"">
+                    <a class="button-link" href="{% url 'follow_author' author.serial %}">
                         Follow
                     </a>
                 {% endif %}
@@ -60,7 +60,7 @@
 
             <h2>{% if is_owner %}Your Entries{% else %}Public Entries{% endif %}</h2>
 
-            {% if author.user_id == request.user.id or request.user.is_staff %}
+            {% if author.user_id == request.user.id%}
             <p>
                 <a class="button-link" href="{% url 'entry_create' author.serial %}">+ New entry</a>
             </p>

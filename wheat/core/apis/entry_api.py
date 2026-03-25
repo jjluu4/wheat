@@ -9,12 +9,13 @@ from PIL import Image as PILImage
 from ..auth import require_auth_for_view
 from ..auth import is_remote_node_authenticated
 from ..auth import add_auth_headers
+from ..federation import distribute_entry_to_remote_recipients
 from ..models import Author, Entry, Image, RemoteNode
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
 )
-from ..helpers import get_pagination_params, build_entry_payload
+from ..helpers import get_pagination_params, build_entry_payload, resolve_object_by_url
 from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
@@ -67,12 +68,26 @@ def single_entry(request, author_serial, entry_serial):
             return Response({"error": "imageUrl is required for image entries"}, status=400)
 
         entry.save()
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=entryAuthor,
+            payload=payload,
+            visibility=entry.visibility,
+            method="PUT",
+        )
         return Response(build_entry_payload(entry, request), status=200)
 
     if request.method == "DELETE":
         require_auth_for_view(True)
         entry.visibility = "DELETED"
         entry.save(update_fields=["visibility"])
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=entryAuthor,
+            payload=payload,
+            visibility="PUBLIC",
+            method="DELETE",
+        )
         return Response(status=204)
 
 @api_view(["GET", "POST"])
@@ -159,6 +174,14 @@ def author_entries(request, author_serial):
         entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
         entry.save(update_fields=["url"])
 
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=author,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
+
         return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(["GET"])
@@ -172,7 +195,9 @@ def get_entry_fqid(request, entry_fqid):
     """
     require_auth_for_view(False)
     decoded_fqid = urllib.parse.unquote(entry_fqid)
-    entry = get_object_or_404(Entry, url=decoded_fqid)
+    entry = resolve_object_by_url(Entry, decoded_fqid)
+    if entry is None:
+        return Response({"error": "Entry not found"}, status=404)
 
     requestingAuthor = get_requesting_author(request)
 

@@ -17,7 +17,7 @@ def create_or_update_author(author_payload, request):
     if not remote_id:
         return None
 
-    author = Author.objects.filter(url=remote_id).first()
+    author = resolve_object_by_url(Author, remote_id)
     if author is None:
         serial = uuid.uuid4()
         base = normalize_url(request.build_absolute_uri("/"))
@@ -101,13 +101,14 @@ def create_or_update_comment(payload, request):
 
 
 def create_or_update_follow(payload, request, inbox_owner):
+    """Create/update a Follow row from a remote follow inbox event."""
     actor = create_or_update_author(payload.get("actor"), request)
     object_author_payload = payload.get("object")
     object_id = object_author_payload.get("id") if isinstance(object_author_payload, dict) else ""
     if actor is None or not object_id:
         return None, "Follow actor and object are required"
 
-    object_author = Author.objects.filter(url=object_id).first()
+    object_author = resolve_object_by_url(Author, object_id)
     if object_author is None:
         object_author = inbox_owner
 
@@ -118,7 +119,31 @@ def create_or_update_follow(payload, request, inbox_owner):
     return follow, None
 
 
+def delete_follow_from_unfollow_payload(payload, request, inbox_owner):
+    """
+    Remove Follow(actor, target) using actor + object from the payload.
+    inbox_owner identifies which inbox received the event (may be followee or follower node).
+    """
+    actor_payload = payload.get("actor")
+    if not isinstance(actor_payload, dict):
+        return None, "Unfollow actor is required"
+    actor_id = (actor_payload.get("id") or "").strip()
+    actor = resolve_object_by_url(Author, actor_id) or create_or_update_author(actor_payload, request)
+    if actor is None:
+        return None, "Unfollow actor is required"
+
+    object_payload = payload.get("object")
+    object_id = (object_payload.get("id") or "").strip() if isinstance(object_payload, dict) else ""
+    target = resolve_object_by_url(Author, object_id) if object_id else None
+    if target is None:
+        target = inbox_owner
+
+    Follow.objects.filter(actor=actor, target=target).delete()
+    return None, None
+
+
 def create_or_update_like(payload, request):
+    """Create/update an entry/comment like from a remote inbox event."""
     author = create_or_update_author(payload.get("author"), request)
     if author is None:
         return None, "Like author is required"
@@ -154,7 +179,35 @@ def create_or_update_like(payload, request):
     return None, "Like object target not found"
 
 
+def delete_like_from_inbox(payload, request):
+    """Remove an entry/comment like from a remote unlike inbox event."""
+    author = create_or_update_author(payload.get("author"), request)
+    if author is None:
+        return None, "Like author is required"
+
+    object_url = (payload.get("object") or "").strip()
+    if not object_url:
+        return None, "Like object is required"
+
+    entry = resolve_object_by_url(Entry, object_url)
+    if entry is not None:
+        EntryLike.objects.filter(author=author, entry=entry).delete()
+        return None, None
+
+    comment = resolve_object_by_url(Comment, object_url)
+    if comment is not None:
+        CommentLike.objects.filter(author=author, comment=comment).delete()
+        return None, None
+
+    return None, "Like object target not found"
+
+
 def build_item_id_from_payload(payload):
+    """Build a deterministic inbox event id.
+
+    Prefer `payload.id` when provided. Otherwise hash the payload body so
+    retries are idempotent for legacy messages.
+    """
     payload_id = (payload.get("id") or "").strip()
     if payload_id:
         return payload_id
@@ -166,6 +219,8 @@ def build_item_id_from_payload(payload):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 def inbox_item(request, author_serial):
+    """Remote inbox endpoint for federated activity delivery.
+    """
     inbox_owner = get_object_or_404(Author, serial=author_serial)
 
     if not is_remote_node_authenticated(request):
@@ -173,12 +228,62 @@ def inbox_item(request, author_serial):
 
     payload = request.data if isinstance(request.data, dict) else {}
     object_type = (payload.get("type") or "").lower()
-    if object_type not in {"entry", "follow", "like", "comment"}:
+    if object_type not in {"entry", "follow", "like", "comment", "accept", "unfollow", "unlike"}:
         return Response({"error": "Unsupported inbox object type"}, status=400)
 
     event_id = build_item_id_from_payload(payload)
     if InboxItem.objects.filter(owner=inbox_owner, item_id=event_id).exists():
         return Response({"type": object_type, "status": "already-processed"}, status=200)
+
+    if object_type == "accept":
+        actor_payload = payload.get("actor")
+        followee_id = (actor_payload.get("id") or "").strip() if isinstance(actor_payload, dict) else ""
+        followee = resolve_object_by_url(Author, followee_id) or create_or_update_author(actor_payload, request)
+        if followee is None:
+            return Response({"error": "Accept actor (the one who accepted) is required"}, status=400)
+        follow = Follow.objects.filter(actor=inbox_owner, target=followee).first()
+        if follow is None:
+            follow, _ = Follow.objects.get_or_create(
+                actor=inbox_owner,
+                target=followee,
+                defaults={"status": "ACCEPTED"},
+            )
+        if follow.status != "ACCEPTED":
+            follow.status = "ACCEPTED"
+            follow.save(update_fields=["status"])
+        InboxItem.objects.create(
+            owner=inbox_owner,
+            item_type=object_type,
+            item_id=event_id,
+            payload=payload,
+        )
+        return Response({"type": "accept", "status": "accepted"}, status=201)
+
+    if object_type == "unfollow":
+        _, error = delete_follow_from_unfollow_payload(payload, request, inbox_owner)
+        if error:
+            return Response({"error": error}, status=400)
+        response = Response({"type": "unfollow", "status": "removed"}, status=201)
+        InboxItem.objects.create(
+            owner=inbox_owner,
+            item_type=object_type,
+            item_id=event_id,
+            payload=payload,
+        )
+        return response
+
+    if object_type == "unlike":
+        _, error = delete_like_from_inbox(payload, request)
+        if error:
+            return Response({"error": error}, status=400)
+        response = Response({"type": "unlike", "status": "removed"}, status=201)
+        InboxItem.objects.create(
+            owner=inbox_owner,
+            item_type=object_type,
+            item_id=event_id,
+            payload=payload,
+        )
+        return response
 
     if object_type == "entry":
         entry, error = create_or_update_entry(payload, request)

@@ -9,7 +9,7 @@ import requests
 from ..auth import add_auth_headers, require_auth_for_view
 from ..auth import is_remote_node_authenticated
 from ..models import Author, Entry, Comment, EntryLike, CommentLike, RemoteNode
-from ..serializers import CommentLikeSerializer, EntryLikeSerializer
+from ..serializers import AuthorSerializer, CommentLikeSerializer, EntryLikeSerializer
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
@@ -26,11 +26,13 @@ from ..helpers import (
     normalize_url,
     resolve_object_by_url,
 )
+from ..federation import _extract_author_id_from_fqid, remote_authors_for_entry, send_to_author_inbox
 
 ENTRY_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
 COMMENT_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/commented/(?P<comment>[0-9a-f-]+)/?$")
 
 def resolve_like_target(object_url):
+    """Resolve a like target URL into (`entry`|`comment`, model_instance)."""
     entry = resolve_object_by_url(Entry, object_url)
     if entry is not None:
         return "entry", entry
@@ -60,10 +62,12 @@ def resolve_like_target(object_url):
     return None, None
 
 def build_like_url(request, author, like_serial):
+    """Build a canonical API URL for a like object."""
     return f"{build_author_api_url(author, request)}/liked/{like_serial}/"
 
 
-def forward_like_to_remote_inbox(like_payload, inbox_author):
+def _post_json_to_remote_inbox(payload, inbox_author):
+    """POST JSON to inbox_author's home node inbox (if remote)."""
     inbox_host = normalize_url(getattr(inbox_author, "host", ""))
     if not inbox_host or "testserver" in inbox_host:
         return
@@ -73,12 +77,49 @@ def forward_like_to_remote_inbox(like_payload, inbox_author):
     if remote is None:
         return
 
-    inbox_url = f"{inbox_host}/authors/{inbox_author.serial}/inbox"
+    remote_author_id = _extract_author_id_from_fqid(getattr(inbox_author, "url", ""))
+    if not remote_author_id:
+        return
+
+    inbox_url = f"{inbox_host}/authors/{remote_author_id}/inbox"
     headers = add_auth_headers({"Content-Type": "application/json"}, remote)
     try:
-        requests.post(inbox_url, json=like_payload, headers=headers, timeout=5)
+        requests.post(inbox_url, json=payload, headers=headers, timeout=5)
     except requests.RequestException:
         return
+
+
+def forward_like_to_remote_inbox(like_payload, inbox_author):
+    """Send like to an author's inbox (if remote)."""
+    _post_json_to_remote_inbox(like_payload, inbox_author)
+
+
+def forward_comment_like_to_entry_and_comment_authors(like_payload, comment):
+    """
+    Comment likes must reach both the commenter's node and the entry author's node
+    (when different), so counts stay correct where the entry is canonical.
+    """
+    seen = set()
+    for author in (comment.author, comment.entry.author):
+        aid = getattr(author, "id", None)
+        if aid is None or aid in seen:
+            continue
+        seen.add(aid)
+        forward_like_to_remote_inbox(like_payload, author)
+
+
+def distribute_like_to_remote_followers(like_payload, entry_author, visibility):
+    """Send like to remote followers who have the entry (so it appears on their node)."""
+    recipients = remote_authors_for_entry(entry_author, visibility)
+    for recipient in recipients:
+        send_to_author_inbox(recipient, like_payload, method="POST")
+
+
+def distribute_unlike_to_remote_followers(unlike_payload, entry_author, visibility):
+    """Mirror distribute_like_to_remote_followers for removals."""
+    recipients = remote_authors_for_entry(entry_author, visibility)
+    for recipient in recipients:
+        send_to_author_inbox(recipient, unlike_payload, method="POST")
 
 def serialize_like_item(like):
     """Serialize either an EntryLike or CommentLike into its API representation."""
@@ -103,6 +144,11 @@ def build_mixed_likes_collection(items, collection_id, page, size):
 @api_view(["GET", "POST"])
 @authentication_classes([SessionAuthentication])
 def author_liked(request, author_serial):
+    """GET/POST likes collection for an author.
+
+    POST supports both `type=like` and `type=unlike` to create or remove likes,
+    and mirrors those changes to relevant remote inboxes.
+    """
     author = get_object_or_404(Author, serial=author_serial)
 
     if request.method == "POST":
@@ -117,6 +163,41 @@ def author_liked(request, author_serial):
         object_url = request.data.get("object")
         if not object_url:
             return Response({"error": "Object URL is required"}, status=400)
+
+        req_type = (request.data.get("type") or "like").lower()
+        if req_type == "unlike":
+            target_type, target = resolve_like_target(object_url)
+            if not target_type:
+                return Response({"error": "Invalid object URL"}, status=400)
+            if target_type == "entry":
+                if not can_view_entry(target, requesting_author, request.user):
+                    return Response({"error": "You don't have permission to unlike this entry"}, status=403)
+                deleted, _ = EntryLike.objects.filter(author=author, entry=target).delete()
+                if not deleted:
+                    return Response({"error": "Like not found"}, status=404)
+            else:
+                if not can_view_comment(target, requesting_author, request.user):
+                    return Response({"error": "You don't have permission to unlike this comment"}, status=403)
+                deleted, _ = CommentLike.objects.filter(author=author, comment=target).delete()
+                if not deleted:
+                    return Response({"error": "Like not found"}, status=404)
+
+            unlike_id = f"{normalize_url(author.url)}/unlikes/{uuid.uuid4()}"
+            unlike_payload = {
+                "type": "unlike",
+                "id": unlike_id,
+                "author": AuthorSerializer(author).data,
+                "object": object_url,
+            }
+            if target_type == "entry":
+                _post_json_to_remote_inbox(unlike_payload, target.author)
+                distribute_unlike_to_remote_followers(unlike_payload, target.author, target.visibility)
+            else:
+                forward_comment_like_to_entry_and_comment_authors(unlike_payload, target)
+                distribute_unlike_to_remote_followers(
+                    unlike_payload, target.entry.author, target.entry.visibility
+                )
+            return Response({"type": "unlike", "object": object_url}, status=200)
 
         target_type, target = resolve_like_target(object_url)
         if not target_type:
@@ -138,7 +219,11 @@ def author_liked(request, author_serial):
             like.url = build_like_url(request, author, like.serial)
             like.save(update_fields=["url"])
             response_data = EntryLikeSerializer(like).data
+            response_data.setdefault("type", "like")
             forward_like_to_remote_inbox(response_data, target.author)
+            distribute_like_to_remote_followers(
+                response_data, target.author, target.visibility
+            )
             return Response(response_data, status=201)
 
         if not can_view_comment(target, requesting_author, request.user):
@@ -156,7 +241,11 @@ def author_liked(request, author_serial):
         like.url = build_like_url(request, author, like.serial)
         like.save(update_fields=["url"])
         response_data = CommentLikeSerializer(like).data
-        forward_like_to_remote_inbox(response_data, target.author)
+        response_data.setdefault("type", "like")
+        forward_comment_like_to_entry_and_comment_authors(response_data, target)
+        distribute_like_to_remote_followers(
+            response_data, target.entry.author, target.entry.visibility
+        )
         return Response(response_data, status=201)
 
     page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)

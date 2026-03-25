@@ -183,3 +183,20 @@ class InboxApiTests(APITestCase):
         like_resp = self.client.post(self.inbox_url, like_payload, format="json", **headers)
         self.assertEqual(like_resp.status_code, 201)
         self.assertTrue(CommentLike.objects.filter(author=remote_author, comment=comment).exists())
+
+        unlike_payload = {
+            "type": "unlike",
+            "id": "http://remote-node-a.example.com/api/authors/22222222-2222-2222-2222-222222222222/unlikes/u1",
+            "object": comment.url,
+            "author": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+        }
+        unlike_resp = self.client.post(self.inbox_url, unlike_payload, format="json", **headers)
+        self.assertEqual(unlike_resp.status_code, 201)
+        self.assertFalse(CommentLike.objects.filter(author=remote_author, comment=comment).exists())

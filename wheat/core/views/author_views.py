@@ -1,9 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import HttpResponseForbidden
 import uuid
 
 from ..models import Author, Entry, Follow
+from ..permissions import get_requesting_author, is_friend
 from ..github import fetch_public_events
 from ..github_to_entries import save_event_as_entry
 
@@ -16,16 +18,12 @@ def author_list(request):
 def author_profile(request, author_serial):
     """Show an author's profile page and their visible entries."""
     author = get_object_or_404(Author, serial=author_serial)
-
-    # Auto-import newest GitHub events as PUBLIC entries
-    # (should not duplicate if save_event_as_entry uses unique URL)
     if author.github:
         try:
             events = fetch_public_events(author.github, per_page=5)
             for e in events:
                 save_event_as_entry(e, author)
         except Exception:
-            # Don't break the profile page if GitHub API fails
             pass
 
     is_owner = (
@@ -36,17 +34,23 @@ def author_profile(request, author_serial):
     if is_owner:
         entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
     else:
-        entries = Entry.objects.filter(author=author, visibility="PUBLIC")
+        viewer = get_requesting_author(request)
+        if viewer is None:
+            entries = Entry.objects.filter(author=author, visibility="PUBLIC")
+        else:
+            q = Q(visibility="PUBLIC")
+            if Follow.objects.filter(actor=viewer, target=author, status="ACCEPTED").exists():
+                q |= Q(visibility="UNLISTED")
+            if is_friend(author, viewer):
+                q |= Q(visibility="FRIENDS")
+            entries = Entry.objects.filter(author=author).filter(q).exclude(visibility="DELETED")
 
     entries = entries.order_by("-published")
 
     followStatus = None
-    if request.user.is_authenticated:
-        follow = Follow.objects.filter(
-            actor=request.user.author_profile,
-            target=author
-        ).first()
-
+    viewer_for_follow = get_requesting_author(request)
+    if viewer_for_follow is not None:
+        follow = Follow.objects.filter(actor=viewer_for_follow, target=author).first()
         if follow:
             followStatus = follow.status
 

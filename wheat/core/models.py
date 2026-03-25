@@ -17,7 +17,7 @@ VISIBILITIES = [
 
 FOLLOW_STATUSES = [
     ("ACCEPTED", "Accepted"),
-    ("REQUESTING", "Requesting"),
+    ("REQUESTED", "Requested"),
     ("REJECTED", "Rejected")
 ]
 

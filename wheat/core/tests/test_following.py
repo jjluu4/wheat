@@ -4,6 +4,7 @@ from core.models import Author, Follow, RemoteNode
 import uuid
 import base64
 import urllib
+from unittest.mock import patch
 
 
 class FollowAPITest(APITestCase):
@@ -149,7 +150,7 @@ class FollowAPITest(APITestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_follower_get_when_is_follower(self):
-        """GET should return true if the foreign author's follow status is ACCEPTED."""
+        """GET should return the follower author object when status is ACCEPTED."""
         # User 2 follows User 1, User 1 accepts
         self.client.login(username="user2", password="password2")
         self.client.put(f"/api/authors/{self.author2.serial}/following/{self.encoded_a1_fqid}")
@@ -161,10 +162,11 @@ class FollowAPITest(APITestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data.get('is_follower', response.data.get('is_following')))
+        self.assertEqual(response.data.get("type"), "author")
+        self.assertEqual(response.data.get("id"), self.author2.url)
 
     def test_follower_get_when_not_follower(self):
-        """GET should return false if the follow is only REQUESTED or missing."""
+        """GET should return 404 when the foreign author is not an accepted follower."""
         # User 2 requests to follow User 1 (not accepted)
         self.client.login(username="user2", password="password2")
         self.client.put(f"/api/authors/{self.author2.serial}/following/{self.encoded_a1_fqid}")
@@ -173,8 +175,7 @@ class FollowAPITest(APITestCase):
         url = f"/api/authors/{self.author1.serial}/followers/{self.encoded_a2_fqid}"
         response = self.client.get(url)
         
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.data.get('is_follower', response.data.get('is_following')))
+        self.assertEqual(response.status_code, 404)
 
     def test_follower_put_accepts_request(self):
         """PUT should change a REQUESTED relationship into an ACCEPTED one."""
@@ -188,9 +189,10 @@ class FollowAPITest(APITestCase):
         put_response = self.client.put(url)
         self.assertEqual(put_response.status_code, 204)
         
-        # Verify via API that User 2 is now a confirmed follower
+        # Verify via API that User 2 is now a confirmed follower object
         get_response = self.client.get(url)
-        self.assertTrue(get_response.data.get('is_follower', get_response.data.get('is_following')))
+        self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(get_response.data.get("id"), self.author2.url)
 
     def test_follower_delete_removes_follower(self):
         """DELETE should completely remove the follower."""
@@ -207,7 +209,7 @@ class FollowAPITest(APITestCase):
         
         # Verify via API that User 2 is no longer a follower
         get_response = self.client.get(url)
-        self.assertFalse(get_response.data.get('is_follower', get_response.data.get('is_following')))
+        self.assertEqual(get_response.status_code, 404)
 
     def test_follower_unauthorized_access(self):
         """A user should get a 403 if they try to manage someone else's followers."""
@@ -218,4 +220,40 @@ class FollowAPITest(APITestCase):
         response = self.client.put(url)
         
         self.assertEqual(response.status_code, 403)
+
+    @patch("core.apis.follow_api.notify_remote_follow_acceptance")
+    def test_follower_put_calls_remote_acceptance_callback_for_remote_follower(self, mock_notify):
+        mock_notify.return_value = (True, None)
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/remote-follower",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Remote Follower",
+        )
+        Follow.objects.create(actor=remote_author, target=self.author1, status="REQUESTED")
+        encoded_remote = urllib.parse.quote(remote_author.url, safe="")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.put(f"/api/authors/{self.author1.serial}/followers/{encoded_remote}")
+
+        self.assertEqual(response.status_code, 204)
+        mock_notify.assert_called_once_with(remote_author, self.author1)
+
+    @patch("core.apis.follow_api.notify_remote_follow_acceptance")
+    def test_follower_put_returns_502_when_remote_acceptance_callback_fails(self, mock_notify):
+        mock_notify.return_value = (False, "remote callback failed")
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/remote-follower-2",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Remote Follower 2",
+        )
+        Follow.objects.create(actor=remote_author, target=self.author1, status="REQUESTED")
+        encoded_remote = urllib.parse.quote(remote_author.url, safe="")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.put(f"/api/authors/{self.author1.serial}/followers/{encoded_remote}")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.data.get("error"), "remote callback failed")
     

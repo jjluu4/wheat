@@ -28,9 +28,11 @@ from ..helpers import (
     resolve_object_by_url,
     normalize_url,
 )
+from ..federation import _extract_author_id_from_fqid
 
 
 def forward_comment_to_remote_inbox(comment, entry):
+    """Forward a newly-created comment to the entry author's remote inbox."""
     entry_author = entry.author
     entry_host = normalize_url(getattr(entry_author, "host", ""))
     if not entry_host or "testserver" in entry_host:
@@ -41,8 +43,13 @@ def forward_comment_to_remote_inbox(comment, entry):
     if remote is None:
         return
 
-    inbox_url = f"{entry_host}/authors/{entry_author.serial}/inbox"
+    remote_author_id = _extract_author_id_from_fqid(getattr(entry_author, "url", ""))
+    if not remote_author_id:
+        return
+
+    inbox_url = f"{entry_host}/authors/{remote_author_id}/inbox"
     payload = build_comment_payload(comment, None)
+    payload.setdefault("type", "comment")
     payload["entry"] = (entry.url or "").strip()
     headers = add_auth_headers({"Content-Type": "application/json"}, remote)
     try:

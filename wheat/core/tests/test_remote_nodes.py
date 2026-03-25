@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from unittest.mock import patch
 
 from core.models import RemoteNode
 
@@ -47,6 +48,9 @@ class RemoteNodeViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
         response = self.client.post(reverse("remote_node_toggle", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(reverse("remote_node_sync"))
         self.assertEqual(response.status_code, 403)
 
     def test_staff_user_can_view_remote_node_pages(self):
@@ -157,6 +161,19 @@ class RemoteNodeViewTests(TestCase):
     def test_toggle_route_rejects_get(self):
         self.client.force_login(self.staff_user)
         response = self.client.get(reverse("remote_node_toggle", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 405)
+
+    @patch("core.views.remote_node_views.sync_remote_authors_and_public_entries")
+    def test_staff_can_sync_remote_authors(self, mock_sync):
+        mock_sync.return_value = {"authors": 3, "entries": 5}
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse("remote_node_sync"))
+        self.assertEqual(response.status_code, 302)
+        mock_sync.assert_called_once()
+
+    def test_sync_route_rejects_get(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("remote_node_sync"))
         self.assertEqual(response.status_code, 405)
 
     def test_staff_nav_shows_manage_nodes_link(self):

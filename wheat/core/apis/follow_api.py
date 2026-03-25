@@ -1,45 +1,204 @@
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import urllib
+import uuid
 import requests
+import logging
 from ..auth import (
     add_auth_headers,
     is_local_author_authenticated,
     is_remote_node_authenticated,
     require_auth_for_view,
 )
-from ..helpers import normalize_url
+from ..helpers import normalize_url, resolve_object_by_url
 from ..models import Author, Follow, RemoteNode
 from ..serializers import AuthorSerializer
 
+logger = logging.getLogger(__name__)
+
+
+def _extract_author_id_from_fqid(author_fqid):
+    """
+    Extract the author id segment from a remote author FQID.
+    Example: https://node/api/authors/<id> -> <id>
+    """
+    path_parts = [part for part in urllib.parse.urlparse(author_fqid).path.split("/") if part]
+    for idx, part in enumerate(path_parts):
+        if part == "authors" and idx + 1 < len(path_parts):
+            return path_parts[idx + 1]
+    return None
+
 
 def forward_follow_request_to_remote_inbox(actor, target):
+    """Deliver a follow request to the target author's remote inbox.
+    A unique event id is attached so a second follow request
+    after an unfollow is not dropped by inbox idempotency.
+    """
     target_host = normalize_url(getattr(target, "host", ""))
     if not target_host or "testserver" in target_host:
-        return
+        return True, None
 
     base_url = target_host[:-4] if target_host.endswith("/api") else target_host
     remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
     if remote is None:
-        return
+        return False, f"No active remote node credentials configured for {base_url}"
 
-    inbox_url = f"{target_host}/authors/{target.serial}/inbox"
+    remote_author_id = _extract_author_id_from_fqid(getattr(target, "url", ""))
+    if not remote_author_id:
+        return False, "Target remote author URL is invalid; could not extract author id"
+
+    inbox_url = f"{target_host}/authors/{remote_author_id}/inbox"
+    # Unique id per delivery so inbox idempotency does not block a new request after unfollow
+    # (same actor/object would otherwise hash to the same synthetic event id).
+    follow_event_id = f"{normalize_url(actor.url)}/follows/{uuid.uuid4()}"
     payload = {
         "type": "follow",
+        "id": follow_event_id,
         "summary": f"{actor.displayName} wants to follow {target.displayName}",
         "actor": AuthorSerializer(actor).data,
         "object": AuthorSerializer(target).data,
     }
     headers = add_auth_headers({"Content-Type": "application/json"}, remote)
     try:
-        requests.post(inbox_url, json=payload, headers=headers, timeout=5)
-    except requests.RequestException:
-        return
+        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
+    except requests.RequestException as exc:
+        return False, f"Failed to reach remote inbox: {exc}"
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return False, f"Remote inbox rejected follow request with status {response.status_code}"
+
+    return True, None
+
+
+def notify_remote_follow_acceptance(remote_follower, local_followed_author):
+    """
+    Notify the remote follower's node that the follow request was accepted.
+    Sends an "accept" payload to the follower's inbox so Follow(actor=follower, target=followed)
+    is set to ACCEPTED on the follower's home node.
+    """
+    follower_host = normalize_url(getattr(remote_follower, "host", ""))
+    if not follower_host or "testserver" in follower_host:
+        return True, None
+
+    base_url = follower_host[:-4] if follower_host.endswith("/api") else follower_host
+    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    if remote is None:
+        return False, f"No active remote node credentials configured for {base_url}"
+
+    remote_follower_id = _extract_author_id_from_fqid(getattr(remote_follower, "url", ""))
+    if not remote_follower_id:
+        return False, "Remote follower URL is invalid; could not extract author id"
+
+    inbox_url = f"{follower_host}/authors/{remote_follower_id}/inbox"
+    accept_event_id = f"{normalize_url(local_followed_author.url)}/accepts/{uuid.uuid4()}"
+    payload = {
+        "type": "accept",
+        "id": accept_event_id,
+        "summary": f"{local_followed_author.displayName} accepted your follow request",
+        "actor": AuthorSerializer(local_followed_author).data,
+        "object": AuthorSerializer(remote_follower).data,
+    }
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
+
+    try:
+        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
+    except requests.RequestException as exc:
+        return False, f"Failed to reach remote inbox: {exc}"
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return False, f"Remote inbox rejected accept with status {response.status_code}"
+
+    return True, None
+
+
+def notify_remote_unfollow(actor, target):
+    """
+    Tell the followee's node to remove Follow(actor=actor, target=target) so followers/following stay in sync.
+    """
+    target_host = normalize_url(getattr(target, "host", ""))
+    if not target_host or "testserver" in target_host:
+        return True, None
+
+    base_url = target_host[:-4] if target_host.endswith("/api") else target_host
+    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    if remote is None:
+        return False, f"No active remote node credentials configured for {base_url}"
+
+    remote_author_id = _extract_author_id_from_fqid(getattr(target, "url", ""))
+    if not remote_author_id:
+        return False, "Target remote author URL is invalid; could not extract author id"
+
+    inbox_url = f"{target_host}/authors/{remote_author_id}/inbox"
+    unfollow_event_id = f"{normalize_url(actor.url)}/unfollows/{uuid.uuid4()}"
+    payload = {
+        "type": "unfollow",
+        "id": unfollow_event_id,
+        "summary": f"{actor.displayName} unfollowed {target.displayName}",
+        "actor": AuthorSerializer(actor).data,
+        "object": AuthorSerializer(target).data,
+    }
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
+    try:
+        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
+    except requests.RequestException as exc:
+        return False, f"Failed to reach remote inbox: {exc}"
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return False, f"Remote inbox rejected unfollow with status {response.status_code}"
+
+    return True, None
+
+
+def notify_remote_follow_removed_by_followee(follower, followee):
+    """
+    When the followee removes a follower, notify the follower's home node to delete Follow(follower, followee).
+    """
+    follower_host = normalize_url(getattr(follower, "host", ""))
+    if not follower_host or "testserver" in follower_host:
+        return True, None
+
+    base_url = follower_host[:-4] if follower_host.endswith("/api") else follower_host
+    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    if remote is None:
+        return False, f"No active remote node credentials configured for {base_url}"
+
+    remote_follower_id = _extract_author_id_from_fqid(getattr(follower, "url", ""))
+    if not remote_follower_id:
+        return False, "Follower remote author URL is invalid; could not extract author id"
+
+    inbox_url = f"{follower_host}/authors/{remote_follower_id}/inbox"
+    unfollow_event_id = f"{normalize_url(followee.url)}/unfollows/{uuid.uuid4()}"
+    payload = {
+        "type": "unfollow",
+        "id": unfollow_event_id,
+        "summary": f"{followee.displayName} removed {follower.displayName} as a follower",
+        "actor": AuthorSerializer(follower).data,
+        "object": AuthorSerializer(followee).data,
+    }
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
+    try:
+        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
+    except requests.RequestException as exc:
+        return False, f"Failed to reach remote inbox: {exc}"
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return False, f"Remote inbox rejected unfollow with status {response.status_code}"
+
+    return True, None
+
+
+def notify_remote_follow_rejection(remote_follower, local_followed_author):
+    """
+    When the followee rejects a pending request, notify the follower's node to drop Follow(follower, followee).
+    Same inbox shape as remove-follower / unfollow.
+    """
+    return notify_remote_follow_removed_by_followee(remote_follower, local_followed_author)
+
 
 @api_view(['GET'])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, BasicAuthentication])
 def get_following_list(request, author_serial):
     """
     Retrieves the list of authors that the specified author is following
@@ -64,7 +223,7 @@ def get_following_list(request, author_serial):
         })
 
 @api_view(['GET'])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, BasicAuthentication])
 def get_follow_requests_api(request, author_serial):
     """
     Retrieves all pending follow requests for the specified author, returns a list of follow request objects
@@ -117,7 +276,7 @@ def followers_api(request, author_serial):
     })
 
 @api_view(['GET', 'DELETE', 'PUT'])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, BasicAuthentication])
 def following_api(request, author_serial, foreign_author_fqid):
     """
     Handles operations to manage a single following relationship.
@@ -135,7 +294,7 @@ def following_api(request, author_serial, foreign_author_fqid):
         return Response(data="You don't have permission to manage this following list.", status=403)
     
     decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
-    foreign_author = Author.objects.filter(url=decoded_fqid).first()
+    foreign_author = resolve_object_by_url(Author, decoded_fqid)
     
     if request.method == "GET":
         if not foreign_author:
@@ -147,6 +306,14 @@ def following_api(request, author_serial, foreign_author_fqid):
     elif request.method == "DELETE":
         if foreign_author:
             Follow.objects.filter(actor=author, target=foreign_author).delete()
+            delivered, err = notify_remote_unfollow(author, foreign_author)
+            if not delivered:
+                logger.warning(
+                    "Remote unfollow notify failed actor=%s target=%s error=%s",
+                    getattr(author, "url", author.serial),
+                    getattr(foreign_author, "url", foreign_author.serial),
+                    err,
+                )
         return Response(status=204)
 
     elif request.method == "PUT":
@@ -159,7 +326,15 @@ def following_api(request, author_serial, foreign_author_fqid):
             follow.status = "REQUESTED"
             follow.save()
 
-            forward_follow_request_to_remote_inbox(author, foreign_author)
+            delivered, delivery_error = forward_follow_request_to_remote_inbox(author, foreign_author)
+            if not delivered:
+                logger.warning(
+                    "Follow request delivery failed actor=%s target=%s error=%s",
+                    getattr(author, "url", author.serial),
+                    getattr(foreign_author, "url", foreign_author.serial),
+                    delivery_error,
+                )
+                return Response({"error": delivery_error}, status=502)
 
         return Response(status=204)
 
@@ -177,7 +352,7 @@ def follower_api(request, author_serial, foreign_author_fqid):
     require_auth_for_view(True)
     
     decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
-    foreign_author = Author.objects.filter(url=decoded_fqid).first()
+    foreign_author = resolve_object_by_url(Author, decoded_fqid)
 
     if request.method == "GET":
         # Local owner or authenticated remote node may check follower status.
@@ -198,10 +373,20 @@ def follower_api(request, author_serial, foreign_author_fqid):
             return Response(data="You don't have permission to manage these followers.", status=403)
         if foreign_author:
             Follow.objects.filter(actor=foreign_author, target=author).delete()
+            delivered, err = notify_remote_follow_removed_by_followee(foreign_author, author)
+            if not delivered:
+                logger.warning(
+                    "Remote remove-follower notify failed follower=%s followee=%s error=%s",
+                    getattr(foreign_author, "url", foreign_author.serial),
+                    getattr(author, "url", author.serial),
+                    err,
+                )
         return Response(status=204)
 
     elif request.method == "PUT":
-        if not is_local_author_authenticated(request, author):
+        local_ok = is_local_author_authenticated(request, author)
+        remote_ok = is_remote_node_authenticated(request)
+        if not (local_ok or remote_ok):
             if not request.user.is_authenticated:
                 return Response(data="Authentication is required.", status=401)
             return Response(data="You don't have permission to manage these followers.", status=403)
@@ -213,6 +398,16 @@ def follower_api(request, author_serial, foreign_author_fqid):
         if follow.status == "REQUESTED" or created:
             follow.status = "ACCEPTED"
             follow.save()
+            if getattr(foreign_author, "host", "") and "testserver" not in getattr(foreign_author, "host", ""):
+                delivered, delivery_error = notify_remote_follow_acceptance(foreign_author, author)
+                if not delivered:
+                    logger.warning(
+                        "Follow acceptance delivery failed follower=%s followed=%s error=%s",
+                        getattr(foreign_author, "url", foreign_author.serial),
+                        getattr(author, "url", author.serial),
+                        delivery_error,
+                    )
+                    return Response({"error": delivery_error}, status=502)
             return Response(status=204)
         else:
             return Response({"error": "There was an error processing your request."}, status=400)
