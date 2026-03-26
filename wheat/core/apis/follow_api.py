@@ -35,6 +35,21 @@ def _extract_author_id_from_fqid(author_fqid):
         if part == "authors" and idx + 1 < len(path_parts):
             return path_parts[idx + 1]
     return None
+
+
+def _contextualize_remote_inbox_error(error, action_name):
+    """Rewrite shared inbox helper errors with action-specific wording."""
+    if not error:
+        return error
+    if "rejected request with status" in error:
+        return error.replace("rejected request", f"rejected {action_name}")
+    if error.startswith("Failed to reach remote inbox:"):
+        return error.replace(
+            "Failed to reach remote inbox:",
+            f"Failed to reach remote inbox for {action_name}:",
+            1,
+        )
+    return error
 def forward_follow_request_to_remote_inbox(actor, target):
     """Deliver a follow request to the target author's remote inbox.
     A unique event id is attached so a second follow request
@@ -58,9 +73,7 @@ def forward_follow_request_to_remote_inbox(actor, target):
     delivered, error = send_json_to_remote_author_inbox(target_fqid, payload, timeout=5)
     if delivered:
         return True, None
-    if error and "rejected request with status" in error:
-        return False, error.replace("rejected request", "rejected follow request")
-    return False, error
+    return False, _contextualize_remote_inbox_error(error, "follow request")
 
 
 def notify_remote_follow_acceptance(remote_follower, local_followed_author):
@@ -85,9 +98,7 @@ def notify_remote_follow_acceptance(remote_follower, local_followed_author):
     delivered, error = send_json_to_remote_author_inbox(follower_fqid, payload, timeout=5)
     if delivered:
         return True, None
-    if error and "rejected request with status" in error:
-        return False, error.replace("rejected request", "rejected accept")
-    return False, error
+    return False, _contextualize_remote_inbox_error(error, "accept")
 
 
 def notify_remote_unfollow(actor, target):
@@ -110,9 +121,7 @@ def notify_remote_unfollow(actor, target):
     delivered, error = send_json_to_remote_author_inbox(target_fqid, payload, timeout=5)
     if delivered:
         return True, None
-    if error and "rejected request with status" in error:
-        return False, error.replace("rejected request", "rejected unfollow")
-    return False, error
+    return False, _contextualize_remote_inbox_error(error, "unfollow")
 
 
 def notify_remote_follow_removed_by_followee(follower, followee):
@@ -135,9 +144,7 @@ def notify_remote_follow_removed_by_followee(follower, followee):
     delivered, error = send_json_to_remote_author_inbox(follower_fqid, payload, timeout=5)
     if delivered:
         return True, None
-    if error and "rejected request with status" in error:
-        return False, error.replace("rejected request", "rejected unfollow")
-    return False, error
+    return False, _contextualize_remote_inbox_error(error, "unfollow")
 
 
 def notify_remote_follow_rejection(remote_follower, local_followed_author):

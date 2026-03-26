@@ -1,6 +1,10 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 import requests
+from core.apis.follow_api import (
+    forward_follow_request_to_remote_inbox,
+    notify_remote_follow_acceptance,
+)
 from core.models import Author, Follow, RemoteNode
 from core.helpers import build_remote_author_inbox_url, resolve_remote_author
 import uuid
@@ -387,6 +391,21 @@ class FollowAPITest(APITestCase):
             Follow.objects.filter(actor=self.author1, target=remote_author).exists()
         )
 
+    @patch("core.apis.follow_api.send_json_to_remote_author_inbox")
+    def test_forward_follow_request_contextualizes_rejection_errors(self, mock_send):
+        mock_send.return_value = (False, "Remote inbox rejected request with status 401")
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/remote-follow-error",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Remote Follow Error",
+        )
+
+        delivered, error = forward_follow_request_to_remote_inbox(self.author1, remote_author)
+
+        self.assertFalse(delivered)
+        self.assertEqual(error, "Remote inbox rejected follow request with status 401")
+
     def test_following_put_rejects_self_follow(self):
         self.client.login(username="user1", password="password1")
         response = self.client.put(
@@ -649,6 +668,21 @@ class FollowAPITest(APITestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.data.get("error"), "remote callback failed")
+
+    @patch("core.apis.follow_api.send_json_to_remote_author_inbox")
+    def test_notify_remote_follow_acceptance_contextualizes_rejection_errors(self, mock_send):
+        mock_send.return_value = (False, "Remote inbox rejected request with status 403")
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/remote-follower-error",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Remote Follower Error",
+        )
+
+        delivered, error = notify_remote_follow_acceptance(remote_author, self.author1)
+
+        self.assertFalse(delivered)
+        self.assertEqual(error, "Remote inbox rejected accept with status 403")
 
     @patch("core.apis.follow_api.notify_remote_follow_acceptance")
     def test_follower_put_allows_remote_basic_auth_without_callback_loop(self, mock_notify):
