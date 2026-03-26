@@ -26,12 +26,7 @@ def follow_author(request, author_serial):
         # For remote targets this delivers to their inbox; for local/testserver it no-ops safely.
         delivered, delivery_error = forward_follow_request_to_remote_inbox(actor, target)
         if not delivered:
-            logger.warning(
-                "HTML follow request delivery failed actor=%s target=%s error=%s",
-                getattr(actor, "url", actor.serial),
-                getattr(target, "url", target.serial),
-                delivery_error,
-            )
+            
             messages.error(request, delivery_error)
             return redirect("author_profile", author_serial=target.serial)
 
@@ -60,13 +55,7 @@ def accept_follow(request, author_serial):
         follow.save()
         if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
             delivered, delivery_error = notify_remote_follow_acceptance(actor, target)
-            if not delivered:
-                logger.warning(
-                    "HTML follow acceptance callback failed follower=%s followed=%s error=%s",
-                    getattr(actor, "url", actor.serial),
-                    getattr(target, "url", target.serial),
-                    delivery_error,
-                )
+            
 
         return redirect("author_profile", author_serial=target.serial)
     
@@ -91,13 +80,6 @@ def reject_follow(request, author_serial):
 
         if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
             delivered, err = notify_remote_follow_rejection(actor, target)
-            if not delivered:
-                logger.warning(
-                    "HTML follow reject remote notify failed follower=%s followee=%s error=%s",
-                    getattr(actor, "url", actor.serial),
-                    getattr(target, "url", target.serial),
-                    err,
-                )
 
         return redirect("author_profile", author_serial=target.serial)
     
@@ -161,11 +143,4 @@ def unfollow(request, author_serial):
     follow.delete()
     if getattr(target, "host", "") and "testserver" not in getattr(target, "host", ""):
         delivered, err = notify_remote_unfollow(actor, target)
-        if not delivered:
-            logger.warning(
-                "HTML unfollow remote notify failed actor=%s target=%s error=%s",
-                getattr(actor, "url", actor.serial),
-                getattr(target, "url", target.serial),
-                err,
-            )
     return redirect("author_profile", author_serial=target.serial)

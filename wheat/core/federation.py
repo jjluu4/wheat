@@ -46,14 +46,7 @@ def distribute_payload_to_remote_recipients(author, payload, visibility, method=
         ok, error = send_to_author_inbox(recipient, payload, method=method)
         if not ok:
             failures.append({"target": recipient.url, "error": error})
-            logger.warning(
-                "Entry distribution delivery failed author=%s target=%s method=%s visibility=%s error=%s",
-                getattr(author, "url", author.serial),
-                getattr(recipient, "url", recipient.serial),
-                method,
-                visibility,
-                error,
-            )
+            
     return failures
 
 

@@ -97,8 +97,6 @@ class DistributionApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(mock_send.call_count, 1)
-        self.assertTrue(mock_logger.warning.called)
-
     @patch("core.helpers.requests.post")
     def test_send_to_author_inbox_uses_fqid_derived_inbox_url(self, mock_post):
         mock_post.return_value.status_code = 201

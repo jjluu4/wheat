@@ -60,14 +60,9 @@ def build_like_url(request, author, like_serial):
     return f"{build_author_api_url(author, request)}/liked/{like_serial}/"
 
 
-def _post_json_to_remote_inbox(payload, inbox_author):
+def post_json_to_remote_inbox(payload, inbox_author, timeout=5):
     """POST JSON to inbox_author's home node inbox (if remote)."""
-    send_json_to_remote_author_inbox(getattr(inbox_author, "url", ""), payload, timeout=5)
-
-
-def forward_like_to_remote_inbox(like_payload, inbox_author):
-    """Send like to an author's inbox (if remote)."""
-    _post_json_to_remote_inbox(like_payload, inbox_author)
+    send_json_to_remote_author_inbox(getattr(inbox_author, "url", ""), payload, timeout=timeout)
 
 
 def forward_comment_like_to_entry_and_comment_authors(like_payload, comment):
@@ -81,7 +76,7 @@ def forward_comment_like_to_entry_and_comment_authors(like_payload, comment):
         if aid is None or aid in seen:
             continue
         seen.add(aid)
-        forward_like_to_remote_inbox(like_payload, author)
+        post_json_to_remote_inbox(like_payload, author)
 
 
 def distribute_like_to_remote_followers(like_payload, entry_author, visibility):
@@ -166,7 +161,7 @@ def author_liked(request, author_serial):
                 "object": object_url,
             }
             if target_type == "entry":
-                _post_json_to_remote_inbox(unlike_payload, target.author)
+                post_json_to_remote_inbox(unlike_payload, target.author)
                 distribute_unlike_to_remote_followers(unlike_payload, target.author, target.visibility)
             else:
                 forward_comment_like_to_entry_and_comment_authors(unlike_payload, target)
@@ -196,7 +191,7 @@ def author_liked(request, author_serial):
             like.save(update_fields=["url"])
             response_data = EntryLikeSerializer(like).data
             response_data.setdefault("type", "like")
-            forward_like_to_remote_inbox(response_data, target.author)
+            post_json_to_remote_inbox(response_data, target.author)
             distribute_like_to_remote_followers(
                 response_data, target.author, target.visibility
             )

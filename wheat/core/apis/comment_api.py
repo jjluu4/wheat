@@ -28,18 +28,33 @@ from ..helpers import (
     normalize_url,
     send_json_to_remote_author_inbox,
 )
+from ..federation import distribute_payload_to_remote_recipients
 
 
 def forward_comment_to_remote_inbox(comment, entry):
-    """Forward a newly-created comment to the entry author's remote inbox."""
+    """Forward a newly-created comment to the appropriate remote inboxes."""
     entry_author = entry.author
     entry_fqid = normalize_url(getattr(entry_author, "url", ""))
-    if not entry_fqid or "testserver" in entry_fqid:
-        return
     payload = build_comment_payload(comment, None)
     payload.setdefault("type", "comment")
     payload["entry"] = (entry.url or "").strip()
-    send_json_to_remote_author_inbox(entry_fqid, payload, timeout=5)
+
+    # Remote entry: notify the remote entry author's home node.
+    # Local entry: distribute the comment to remote recipients who can see the entry
+    # so nodes that already have the entry also receive the comment.
+    is_remote_author = getattr(entry_author, "user_id", None) is None
+    if is_remote_author:
+        if not entry_fqid or "testserver" in entry_fqid:
+            return
+        send_json_to_remote_author_inbox(entry_fqid, payload, timeout=5)
+        return
+
+    distribute_payload_to_remote_recipients(
+        author=entry_author,
+        payload=payload,
+        visibility=getattr(entry, "visibility", "PUBLIC"),
+        method="POST",
+    )
 
 @api_view(['GET', 'POST'])
 @authentication_classes([SessionAuthentication])

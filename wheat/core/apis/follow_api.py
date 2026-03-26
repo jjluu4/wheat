@@ -295,13 +295,7 @@ def following_api(request, author_serial, foreign_author_fqid):
         if foreign_author:
             Follow.objects.filter(actor=author, target=foreign_author).delete()
             delivered, err = notify_remote_unfollow(author, foreign_author)
-            if not delivered:
-                logger.warning(
-                    "Remote unfollow notify failed actor=%s target=%s error=%s",
-                    getattr(author, "url", author.serial),
-                    getattr(foreign_author, "url", foreign_author.serial),
-                    err,
-                )
+            
         return Response(status=204)
 
     elif request.method == "PUT":
@@ -318,12 +312,6 @@ def following_api(request, author_serial, foreign_author_fqid):
         if foreign_author.host and "testserver" not in foreign_author.host:
             delivered, delivery_error = forward_follow_request_to_remote_inbox(author, foreign_author)
             if not delivered:
-                logger.warning(
-                    "Follow request delivery failed actor=%s target=%s error=%s",
-                    getattr(author, "url", author.serial),
-                    getattr(foreign_author, "url", foreign_author.serial),
-                    delivery_error,
-                )
                 return Response({"error": delivery_error}, status=502)
 
         if follow is None:
@@ -381,13 +369,7 @@ def follower_api(request, author_serial, foreign_author_fqid):
         follow.delete()
         if getattr(foreign_author, "url", "") or getattr(foreign_author, "host", ""):
             delivered, err = notify_remote_follow_removed_by_followee(foreign_author, author)
-            if not delivered:
-                logger.warning(
-                    "Remote remove-follower notify failed follower=%s followee=%s error=%s",
-                    getattr(foreign_author, "url", foreign_author.serial),
-                    getattr(author, "url", author.serial),
-                    err,
-                )
+            
         return Response(status=204)
 
     elif request.method == "PUT":
@@ -416,12 +398,6 @@ def follower_api(request, author_serial, foreign_author_fqid):
             if getattr(foreign_author, "host", "") and "testserver" not in getattr(foreign_author, "host", ""):
                 delivered, delivery_error = notify_remote_follow_acceptance(foreign_author, author)
                 if not delivered:
-                    logger.warning(
-                        "Follow acceptance delivery failed follower=%s followed=%s error=%s",
-                        getattr(foreign_author, "url", foreign_author.serial),
-                        getattr(author, "url", author.serial),
-                        delivery_error,
-                    )
                     return Response({"error": delivery_error}, status=502)
             return Response(status=204)
 
