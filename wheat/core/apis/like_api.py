@@ -65,32 +65,33 @@ def post_json_to_remote_inbox(payload, inbox_author, timeout=5):
     send_json_to_remote_author_inbox(getattr(inbox_author, "url", ""), payload, timeout=timeout)
 
 
+def post_json_to_unique_author_inboxes(payload, authors, timeout=5):
+    """POST JSON payload to unique authors' inboxes."""
+    seen = set()
+    for author in authors:
+        aid = getattr(author, "id", None)
+        if aid is None or aid in seen:
+            continue
+        seen.add(aid)
+        post_json_to_remote_inbox(payload, author, timeout=timeout)
+
+
 def forward_comment_like_to_entry_and_comment_authors(like_payload, comment):
     """
     Comment likes must reach both the commenter's node and the entry author's node
     (when different), so counts stay correct where the entry is canonical.
     """
-    seen = set()
-    for author in (comment.author, comment.entry.author):
-        aid = getattr(author, "id", None)
-        if aid is None or aid in seen:
-            continue
-        seen.add(aid)
-        post_json_to_remote_inbox(like_payload, author)
+    post_json_to_unique_author_inboxes(
+        like_payload,
+        authors=(comment.author, comment.entry.author),
+    )
 
 
-def distribute_like_to_remote_followers(like_payload, entry_author, visibility):
-    """Send like to remote followers who have the entry (so it appears on their node)."""
+def distribute_activity_to_remote_followers(payload, entry_author, visibility):
+    """Send an activity payload to remote followers who can see the entry."""
     recipients = remote_authors_for_entry(entry_author, visibility)
     for recipient in recipients:
-        send_to_author_inbox(recipient, like_payload, method="POST")
-
-
-def distribute_unlike_to_remote_followers(unlike_payload, entry_author, visibility):
-    """Mirror distribute_like_to_remote_followers for removals."""
-    recipients = remote_authors_for_entry(entry_author, visibility)
-    for recipient in recipients:
-        send_to_author_inbox(recipient, unlike_payload, method="POST")
+        send_to_author_inbox(recipient, payload, method="POST")
 
 def serialize_like_item(like):
     """Serialize either an EntryLike or CommentLike into its API representation."""
@@ -162,10 +163,10 @@ def author_liked(request, author_serial):
             }
             if target_type == "entry":
                 post_json_to_remote_inbox(unlike_payload, target.author)
-                distribute_unlike_to_remote_followers(unlike_payload, target.author, target.visibility)
+                distribute_activity_to_remote_followers(unlike_payload, target.author, target.visibility)
             else:
                 forward_comment_like_to_entry_and_comment_authors(unlike_payload, target)
-                distribute_unlike_to_remote_followers(
+                distribute_activity_to_remote_followers(
                     unlike_payload, target.entry.author, target.entry.visibility
                 )
             return Response({"type": "unlike", "object": object_url}, status=200)
@@ -192,7 +193,7 @@ def author_liked(request, author_serial):
             response_data = EntryLikeSerializer(like).data
             response_data.setdefault("type", "like")
             post_json_to_remote_inbox(response_data, target.author)
-            distribute_like_to_remote_followers(
+            distribute_activity_to_remote_followers(
                 response_data, target.author, target.visibility
             )
             return Response(response_data, status=201)
@@ -214,7 +215,7 @@ def author_liked(request, author_serial):
         response_data = CommentLikeSerializer(like).data
         response_data.setdefault("type", "like")
         forward_comment_like_to_entry_and_comment_authors(response_data, target)
-        distribute_like_to_remote_followers(
+        distribute_activity_to_remote_followers(
             response_data, target.entry.author, target.entry.visibility
         )
         return Response(response_data, status=201)
