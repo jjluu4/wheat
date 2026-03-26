@@ -112,7 +112,7 @@ def follow_requests(request, author_serial):
     requestList = Follow.objects.filter(
         target=target,
         status="REQUESTED"
-    )
+    ).select_related("actor").order_by("actor__displayName", "actor__url")
 
     return render(request, "core/follow_requests.html", {"requests": requestList, "author": target})
 
@@ -124,7 +124,7 @@ def following(request, author_serial):
     followingQuery = Follow.objects.filter(
         actor=author,
         status__in=["REQUESTED", "ACCEPTED"]
-    ).select_related("target")
+    ).select_related("target").order_by("target__displayName", "target__url")
 
     followingList = []
     for q in followingQuery:
@@ -140,7 +140,7 @@ def followers(request, author_serial):
     followerQuery = Follow.objects.filter(
         target=author,
         status="ACCEPTED"
-    ).select_related("actor")
+    ).select_related("actor").order_by("actor__displayName", "actor__url")
 
     followerList = []
     for q in followerQuery:

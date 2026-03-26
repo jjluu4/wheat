@@ -66,6 +66,54 @@ class FollowAPITest(APITestCase):
         self.assertIn(self.author2.displayName, followRequests)
         self.assertNotIn(self.author3.displayName, followRequests)
 
+    def test_following_collection_is_sorted_by_display_name(self):
+        alpha_user = User.objects.create_user(username="alpha-user", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        zeta_user = User.objects.create_user(username="zeta-user", password="password6")
+        zeta_author = Author.objects.create(
+            user=zeta_user,
+            displayName="zeta",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=self.author1, target=zeta_author, status="REQUESTED")
+        Follow.objects.create(actor=self.author1, target=alpha_author, status="ACCEPTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/api/authors/{self.author1.serial}/following")
+
+        names = [author["displayName"] for author in response.data["following"]]
+        self.assertEqual(names, sorted(names))
+
+    def test_follow_requests_are_sorted_by_actor_display_name(self):
+        alpha_user = User.objects.create_user(username="alpha-requester", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha requester",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        zeta_user = User.objects.create_user(username="zeta-requester", password="password6")
+        zeta_author = Author.objects.create(
+            user=zeta_user,
+            displayName="zeta requester",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=zeta_author, target=self.author1, status="REQUESTED")
+        Follow.objects.create(actor=alpha_author, target=self.author1, status="REQUESTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/api/authors/{self.author1.serial}/follow_requests")
+
+        names = [item["actor"]["displayName"] for item in response.data]
+        self.assertEqual(names, sorted(names))
+
     def test_follower_check_allows_remote_basic_auth(self):
         """Remote node basic auth can call follower check endpoint."""
         follow = Follow.objects.get(actor=self.author2, target=self.author1)
@@ -97,6 +145,30 @@ class FollowAPITest(APITestCase):
         followers = [author["id"] for author in response.data["followers"]]
         self.assertIn(self.author2.url, followers)
         self.assertNotIn(self.author3.url, followers)
+
+    def test_followers_collection_is_sorted_by_display_name(self):
+        alpha_user = User.objects.create_user(username="alpha-follower", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha follower",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        zeta_user = User.objects.create_user(username="zeta-follower", password="password6")
+        zeta_author = Author.objects.create(
+            user=zeta_user,
+            displayName="zeta follower",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=zeta_author, target=self.author1, status="ACCEPTED")
+        Follow.objects.create(actor=alpha_author, target=self.author1, status="ACCEPTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/api/authors/{self.author1.serial}/followers")
+
+        names = [author["displayName"] for author in response.data["followers"]]
+        self.assertEqual(names, sorted(names))
 
     def test_following_get_when_following(self):
         """GET should return true if the follow status is ACCEPTED."""
@@ -252,6 +324,33 @@ class FollowAPITest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.author3.displayName)
         self.assertContains(response, self.author4.displayName)
+
+    def test_html_follow_requests_are_sorted_by_actor_display_name(self):
+        alpha_user = User.objects.create_user(username="alpha-html-requester", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha html requester",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        zeta_user = User.objects.create_user(username="zeta-html-requester", password="password6")
+        zeta_author = Author.objects.create(
+            user=zeta_user,
+            displayName="zeta html requester",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=zeta_author, target=self.author1, status="REQUESTED")
+        Follow.objects.create(actor=alpha_author, target=self.author1, status="REQUESTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/authors/{self.author1.serial}/requests/")
+
+        content = response.content.decode("utf-8")
+        self.assertLess(
+            content.index("alpha html requester"),
+            content.index("zeta html requester"),
+        )
 
     def test_html_follow_author_re_requests_rejected_follow(self):
         follow = Follow.objects.create(actor=self.author1, target=self.author2, status="REJECTED")

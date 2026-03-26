@@ -167,7 +167,7 @@ def get_following_list(request, author_serial):
     followingList = Author.objects.filter(
         followers__actor=author,
         followers__status__in=["REQUESTED", "ACCEPTED"],
-    ).distinct()
+    ).order_by("displayName", "url").distinct()
     serializer = AuthorSerializer(followingList, many=True)
 
     return Response({
@@ -192,7 +192,9 @@ def get_follow_requests_api(request, author_serial):
     if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to view these follow requests.", status=403)
     
-    requestList = Follow.objects.filter(target=author, status="REQUESTED")
+    requestList = Follow.objects.filter(target=author, status="REQUESTED").select_related("actor").order_by(
+        "actor__displayName", "actor__url"
+    )
 
     serializedAuthor = AuthorSerializer(author).data
 
@@ -221,7 +223,10 @@ def followers_api(request, author_serial):
     if not (is_local_author_authenticated(request, author) or is_remote_node_authenticated(request)):
         return Response(data="Authentication is required.", status=401)
 
-    followers = Author.objects.filter(following__target=author, following__status="ACCEPTED")
+    followers = Author.objects.filter(
+        following__target=author,
+        following__status="ACCEPTED",
+    ).order_by("displayName", "url").distinct()
     serializer = AuthorSerializer(followers, many=True)
     return Response({
         "type": "followers",
