@@ -34,6 +34,7 @@ def all_authors(request):
     })
 
 @api_view(['GET', 'PUT'])
+@authentication_classes([SessionAuthentication])
 def single_author(request, author_serial):
     """
     Handles operations on a single author profile
