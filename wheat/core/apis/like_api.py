@@ -4,17 +4,11 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
 import re
-
 from ..auth import require_auth_for_view
 from ..auth import is_remote_node_authenticated
 from ..models import Author, Entry, Comment, EntryLike, CommentLike
 from ..serializers import AuthorSerializer, CommentLikeSerializer, EntryLikeSerializer
-from ..permissions import (
-    get_requesting_author,
-    can_view_entry,
-    can_view_comment,
-)
-
+from ..permissions import (get_requesting_author, can_view_entry, can_view_comment)
 from ..helpers import (
     get_pagination_params,
     LIKES_PAGE_SIZE,

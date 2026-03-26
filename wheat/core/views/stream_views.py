@@ -24,7 +24,10 @@ def my_stream(request):
             profileImage="https://placehold.co/150x150.png",
         )
     
-    allEntries = Entry.get_entries(author).exclude(visibility="DELETED").order_by("-published")
+    allEntries = Entry.get_entries(author)
+    if not request.user.is_staff:
+        allEntries = allEntries.exclude(visibility="DELETED")
+    allEntries = allEntries.order_by("-published")
 
     return render(
         request,
