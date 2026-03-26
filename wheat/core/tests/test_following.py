@@ -41,7 +41,7 @@ class FollowAPITest(APITestCase):
         self.encoded_a4_fqid = urllib.parse.quote(self.author4.url, safe='')
 
     def testFollowingList(self):
-        """Authenticated author sees only accepted follows in following list."""
+        """Authenticated author sees requested and accepted follows in following list."""
         self.client.login(username="user1", password="password1")
         response = self.client.get(f"/api/authors/{self.author1.serial}/following")
 
@@ -51,6 +51,7 @@ class FollowAPITest(APITestCase):
         following = [author['displayName'] for author in response.data['following']]
 
         self.assertIn(self.author3.displayName, following)
+        self.assertIn(self.author4.displayName, following)
         self.assertNotIn(self.author2.displayName, following)
     
     def testFollowRequests(self):
@@ -93,15 +94,15 @@ class FollowAPITest(APITestCase):
         self.assertTrue(response.data['is_following'])
 
     def test_following_get_when_not_following(self):
-        """GET should return false if the follow status is only REQUESTED, or doesn't exist."""
+        """GET should return false only when no follow relationship exists."""
         self.client.login(username="user1", password="password1")
         self.client.put(f"/api/authors/{self.author1.serial}/following/{self.encoded_a4_fqid}")
 
-        # Follow relationship is requested but not accepted
+        # Follow relationship is requested and still counts as following on the actor node
         url_requested = f"/api/authors/{self.author1.serial}/following/{self.encoded_a4_fqid}"
         response1 = self.client.get(url_requested)
         self.assertEqual(response1.status_code, 200)
-        self.assertFalse(response1.data['is_following'])
+        self.assertTrue(response1.data['is_following'])
 
         # Follow relationship does not exist at all
         url_empty = f"/api/authors/{self.author1.serial}/following/{self.encoded_a2_fqid}"
@@ -150,6 +151,45 @@ class FollowAPITest(APITestCase):
         response = self.client.put(url)
         
         self.assertEqual(response.status_code, 403)
+
+    @patch("core.apis.follow_api.forward_follow_request_to_remote_inbox")
+    @patch("core.helpers.requests.get")
+    def test_following_put_resolves_uncached_remote_author(self, mock_get, mock_forward):
+        remote_fqid = "http://remote-auth-node.example.com/api/authors/new-remote-user"
+        encoded_remote = urllib.parse.quote(remote_fqid, safe="")
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {
+            "type": "author",
+            "id": remote_fqid,
+            "host": "http://remote-auth-node.example.com/api/",
+            "displayName": "New Remote User",
+            "web": "http://remote-auth-node.example.com/authors/new-remote-user",
+        }
+        mock_get.return_value = mock_response
+        mock_forward.return_value = (True, None)
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.put(f"/api/authors/{self.author1.serial}/following/{encoded_remote}")
+
+        self.assertEqual(response.status_code, 204)
+        remote_author = Author.objects.get(url=remote_fqid)
+        self.assertEqual(remote_author.displayName, "New Remote User")
+        self.assertTrue(
+            Follow.objects.filter(actor=self.author1, target=remote_author, status="REQUESTED").exists()
+        )
+        mock_forward.assert_called_once_with(self.author1, remote_author)
+
+    def test_following_put_rejects_self_follow(self):
+        self.client.login(username="user1", password="password1")
+        response = self.client.put(
+            f"/api/authors/{self.author1.serial}/following/{self.encoded_a1_fqid}"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data.get("error"),
+            "Authors cannot follow themselves.",
+        )
 
     @patch("core.helpers.requests.get")
     def test_resolve_remote_author_fetches_uncached_author_profile(self, mock_get):

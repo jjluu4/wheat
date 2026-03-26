@@ -12,7 +12,14 @@ from ..auth import (
     is_remote_node_authenticated,
     require_auth_for_view,
 )
-from ..helpers import normalize_url, resolve_object_by_url
+from ..helpers import (
+    build_remote_author_inbox_url,
+    decode_fqid,
+    find_remote_node_for_author_fqid,
+    normalize_url,
+    resolve_object_by_url,
+    resolve_remote_author,
+)
 from ..models import Author, Follow, RemoteNode
 from ..serializers import AuthorSerializer
 
@@ -31,25 +38,37 @@ def _extract_author_id_from_fqid(author_fqid):
     return None
 
 
+def _get_remote_node_for_author(author):
+    author_fqid = getattr(author, "url", "")
+    remote = find_remote_node_for_author_fqid(author_fqid)
+    if remote is not None:
+        return remote
+
+    author_host = normalize_url(getattr(author, "host", ""))
+    if not author_host:
+        return None
+
+    base_url = author_host[:-4] if author_host.endswith("/api") else author_host
+    return RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+
+
 def forward_follow_request_to_remote_inbox(actor, target):
     """Deliver a follow request to the target author's remote inbox.
     A unique event id is attached so a second follow request
     after an unfollow is not dropped by inbox idempotency.
     """
+    target_fqid = normalize_url(getattr(target, "url", ""))
     target_host = normalize_url(getattr(target, "host", ""))
-    if not target_host or "testserver" in target_host:
+    if (not target_fqid and not target_host) or "testserver" in target_fqid or "testserver" in target_host:
         return True, None
 
-    base_url = target_host[:-4] if target_host.endswith("/api") else target_host
-    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    remote = _get_remote_node_for_author(target)
     if remote is None:
-        return False, f"No active remote node credentials configured for {base_url}"
+        return False, f"No active remote node credentials configured for {target_fqid or target_host}"
 
-    remote_author_id = _extract_author_id_from_fqid(getattr(target, "url", ""))
-    if not remote_author_id:
-        return False, "Target remote author URL is invalid; could not extract author id"
-
-    inbox_url = f"{target_host}/authors/{remote_author_id}/inbox"
+    inbox_url = build_remote_author_inbox_url(target_fqid)
+    if not inbox_url:
+        return False, "Target remote author URL is invalid; could not derive inbox URL"
     # Unique id per delivery so inbox idempotency does not block a new request after unfollow
     # (same actor/object would otherwise hash to the same synthetic event id).
     follow_event_id = f"{normalize_url(actor.url)}/follows/{uuid.uuid4()}"
@@ -117,20 +136,18 @@ def notify_remote_unfollow(actor, target):
     """
     Tell the followee's node to remove Follow(actor=actor, target=target) so followers/following stay in sync.
     """
+    target_fqid = normalize_url(getattr(target, "url", ""))
     target_host = normalize_url(getattr(target, "host", ""))
-    if not target_host or "testserver" in target_host:
+    if (not target_fqid and not target_host) or "testserver" in target_fqid or "testserver" in target_host:
         return True, None
 
-    base_url = target_host[:-4] if target_host.endswith("/api") else target_host
-    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    remote = _get_remote_node_for_author(target)
     if remote is None:
-        return False, f"No active remote node credentials configured for {base_url}"
+        return False, f"No active remote node credentials configured for {target_fqid or target_host}"
 
-    remote_author_id = _extract_author_id_from_fqid(getattr(target, "url", ""))
-    if not remote_author_id:
-        return False, "Target remote author URL is invalid; could not extract author id"
-
-    inbox_url = f"{target_host}/authors/{remote_author_id}/inbox"
+    inbox_url = build_remote_author_inbox_url(target_fqid)
+    if not inbox_url:
+        return False, "Target remote author URL is invalid; could not derive inbox URL"
     unfollow_event_id = f"{normalize_url(actor.url)}/unfollows/{uuid.uuid4()}"
     payload = {
         "type": "unfollow",
@@ -214,7 +231,10 @@ def get_following_list(request, author_serial):
     if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to view this following list.", status=403)
     
-    followingList = author.get_following()
+    followingList = Author.objects.filter(
+        followers__actor=author,
+        followers__status__in=["REQUESTED", "ACCEPTED"],
+    ).distinct()
     serializer = AuthorSerializer(followingList, many=True)
 
     return Response({
@@ -293,14 +313,18 @@ def following_api(request, author_serial, foreign_author_fqid):
     if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to manage this following list.", status=403)
     
-    decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
+    decoded_fqid = decode_fqid(foreign_author_fqid)
     foreign_author = resolve_object_by_url(Author, decoded_fqid)
     
     if request.method == "GET":
         if not foreign_author:
             return Response({"is_following": False}, status=200)
         
-        is_following = Follow.objects.filter(actor=author, target=foreign_author, status="ACCEPTED").exists()
+        is_following = Follow.objects.filter(
+            actor=author,
+            target=foreign_author,
+            status__in=["REQUESTED", "ACCEPTED"],
+        ).exists()
         return Response({"is_following": is_following}, status=200)
 
     elif request.method == "DELETE":
@@ -317,8 +341,11 @@ def following_api(request, author_serial, foreign_author_fqid):
         return Response(status=204)
 
     elif request.method == "PUT":
+        foreign_author = resolve_remote_author(decoded_fqid)
         if not foreign_author:
             return Response({"error": "Foreign author not found."}, status=404)
+        if foreign_author.pk == author.pk or normalize_url(decoded_fqid) == normalize_url(author.url):
+            return Response({"error": "Authors cannot follow themselves."}, status=400)
 
         follow, created = Follow.objects.get_or_create(actor=author, target=foreign_author)
 
