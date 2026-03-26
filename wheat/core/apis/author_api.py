@@ -2,13 +2,12 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
-import urllib, requests
+import urllib
 
 from ..auth import is_remote_node_authenticated, require_auth_for_view
-from ..models import Author, RemoteNode
+from ..models import Author
 from ..serializers import AuthorSerializer
-from ..helpers import fetch_remote_resource, get_pagination_params, add_auth_headers
+from ..helpers import fetch_remote_resource, get_pagination_params
 
 
 @api_view(['GET'])
