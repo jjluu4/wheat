@@ -1,10 +1,12 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
+import requests
 from core.models import Author, Follow, RemoteNode
+from core.helpers import build_remote_author_inbox_url, resolve_remote_author
 import uuid
 import base64
 import urllib
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 
 class FollowAPITest(APITestCase):
@@ -148,6 +150,64 @@ class FollowAPITest(APITestCase):
         response = self.client.put(url)
         
         self.assertEqual(response.status_code, 403)
+
+    @patch("core.helpers.requests.get")
+    def test_resolve_remote_author_fetches_uncached_author_profile(self, mock_get):
+        fqid = "http://remote-auth-node.example.com/api/authors/remote-user"
+        mock_response = Mock(status_code=200)
+        mock_response.json.return_value = {
+            "type": "author",
+            "id": fqid,
+            "host": "http://remote-auth-node.example.com/api/",
+            "displayName": "Remote User",
+            "github": "http://github.com/remote-user",
+            "profileImage": "http://remote-auth-node.example.com/media/remote-user.png",
+            "web": "http://remote-auth-node.example.com/authors/remote-user",
+        }
+        mock_get.return_value = mock_response
+
+        author = resolve_remote_author(fqid)
+
+        self.assertIsNotNone(author)
+        self.assertEqual(author.url, fqid)
+        self.assertEqual(author.host, "http://remote-auth-node.example.com/api")
+        self.assertEqual(author.displayName, "Remote User")
+        self.assertEqual(author.github, "http://github.com/remote-user")
+
+    @patch("core.helpers.requests.get")
+    def test_resolve_remote_author_falls_back_to_stub_on_fetch_failure(self, mock_get):
+        fqid = "http://remote-auth-node.example.com/api/authors/stub-user"
+        mock_get.side_effect = requests.exceptions.ConnectionError("unreachable")
+
+        author = resolve_remote_author(fqid)
+
+        self.assertIsNotNone(author)
+        self.assertEqual(author.url, fqid)
+        self.assertEqual(author.host, "http://remote-auth-node.example.com/api")
+        self.assertEqual(author.displayName, "stub-user")
+        self.assertEqual(author.web, "http://remote-auth-node.example.com/authors/stub-user")
+
+    def test_resolve_remote_author_matches_trailing_slash_variant(self):
+        existing = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-auth-node.example.com/api/authors/existing-user/",
+            host="http://remote-auth-node.example.com/api/",
+            displayName="Existing User",
+        )
+
+        resolved = resolve_remote_author("http://remote-auth-node.example.com/api/authors/existing-user")
+
+        self.assertEqual(resolved.pk, existing.pk)
+
+    def test_build_remote_author_inbox_url_from_fqid(self):
+        inbox_url = build_remote_author_inbox_url(
+            "http://remote-auth-node.example.com/api/authors/remote-user"
+        )
+
+        self.assertEqual(
+            inbox_url,
+            "http://remote-auth-node.example.com/api/authors/remote-user/inbox",
+        )
 
     def test_follower_get_when_is_follower(self):
         """GET should return the follower author object when status is ACCEPTED."""
