@@ -343,12 +343,11 @@ def following_api(request, author_serial, foreign_author_fqid):
         if foreign_author.pk == author.pk or normalize_url(decoded_fqid) == normalize_url(author.url):
             return Response({"error": "Authors cannot follow themselves."}, status=400)
 
-        follow, created = Follow.objects.get_or_create(actor=author, target=foreign_author)
+        follow = Follow.objects.filter(actor=author, target=foreign_author).first()
+        if follow and follow.status == "ACCEPTED":
+            return Response(status=204)
 
-        if follow.status != "ACCEPTED":
-            follow.status = "REQUESTED"
-            follow.save()
-
+        if foreign_author.host and "testserver" not in foreign_author.host:
             delivered, delivery_error = forward_follow_request_to_remote_inbox(author, foreign_author)
             if not delivered:
                 logger.warning(
@@ -358,6 +357,12 @@ def following_api(request, author_serial, foreign_author_fqid):
                     delivery_error,
                 )
                 return Response({"error": delivery_error}, status=502)
+
+        if follow is None:
+            Follow.objects.create(actor=author, target=foreign_author, status="REQUESTED")
+        elif follow.status != "REQUESTED":
+            follow.status = "REQUESTED"
+            follow.save(update_fields=["status"])
 
         return Response(status=204)
 

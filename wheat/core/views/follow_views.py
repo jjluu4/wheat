@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponseNotFound
 import logging
 
@@ -19,14 +20,9 @@ def follow_author(request, author_serial):
     actor = get_object_or_404(Author, user=request.user)
     target = get_object_or_404(Author, serial=author_serial)
 
-    follow, created = Follow.objects.get_or_create(
-        actor=actor,
-        target=target
-    )
+    follow = Follow.objects.filter(actor=actor, target=target).first()
 
-    if follow.status != "ACCEPTED":
-        follow.status = "REQUESTED"
-        follow.save(update_fields=["status"])
+    if follow is None or follow.status != "ACCEPTED":
         # For remote targets this delivers to their inbox; for local/testserver it no-ops safely.
         delivered, delivery_error = forward_follow_request_to_remote_inbox(actor, target)
         if not delivered:
@@ -36,6 +32,14 @@ def follow_author(request, author_serial):
                 getattr(target, "url", target.serial),
                 delivery_error,
             )
+            messages.error(request, delivery_error)
+            return redirect("author_profile", author_serial=target.serial)
+
+        if follow is None:
+            Follow.objects.create(actor=actor, target=target, status="REQUESTED")
+        elif follow.status != "REQUESTED":
+            follow.status = "REQUESTED"
+            follow.save(update_fields=["status"])
     
     return redirect("author_profile", author_serial=target.serial)
 

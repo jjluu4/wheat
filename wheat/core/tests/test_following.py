@@ -213,6 +213,26 @@ class FollowAPITest(APITestCase):
         )
         mock_forward.assert_called_once_with(self.author1, remote_author)
 
+    @patch("core.apis.follow_api.forward_follow_request_to_remote_inbox")
+    def test_following_put_remote_failure_does_not_leave_pending_row(self, mock_forward):
+        mock_forward.return_value = (False, "remote inbox rejected")
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/remote-failure",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Remote Failure",
+        )
+        encoded_remote = urllib.parse.quote(remote_author.url, safe="")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.put(f"/api/authors/{self.author1.serial}/following/{encoded_remote}")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.data.get("error"), "remote inbox rejected")
+        self.assertFalse(
+            Follow.objects.filter(actor=self.author1, target=remote_author).exists()
+        )
+
     def test_following_put_rejects_self_follow(self):
         self.client.login(username="user1", password="password1")
         response = self.client.put(
@@ -242,6 +262,28 @@ class FollowAPITest(APITestCase):
         self.assertEqual(response.status_code, 302)
         follow.refresh_from_db()
         self.assertEqual(follow.status, "REQUESTED")
+
+    @patch("core.views.follow_views.forward_follow_request_to_remote_inbox")
+    def test_html_follow_author_failure_shows_error_and_preserves_state(self, mock_forward):
+        mock_forward.return_value = (False, "remote inbox rejected")
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/remote-html-failure",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Remote HTML Failure",
+        )
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(
+            f"/authors/{remote_author.serial}/follow/",
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "remote inbox rejected")
+        self.assertFalse(
+            Follow.objects.filter(actor=self.author1, target=remote_author).exists()
+        )
 
     @patch("core.helpers.requests.get")
     def test_resolve_remote_author_fetches_uncached_author_profile(self, mock_get):
