@@ -199,9 +199,11 @@ def get_follow_requests_api(request, author_serial):
     if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to view these follow requests.", status=403)
     
+    page, size = get_pagination_params(request)
+    offset = (page - 1) * size
     requestList = Follow.objects.filter(target=author, status="REQUESTED").select_related("actor").order_by(
         "actor__displayName", "actor__url"
-    )
+    )[offset:offset + size]
 
     serializedAuthor = AuthorSerializer(author).data
 

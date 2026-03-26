@@ -141,6 +141,31 @@ class FollowAPITest(APITestCase):
         names = [item["actor"]["displayName"] for item in response.data]
         self.assertEqual(names, sorted(names))
 
+    def test_follow_requests_supports_page_and_size_with_same_response_shape(self):
+        alpha_user = User.objects.create_user(username="alpha-paged-requester", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha paged requester",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        beta_user = User.objects.create_user(username="beta-paged-requester", password="password6")
+        beta_author = Author.objects.create(
+            user=beta_user,
+            displayName="beta paged requester",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=alpha_author, target=self.author1, status="REQUESTED")
+        Follow.objects.create(actor=beta_author, target=self.author1, status="REQUESTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/api/authors/{self.author1.serial}/follow_requests?page=1&size=1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(len(response.data), 1)
+
     def test_follower_check_allows_remote_basic_auth(self):
         """Remote node basic auth can call follower check endpoint."""
         follow = Follow.objects.get(actor=self.author2, target=self.author1)
