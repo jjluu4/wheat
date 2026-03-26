@@ -81,6 +81,23 @@ class FollowAPITest(APITestCase):
         self.assertEqual(response.data.get("type"), "author")
         self.assertEqual(response.data.get("id"), str(self.author2.url))
 
+    def test_followers_collection_returns_only_accepted_followers_for_remote_basic_auth(self):
+        accepted_follow = Follow.objects.get(actor=self.author2, target=self.author1)
+        accepted_follow.status = "ACCEPTED"
+        accepted_follow.save(update_fields=["status"])
+        encoded = base64.b64encode(b"remote_user:remote_pass").decode("utf-8")
+
+        response = self.client.get(
+            f"/api/authors/{self.author1.serial}/followers",
+            HTTP_AUTHORIZATION=f"Basic {encoded}",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["type"], "followers")
+        followers = [author["id"] for author in response.data["followers"]]
+        self.assertIn(self.author2.url, followers)
+        self.assertNotIn(self.author3.url, followers)
+
     def test_following_get_when_following(self):
         """GET should return true if the follow status is ACCEPTED."""
         self.client.login(username="user1", password="password1")
@@ -109,6 +126,23 @@ class FollowAPITest(APITestCase):
         response2 = self.client.get(url_empty)
         self.assertEqual(response2.status_code, 200)
         self.assertFalse(response2.data['is_following'])
+
+    def test_following_get_matches_trailing_slash_fqid_variant(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-auth-node.example.com/api/authors/slash-user/",
+            host="http://remote-auth-node.example.com/api/",
+            displayName="Slash User",
+        )
+        Follow.objects.create(actor=self.author1, target=remote_author, status="REQUESTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(
+            f"/api/authors/{self.author1.serial}/following/{urllib.parse.quote('http://remote-auth-node.example.com/api/authors/slash-user', safe='')}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["is_following"])
 
     def test_following_put_creates_request(self):
         """PUT should create a REQUESTED follow relationship."""

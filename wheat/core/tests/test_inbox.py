@@ -244,6 +244,49 @@ class InboxApiTests(APITestCase):
         follow = Follow.objects.get(actor=remote_author, target=self.owner)
         self.assertEqual(follow.status, "ACCEPTED")
 
+    def test_follow_inbox_repost_same_event_is_idempotent(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-follow-idempotent",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Idempotent Follow",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/remote-follow-idempotent",
+        )
+        payload = {
+            "type": "follow",
+            "id": "http://remote-node-a.example.com/api/follows/f-idempotent",
+            "actor": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+            "object": {
+                "id": self.owner.url,
+                "host": self.owner.host,
+                "displayName": self.owner.displayName,
+                "github": "",
+                "profileImage": self.owner.profileImage,
+                "web": self.owner.web,
+            },
+        }
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+
+        first = self.client.post(self.inbox_url, payload, format="json", **headers)
+        second = self.client.post(self.inbox_url, payload, format="json", **headers)
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(
+            Follow.objects.filter(actor=remote_author, target=self.owner).count(),
+            1,
+        )
+        self.assertEqual(InboxItem.objects.filter(owner=self.owner, item_id=payload["id"]).count(), 1)
+
     def test_accept_inbox_marks_follow_as_accepted(self):
         remote_followee = Author.objects.create(
             serial=uuid.uuid4(),
@@ -287,6 +330,50 @@ class InboxApiTests(APITestCase):
         follow = Follow.objects.get(actor=self.owner, target=remote_followee)
         self.assertEqual(follow.status, "ACCEPTED")
 
+    def test_accept_inbox_repost_same_event_is_idempotent(self):
+        remote_followee = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-followee-idempotent",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Followee Idempotent",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/remote-followee-idempotent",
+        )
+        Follow.objects.create(actor=self.owner, target=remote_followee, status="REQUESTED")
+        payload = {
+            "type": "accept",
+            "id": "http://remote-node-a.example.com/api/accepts/a-idempotent",
+            "actor": {
+                "id": remote_followee.url,
+                "host": remote_followee.host,
+                "displayName": remote_followee.displayName,
+                "github": "",
+                "profileImage": remote_followee.profileImage,
+                "web": remote_followee.web,
+            },
+            "object": {
+                "id": self.owner.url,
+                "host": self.owner.host,
+                "displayName": self.owner.displayName,
+                "github": "",
+                "profileImage": self.owner.profileImage,
+                "web": self.owner.web,
+            },
+        }
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+
+        first = self.client.post(self.inbox_url, payload, format="json", **headers)
+        second = self.client.post(self.inbox_url, payload, format="json", **headers)
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(
+            Follow.objects.filter(actor=self.owner, target=remote_followee, status="ACCEPTED").count(),
+            1,
+        )
+        self.assertEqual(InboxItem.objects.filter(owner=self.owner, item_id=payload["id"]).count(), 1)
+
     def test_unfollow_inbox_removes_follow_row(self):
         remote_author = Author.objects.create(
             serial=uuid.uuid4(),
@@ -328,3 +415,44 @@ class InboxApiTests(APITestCase):
 
         self.assertEqual(resp.status_code, 201)
         self.assertFalse(Follow.objects.filter(actor=remote_author, target=self.owner).exists())
+
+    def test_unfollow_inbox_repost_same_event_is_idempotent(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-unfollow-idempotent",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Unfollow Idempotent",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/remote-unfollow-idempotent",
+        )
+        Follow.objects.create(actor=remote_author, target=self.owner, status="REQUESTED")
+        payload = {
+            "type": "unfollow",
+            "id": "http://remote-node-a.example.com/api/unfollows/u-idempotent",
+            "actor": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+            "object": {
+                "id": self.owner.url,
+                "host": self.owner.host,
+                "displayName": self.owner.displayName,
+                "github": "",
+                "profileImage": self.owner.profileImage,
+                "web": self.owner.web,
+            },
+        }
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+
+        first = self.client.post(self.inbox_url, payload, format="json", **headers)
+        second = self.client.post(self.inbox_url, payload, format="json", **headers)
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertFalse(Follow.objects.filter(actor=remote_author, target=self.owner).exists())
+        self.assertEqual(InboxItem.objects.filter(owner=self.owner, item_id=payload["id"]).count(), 1)
