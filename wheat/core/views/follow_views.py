@@ -24,10 +24,6 @@ def follow_author(request, author_serial):
         target=target
     )
 
-    if not created and (follow.status == "DECLINED" or follow.status == "REJECTED"):
-        follow.status = "REQUESTED"
-        follow.save()
-
     if follow.status != "ACCEPTED":
         follow.status = "REQUESTED"
         follow.save(update_fields=["status"])
@@ -123,7 +119,7 @@ def following(request, author_serial):
 
     followingQuery = Follow.objects.filter(
         actor=author,
-        status="ACCEPTED"
+        status__in=["REQUESTED", "ACCEPTED"]
     ).select_related("target")
 
     followingList = []

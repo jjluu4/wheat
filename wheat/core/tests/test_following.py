@@ -191,6 +191,24 @@ class FollowAPITest(APITestCase):
             "Authors cannot follow themselves.",
         )
 
+    def test_html_following_list_includes_requested_and_accepted(self):
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/authors/{self.author1.serial}/following/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.author3.displayName)
+        self.assertContains(response, self.author4.displayName)
+
+    def test_html_follow_author_re_requests_rejected_follow(self):
+        follow = Follow.objects.create(actor=self.author1, target=self.author2, status="REJECTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/authors/{self.author2.serial}/follow/")
+
+        self.assertEqual(response.status_code, 302)
+        follow.refresh_from_db()
+        self.assertEqual(follow.status, "REQUESTED")
+
     @patch("core.helpers.requests.get")
     def test_resolve_remote_author_fetches_uncached_author_profile(self, mock_get):
         fqid = "http://remote-auth-node.example.com/api/authors/remote-user"
