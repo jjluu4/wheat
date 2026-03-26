@@ -97,20 +97,18 @@ def notify_remote_follow_acceptance(remote_follower, local_followed_author):
     Sends an "accept" payload to the follower's inbox so Follow(actor=follower, target=followed)
     is set to ACCEPTED on the follower's home node.
     """
+    follower_fqid = normalize_url(getattr(remote_follower, "url", ""))
     follower_host = normalize_url(getattr(remote_follower, "host", ""))
-    if not follower_host or "testserver" in follower_host:
+    if (not follower_fqid and not follower_host) or "testserver" in follower_fqid or "testserver" in follower_host:
         return True, None
 
-    base_url = follower_host[:-4] if follower_host.endswith("/api") else follower_host
-    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    remote = _get_remote_node_for_author(remote_follower)
     if remote is None:
-        return False, f"No active remote node credentials configured for {base_url}"
+        return False, f"No active remote node credentials configured for {follower_fqid or follower_host}"
 
-    remote_follower_id = _extract_author_id_from_fqid(getattr(remote_follower, "url", ""))
-    if not remote_follower_id:
-        return False, "Remote follower URL is invalid; could not extract author id"
-
-    inbox_url = f"{follower_host}/authors/{remote_follower_id}/inbox"
+    inbox_url = build_remote_author_inbox_url(follower_fqid)
+    if not inbox_url:
+        return False, "Remote follower URL is invalid; could not derive inbox URL"
     accept_event_id = f"{normalize_url(local_followed_author.url)}/accepts/{uuid.uuid4()}"
     payload = {
         "type": "accept",
@@ -172,20 +170,18 @@ def notify_remote_follow_removed_by_followee(follower, followee):
     """
     When the followee removes a follower, notify the follower's home node to delete Follow(follower, followee).
     """
+    follower_fqid = normalize_url(getattr(follower, "url", ""))
     follower_host = normalize_url(getattr(follower, "host", ""))
-    if not follower_host or "testserver" in follower_host:
+    if (not follower_fqid and not follower_host) or "testserver" in follower_fqid or "testserver" in follower_host:
         return True, None
 
-    base_url = follower_host[:-4] if follower_host.endswith("/api") else follower_host
-    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
+    remote = _get_remote_node_for_author(follower)
     if remote is None:
-        return False, f"No active remote node credentials configured for {base_url}"
+        return False, f"No active remote node credentials configured for {follower_fqid or follower_host}"
 
-    remote_follower_id = _extract_author_id_from_fqid(getattr(follower, "url", ""))
-    if not remote_follower_id:
-        return False, "Follower remote author URL is invalid; could not extract author id"
-
-    inbox_url = f"{follower_host}/authors/{remote_follower_id}/inbox"
+    inbox_url = build_remote_author_inbox_url(follower_fqid)
+    if not inbox_url:
+        return False, "Follower remote author URL is invalid; could not derive inbox URL"
     unfollow_event_id = f"{normalize_url(followee.url)}/unfollows/{uuid.uuid4()}"
     payload = {
         "type": "unfollow",
@@ -378,7 +374,7 @@ def follower_api(request, author_serial, foreign_author_fqid):
     author = get_object_or_404(Author, serial=author_serial)
     require_auth_for_view(True)
     
-    decoded_fqid = urllib.parse.unquote(foreign_author_fqid)
+    decoded_fqid = decode_fqid(foreign_author_fqid)
     foreign_author = resolve_object_by_url(Author, decoded_fqid)
 
     if request.method == "GET":
@@ -398,8 +394,19 @@ def follower_api(request, author_serial, foreign_author_fqid):
             if not request.user.is_authenticated:
                 return Response(data="Authentication is required.", status=401)
             return Response(data="You don't have permission to manage these followers.", status=403)
-        if foreign_author:
-            Follow.objects.filter(actor=foreign_author, target=author).delete()
+        if not foreign_author:
+            return Response({"error": "Follower not found"}, status=404)
+
+        follow = Follow.objects.filter(
+            actor=foreign_author,
+            target=author,
+            status__in=["REQUESTED", "ACCEPTED"],
+        ).first()
+        if follow is None:
+            return Response({"error": "Follower not found"}, status=404)
+
+        follow.delete()
+        if getattr(foreign_author, "url", "") or getattr(foreign_author, "host", ""):
             delivered, err = notify_remote_follow_removed_by_followee(foreign_author, author)
             if not delivered:
                 logger.warning(
@@ -417,14 +424,22 @@ def follower_api(request, author_serial, foreign_author_fqid):
             if not request.user.is_authenticated:
                 return Response(data="Authentication is required.", status=401)
             return Response(data="You don't have permission to manage these followers.", status=403)
+
+        foreign_author = resolve_remote_author(decoded_fqid)
         if not foreign_author:
             return Response({"error": "Foreign author not found."}, status=404)
 
-        follow, created = Follow.objects.get_or_create(actor=foreign_author, target=author)
+        if local_ok:
+            follow = Follow.objects.filter(
+                actor=foreign_author,
+                target=author,
+                status="REQUESTED",
+            ).first()
+            if follow is None:
+                return Response({"error": "Follow request not found."}, status=404)
 
-        if follow.status == "REQUESTED" or created:
             follow.status = "ACCEPTED"
-            follow.save()
+            follow.save(update_fields=["status"])
             if getattr(foreign_author, "host", "") and "testserver" not in getattr(foreign_author, "host", ""):
                 delivered, delivery_error = notify_remote_follow_acceptance(foreign_author, author)
                 if not delivered:
@@ -436,5 +451,13 @@ def follower_api(request, author_serial, foreign_author_fqid):
                     )
                     return Response({"error": delivery_error}, status=502)
             return Response(status=204)
-        else:
-            return Response({"error": "There was an error processing your request."}, status=400)
+
+        follow, created = Follow.objects.get_or_create(
+            actor=foreign_author,
+            target=author,
+            defaults={"status": "ACCEPTED"},
+        )
+        if not created and follow.status != "ACCEPTED":
+            follow.status = "ACCEPTED"
+            follow.save(update_fields=["status"])
+        return Response(status=204)

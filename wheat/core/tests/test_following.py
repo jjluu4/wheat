@@ -294,6 +294,15 @@ class FollowAPITest(APITestCase):
         self.assertEqual(get_response.status_code, 200)
         self.assertEqual(get_response.data.get("id"), self.author2.url)
 
+    def test_follower_put_returns_404_without_pending_request(self):
+        self.client.login(username="user1", password="password1")
+        response = self.client.put(
+            f"/api/authors/{self.author1.serial}/followers/{self.encoded_a3_fqid}"
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data.get("error"), "Follow request not found.")
+
     def test_follower_delete_removes_follower(self):
         """DELETE should completely remove the follower."""
         # User 2 follows User 1, User 1 accepts
@@ -310,6 +319,15 @@ class FollowAPITest(APITestCase):
         # Verify via API that User 2 is no longer a follower
         get_response = self.client.get(url)
         self.assertEqual(get_response.status_code, 404)
+
+    def test_follower_delete_returns_404_when_row_missing(self):
+        self.client.login(username="user1", password="password1")
+        response = self.client.delete(
+            f"/api/authors/{self.author1.serial}/followers/{self.encoded_a3_fqid}"
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data.get("error"), "Follower not found")
 
     def test_follower_unauthorized_access(self):
         """A user should get a 403 if they try to manage someone else's followers."""
@@ -356,4 +374,35 @@ class FollowAPITest(APITestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.data.get("error"), "remote callback failed")
+
+    @patch("core.apis.follow_api.notify_remote_follow_acceptance")
+    def test_follower_put_allows_remote_basic_auth_without_callback_loop(self, mock_notify):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-auth-node.example.com/api/authors/remote-put-user",
+            host="http://remote-auth-node.example.com/api/",
+            displayName="Remote Put User",
+        )
+        encoded_remote = urllib.parse.quote(remote_author.url, safe="")
+        encoded = base64.b64encode(b"remote_user:remote_pass").decode("utf-8")
+
+        response1 = self.client.put(
+            f"/api/authors/{self.author1.serial}/followers/{encoded_remote}",
+            HTTP_AUTHORIZATION=f"Basic {encoded}",
+        )
+        response2 = self.client.put(
+            f"/api/authors/{self.author1.serial}/followers/{encoded_remote}",
+            HTTP_AUTHORIZATION=f"Basic {encoded}",
+        )
+
+        self.assertEqual(response1.status_code, 204)
+        self.assertEqual(response2.status_code, 204)
+        self.assertTrue(
+            Follow.objects.filter(actor=remote_author, target=self.author1, status="ACCEPTED").exists()
+        )
+        self.assertEqual(
+            Follow.objects.filter(actor=remote_author, target=self.author1).count(),
+            1,
+        )
+        mock_notify.assert_not_called()
     
