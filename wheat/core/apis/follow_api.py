@@ -13,6 +13,7 @@ from ..auth import (
 )
 from ..helpers import (
     decode_fqid,
+    get_pagination_params,
     normalize_url,
     resolve_object_by_url,
     resolve_remote_author,
@@ -164,14 +165,20 @@ def get_following_list(request, author_serial):
     if not is_local_author_authenticated(request, author):
         return Response(data="You don't have permission to view this following list.", status=403)
     
-    followingList = Author.objects.filter(
+    page, size = get_pagination_params(request)
+    offset = (page - 1) * size
+    following_query = Author.objects.filter(
         followers__actor=author,
         followers__status__in=["REQUESTED", "ACCEPTED"],
     ).order_by("displayName", "url").distinct()
-    serializer = AuthorSerializer(followingList, many=True)
+    total = following_query.count()
+    serializer = AuthorSerializer(following_query[offset:offset + size], many=True)
 
     return Response({
         "type": "following", 
+        "page_number": page,
+        "size": size,
+        "count": total,
         "following": serializer.data
         })
 
@@ -223,13 +230,19 @@ def followers_api(request, author_serial):
     if not (is_local_author_authenticated(request, author) or is_remote_node_authenticated(request)):
         return Response(data="Authentication is required.", status=401)
 
-    followers = Author.objects.filter(
+    page, size = get_pagination_params(request)
+    offset = (page - 1) * size
+    followers_query = Author.objects.filter(
         following__target=author,
         following__status="ACCEPTED",
     ).order_by("displayName", "url").distinct()
-    serializer = AuthorSerializer(followers, many=True)
+    total = followers_query.count()
+    serializer = AuthorSerializer(followers_query[offset:offset + size], many=True)
     return Response({
         "type": "followers",
+        "page_number": page,
+        "size": size,
+        "count": total,
         "followers": serializer.data,
     })
 

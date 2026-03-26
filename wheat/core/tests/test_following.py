@@ -90,6 +90,33 @@ class FollowAPITest(APITestCase):
         names = [author["displayName"] for author in response.data["following"]]
         self.assertEqual(names, sorted(names))
 
+    def test_following_collection_supports_page_and_size(self):
+        alpha_user = User.objects.create_user(username="alpha-page-user", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha page",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        beta_user = User.objects.create_user(username="beta-page-user", password="password6")
+        beta_author = Author.objects.create(
+            user=beta_user,
+            displayName="beta page",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=self.author1, target=alpha_author, status="REQUESTED")
+        Follow.objects.create(actor=self.author1, target=beta_author, status="ACCEPTED")
+
+        self.client.login(username="user1", password="password1")
+        response = self.client.get(f"/api/authors/{self.author1.serial}/following?page=1&size=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["page_number"], 1)
+        self.assertEqual(response.data["size"], 2)
+        self.assertGreaterEqual(response.data["count"], 2)
+        self.assertEqual(len(response.data["following"]), 2)
+
     def test_follow_requests_are_sorted_by_actor_display_name(self):
         alpha_user = User.objects.create_user(username="alpha-requester", password="password5")
         alpha_author = Author.objects.create(
@@ -169,6 +196,36 @@ class FollowAPITest(APITestCase):
 
         names = [author["displayName"] for author in response.data["followers"]]
         self.assertEqual(names, sorted(names))
+
+    def test_followers_collection_supports_page_and_size_for_remote_auth(self):
+        alpha_user = User.objects.create_user(username="alpha-page-follower", password="password5")
+        alpha_author = Author.objects.create(
+            user=alpha_user,
+            displayName="alpha page follower",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        beta_user = User.objects.create_user(username="beta-page-follower", password="password6")
+        beta_author = Author.objects.create(
+            user=beta_user,
+            displayName="beta page follower",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+        )
+        Follow.objects.create(actor=alpha_author, target=self.author1, status="ACCEPTED")
+        Follow.objects.create(actor=beta_author, target=self.author1, status="ACCEPTED")
+        encoded = base64.b64encode(b"remote_user:remote_pass").decode("utf-8")
+
+        response = self.client.get(
+            f"/api/authors/{self.author1.serial}/followers?page=1&size=1",
+            HTTP_AUTHORIZATION=f"Basic {encoded}",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["page_number"], 1)
+        self.assertEqual(response.data["size"], 1)
+        self.assertGreaterEqual(response.data["count"], 2)
+        self.assertEqual(len(response.data["followers"]), 1)
 
     def test_following_get_when_following(self):
         """GET should return true if the follow status is ACCEPTED."""
