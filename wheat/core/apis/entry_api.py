@@ -111,7 +111,9 @@ def author_entries(request, author_serial):
         offset = (page - 1) * size
         remote_authenticated = is_remote_node_authenticated(request)
 
-        qs = Entry.objects.filter(author=author).exclude(visibility="DELETED").order_by("-published")
+        qs = Entry.objects.filter(author=author).order_by("-published")
+        if not request.user.is_staff:
+            qs = qs.exclude(visibility="DELETED")
 
         is_owner = request.user.is_authenticated and (request.user.is_staff or requestingAuthor == author)
         is_friend = requestingAuthor is not None and author.get_friends().filter(serial=requestingAuthor.serial).exists()

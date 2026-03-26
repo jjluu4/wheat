@@ -3,7 +3,6 @@ from django.shortcuts import get_object_or_404
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
-
 from ..auth import is_remote_node_authenticated
 from ..helpers import build_comment_payload, build_entry_payload, normalize_url, resolve_object_by_url
 from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem
@@ -203,11 +202,6 @@ def delete_like_from_inbox(payload, request):
 
 
 def build_item_id_from_payload(payload):
-    """Build a deterministic inbox event id.
-
-    Prefer `payload.id` when provided. Otherwise hash the payload body so
-    retries are idempotent for legacy messages.
-    """
     payload_id = (payload.get("id") or "").strip()
     if payload_id:
         return payload_id
