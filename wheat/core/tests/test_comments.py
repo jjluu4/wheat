@@ -2,6 +2,7 @@ from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid
+from unittest.mock import patch
 from core.models import Author, Comment, Entry, Follow
 
 
@@ -229,6 +230,47 @@ class CommentsAPITests(APITestCase):
 
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["content"], "Using comment field")
+
+    @patch("core.apis.comment_api.send_json_to_remote_author_inbox")
+    def test_author_commented_post_forwards_to_remote_entry_author_via_shared_helper(self, mock_send):
+        remote_owner = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-owner",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Owner",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-owner/",
+        )
+        remote_entry_serial = uuid.uuid4()
+        remote_entry = Entry.objects.create(
+            author=remote_owner,
+            serial=remote_entry_serial,
+            url=f"http://remote-node-a.example.com/api/authors/remote-owner/entries/{remote_entry_serial}/",
+            title="Remote entry",
+            content="Remote",
+            content_type="text/plain",
+            visibility="PUBLIC",
+            published=timezone.now(),
+        )
+
+        self.client.force_login(self.friend_user)
+        resp = self.client.post(
+            self.author_commented_url(self.friend),
+            data={
+                "type": "comment",
+                "entry": remote_entry.url,
+                "content": "Forward to remote owner",
+            },
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_owner.url)
+        self.assertEqual(mock_send.call_args.kwargs["timeout"], 5)
+        self.assertEqual(mock_send.call_args.args[1]["type"], "comment")
+        self.assertEqual(mock_send.call_args.args[1]["entry"], remote_entry.url)
 
     def test_author_commented_post_accepts_form_data(self):
         """POST accepts form-encoded data"""

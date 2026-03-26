@@ -1,30 +1,8 @@
-import urllib
-
-import requests
 import logging
-
-from .auth import add_auth_headers
-from .helpers import normalize_url
+from .helpers import normalize_url, parse_author_fqid, send_json_to_remote_author_inbox
 from .models import Author, Entry, Follow, RemoteNode
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_author_id_from_fqid(author_fqid):
-    path_parts = [part for part in urllib.parse.urlparse(author_fqid).path.split("/") if part]
-    for idx, part in enumerate(path_parts):
-        if part == "authors" and idx + 1 < len(path_parts):
-            return path_parts[idx + 1]
-    return None
-
-
-def _remote_node_for_author(author):
-    host = normalize_url(getattr(author, "host", ""))
-    if not host or "testserver" in host:
-        return None
-    base_url = host[:-4] if host.endswith("/api") else host
-    return RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
-
 
 def remote_authors_for_entry(author, visibility):
     followers = Author.objects.filter(
@@ -48,34 +26,7 @@ def remote_authors_for_entry(author, visibility):
 
 
 def send_to_author_inbox(target_author, payload, method="POST"):
-    remote = _remote_node_for_author(target_author)
-    if remote is None:
-        return False, "Remote node credentials not configured for target author"
-
-    remote_author_id = _extract_author_id_from_fqid(getattr(target_author, "url", ""))
-    if not remote_author_id:
-        return False, "Invalid target author URL: unable to parse author id"
-
-    target_host = normalize_url(getattr(target_author, "host", ""))
-    inbox_url = f"{target_host}/authors/{remote_author_id}/inbox"
-    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
-
-    request_fn = {
-        "POST": requests.post,
-        "PUT": requests.put,
-        "DELETE": requests.delete,
-    }.get(method.upper())
-    if request_fn is None:
-        return False, f"Unsupported method {method}"
-
-    try:
-        response = request_fn(inbox_url, json=payload, headers=headers, timeout=10)
-    except requests.RequestException as exc:
-        return False, str(exc)
-
-    if response.status_code not in (200, 201, 202, 204):
-        return False, f"Remote inbox returned status {response.status_code}"
-    return True, None
+    return send_json_to_remote_author_inbox(getattr(target_author, "url", ""), payload, method=method)
 
 
 def distribute_entry_to_remote_recipients(author, payload, visibility, method="POST"):
@@ -146,7 +97,8 @@ def sync_remote_authors_and_public_entries():
                 continue
             discovered_authors += 1
 
-            author_id = _extract_author_id_from_fqid(author.url)
+            parsed_author = parse_author_fqid(author.url)
+            author_id = parsed_author["author_id"] if parsed_author else None
             if not author_id:
                 continue
             entries_payload = _fetch_remote_json(f"{api_base}/authors/{author_id}/entries/", node)
@@ -178,4 +130,3 @@ def sync_remote_authors_and_public_entries():
                 discovered_entries += 1
 
     return {"authors": discovered_authors, "entries": discovered_entries}
-

@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -155,6 +156,42 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(likes_resp.status_code, 200)
         self.assertEqual(likes_resp.data["count"], 1)
         self.assertIn("id", likes_resp.data["src"][0])
+
+    @patch("core.apis.like_api.send_json_to_remote_author_inbox")
+    def test_like_public_remote_entry_uses_shared_inbox_helper(self, mock_send):
+        remote_owner = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-entry-owner",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Entry Owner",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-entry-owner/",
+        )
+        remote_entry = Entry.objects.create(
+            author=remote_owner,
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-entry-owner/entries/remote-entry/",
+            title="Remote public entry",
+            content="hello",
+            content_type="text/plain",
+            visibility="PUBLIC",
+            published=timezone.now(),
+        )
+
+        self.client.force_login(self.stranger_user)
+        resp = self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": remote_entry.url},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_owner.url)
+        self.assertEqual(mock_send.call_args.kwargs["timeout"], 5)
+        self.assertEqual(mock_send.call_args.args[1]["type"], "like")
+        self.assertEqual(mock_send.call_args.args[1]["object"], remote_entry.url)
 
     def test_like_hidden_comment_is_blocked(self):
         """Non-author, non-friend cannot like a hidden friends-only comment."""

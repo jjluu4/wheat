@@ -103,6 +103,40 @@ def build_remote_author_inbox_url(author_fqid):
     return f"{parts['api_base']}/authors/{parts['author_id']}/inbox"
 
 
+def send_json_to_remote_author_inbox(author_fqid, payload, method="POST", timeout=10):
+    """Send JSON to a remote author's inbox using configured node credentials."""
+    normalized_fqid = normalize_url(author_fqid)
+    if not normalized_fqid or "testserver" in normalized_fqid:
+        return True, None
+
+    remote_node = find_remote_node_for_author_fqid(normalized_fqid)
+    if remote_node is None:
+        return False, f"No active remote node credentials configured for {normalized_fqid}"
+
+    inbox_url = build_remote_author_inbox_url(normalized_fqid)
+    if not inbox_url:
+        return False, "Remote author URL is invalid; could not derive inbox URL"
+
+    request_fn = {
+        "POST": requests.post,
+        "PUT": requests.put,
+        "DELETE": requests.delete,
+    }.get(method.upper())
+    if request_fn is None:
+        return False, f"Unsupported method {method}"
+
+    headers = add_auth_headers({"Content-Type": "application/json"}, remote_node)
+    try:
+        response = request_fn(inbox_url, json=payload, headers=headers, timeout=timeout)
+    except requests.RequestException as exc:
+        return False, f"Failed to reach remote inbox: {exc}"
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return False, f"Remote inbox rejected request with status {response.status_code}"
+
+    return True, None
+
+
 def fetch_remote_json(url, remote_node, timeout=10):
     """Fetch JSON from a configured remote node using Basic Auth."""
     headers = {

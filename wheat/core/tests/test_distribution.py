@@ -1,10 +1,12 @@
 import uuid
 from unittest.mock import patch
+import base64
 
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 
 from core.models import Author, Follow, RemoteNode
+from core.federation import send_to_author_inbox
 
 
 class DistributionApiTests(APITestCase):
@@ -96,3 +98,23 @@ class DistributionApiTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(mock_send.call_count, 1)
         self.assertTrue(mock_logger.warning.called)
+
+    @patch("core.helpers.requests.post")
+    def test_send_to_author_inbox_uses_fqid_derived_inbox_url(self, mock_post):
+        mock_post.return_value.status_code = 201
+
+        ok, error = send_to_author_inbox(self.remote_author, {"type": "entry"}, method="POST")
+
+        self.assertTrue(ok)
+        self.assertIsNone(error)
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args.args[0],
+            "http://127.0.0.1:8001/api/authors/remote-author/inbox",
+        )
+        self.assertEqual(mock_post.call_args.kwargs["json"], {"type": "entry"})
+        auth_header = mock_post.call_args.kwargs["headers"]["Authorization"]
+        self.assertEqual(
+            auth_header,
+            f"Basic {base64.b64encode(b'remote-user:remote-pass').decode('utf-8')}",
+        )

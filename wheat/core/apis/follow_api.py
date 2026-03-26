@@ -4,7 +4,6 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import urllib
 import uuid
-import requests
 import logging
 from ..auth import (
     add_auth_headers,
@@ -13,14 +12,13 @@ from ..auth import (
     require_auth_for_view,
 )
 from ..helpers import (
-    build_remote_author_inbox_url,
     decode_fqid,
-    find_remote_node_for_author_fqid,
     normalize_url,
     resolve_object_by_url,
     resolve_remote_author,
+    send_json_to_remote_author_inbox,
 )
-from ..models import Author, Follow, RemoteNode
+from ..models import Author, Follow
 from ..serializers import AuthorSerializer
 
 logger = logging.getLogger(__name__)
@@ -36,22 +34,6 @@ def _extract_author_id_from_fqid(author_fqid):
         if part == "authors" and idx + 1 < len(path_parts):
             return path_parts[idx + 1]
     return None
-
-
-def _get_remote_node_for_author(author):
-    author_fqid = getattr(author, "url", "")
-    remote = find_remote_node_for_author_fqid(author_fqid)
-    if remote is not None:
-        return remote
-
-    author_host = normalize_url(getattr(author, "host", ""))
-    if not author_host:
-        return None
-
-    base_url = author_host[:-4] if author_host.endswith("/api") else author_host
-    return RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
-
-
 def forward_follow_request_to_remote_inbox(actor, target):
     """Deliver a follow request to the target author's remote inbox.
     A unique event id is attached so a second follow request
@@ -62,13 +44,6 @@ def forward_follow_request_to_remote_inbox(actor, target):
     if (not target_fqid and not target_host) or "testserver" in target_fqid or "testserver" in target_host:
         return True, None
 
-    remote = _get_remote_node_for_author(target)
-    if remote is None:
-        return False, f"No active remote node credentials configured for {target_fqid or target_host}"
-
-    inbox_url = build_remote_author_inbox_url(target_fqid)
-    if not inbox_url:
-        return False, "Target remote author URL is invalid; could not derive inbox URL"
     # Unique id per delivery so inbox idempotency does not block a new request after unfollow
     # (same actor/object would otherwise hash to the same synthetic event id).
     follow_event_id = f"{normalize_url(actor.url)}/follows/{uuid.uuid4()}"
@@ -79,16 +54,12 @@ def forward_follow_request_to_remote_inbox(actor, target):
         "actor": AuthorSerializer(actor).data,
         "object": AuthorSerializer(target).data,
     }
-    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
-    try:
-        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
-    except requests.RequestException as exc:
-        return False, f"Failed to reach remote inbox: {exc}"
-
-    if response.status_code < 200 or response.status_code >= 300:
-        return False, f"Remote inbox rejected follow request with status {response.status_code}"
-
-    return True, None
+    delivered, error = send_json_to_remote_author_inbox(target_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    if error and "rejected request with status" in error:
+        return False, error.replace("rejected request", "rejected follow request")
+    return False, error
 
 
 def notify_remote_follow_acceptance(remote_follower, local_followed_author):
@@ -102,13 +73,6 @@ def notify_remote_follow_acceptance(remote_follower, local_followed_author):
     if (not follower_fqid and not follower_host) or "testserver" in follower_fqid or "testserver" in follower_host:
         return True, None
 
-    remote = _get_remote_node_for_author(remote_follower)
-    if remote is None:
-        return False, f"No active remote node credentials configured for {follower_fqid or follower_host}"
-
-    inbox_url = build_remote_author_inbox_url(follower_fqid)
-    if not inbox_url:
-        return False, "Remote follower URL is invalid; could not derive inbox URL"
     accept_event_id = f"{normalize_url(local_followed_author.url)}/accepts/{uuid.uuid4()}"
     payload = {
         "type": "accept",
@@ -117,17 +81,12 @@ def notify_remote_follow_acceptance(remote_follower, local_followed_author):
         "actor": AuthorSerializer(local_followed_author).data,
         "object": AuthorSerializer(remote_follower).data,
     }
-    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
-
-    try:
-        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
-    except requests.RequestException as exc:
-        return False, f"Failed to reach remote inbox: {exc}"
-
-    if response.status_code < 200 or response.status_code >= 300:
-        return False, f"Remote inbox rejected accept with status {response.status_code}"
-
-    return True, None
+    delivered, error = send_json_to_remote_author_inbox(follower_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    if error and "rejected request with status" in error:
+        return False, error.replace("rejected request", "rejected accept")
+    return False, error
 
 
 def notify_remote_unfollow(actor, target):
@@ -139,13 +98,6 @@ def notify_remote_unfollow(actor, target):
     if (not target_fqid and not target_host) or "testserver" in target_fqid or "testserver" in target_host:
         return True, None
 
-    remote = _get_remote_node_for_author(target)
-    if remote is None:
-        return False, f"No active remote node credentials configured for {target_fqid or target_host}"
-
-    inbox_url = build_remote_author_inbox_url(target_fqid)
-    if not inbox_url:
-        return False, "Target remote author URL is invalid; could not derive inbox URL"
     unfollow_event_id = f"{normalize_url(actor.url)}/unfollows/{uuid.uuid4()}"
     payload = {
         "type": "unfollow",
@@ -154,16 +106,12 @@ def notify_remote_unfollow(actor, target):
         "actor": AuthorSerializer(actor).data,
         "object": AuthorSerializer(target).data,
     }
-    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
-    try:
-        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
-    except requests.RequestException as exc:
-        return False, f"Failed to reach remote inbox: {exc}"
-
-    if response.status_code < 200 or response.status_code >= 300:
-        return False, f"Remote inbox rejected unfollow with status {response.status_code}"
-
-    return True, None
+    delivered, error = send_json_to_remote_author_inbox(target_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    if error and "rejected request with status" in error:
+        return False, error.replace("rejected request", "rejected unfollow")
+    return False, error
 
 
 def notify_remote_follow_removed_by_followee(follower, followee):
@@ -175,13 +123,6 @@ def notify_remote_follow_removed_by_followee(follower, followee):
     if (not follower_fqid and not follower_host) or "testserver" in follower_fqid or "testserver" in follower_host:
         return True, None
 
-    remote = _get_remote_node_for_author(follower)
-    if remote is None:
-        return False, f"No active remote node credentials configured for {follower_fqid or follower_host}"
-
-    inbox_url = build_remote_author_inbox_url(follower_fqid)
-    if not inbox_url:
-        return False, "Follower remote author URL is invalid; could not derive inbox URL"
     unfollow_event_id = f"{normalize_url(followee.url)}/unfollows/{uuid.uuid4()}"
     payload = {
         "type": "unfollow",
@@ -190,16 +131,12 @@ def notify_remote_follow_removed_by_followee(follower, followee):
         "actor": AuthorSerializer(follower).data,
         "object": AuthorSerializer(followee).data,
     }
-    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
-    try:
-        response = requests.post(inbox_url, json=payload, headers=headers, timeout=5)
-    except requests.RequestException as exc:
-        return False, f"Failed to reach remote inbox: {exc}"
-
-    if response.status_code < 200 or response.status_code >= 300:
-        return False, f"Remote inbox rejected unfollow with status {response.status_code}"
-
-    return True, None
+    delivered, error = send_json_to_remote_author_inbox(follower_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    if error and "rejected request with status" in error:
+        return False, error.replace("rejected request", "rejected unfollow")
+    return False, error
 
 
 def notify_remote_follow_rejection(remote_follower, local_followed_author):

@@ -4,11 +4,10 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
 import re
-import requests
 
-from ..auth import add_auth_headers, require_auth_for_view
+from ..auth import require_auth_for_view
 from ..auth import is_remote_node_authenticated
-from ..models import Author, Entry, Comment, EntryLike, CommentLike, RemoteNode
+from ..models import Author, Entry, Comment, EntryLike, CommentLike
 from ..serializers import AuthorSerializer, CommentLikeSerializer, EntryLikeSerializer
 from ..permissions import (
     get_requesting_author,
@@ -25,8 +24,9 @@ from ..helpers import (
     build_author_api_url,
     normalize_url,
     resolve_object_by_url,
+    send_json_to_remote_author_inbox,
 )
-from ..federation import _extract_author_id_from_fqid, remote_authors_for_entry, send_to_author_inbox
+from ..federation import remote_authors_for_entry, send_to_author_inbox
 
 ENTRY_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
 COMMENT_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/commented/(?P<comment>[0-9a-f-]+)/?$")
@@ -68,25 +68,7 @@ def build_like_url(request, author, like_serial):
 
 def _post_json_to_remote_inbox(payload, inbox_author):
     """POST JSON to inbox_author's home node inbox (if remote)."""
-    inbox_host = normalize_url(getattr(inbox_author, "host", ""))
-    if not inbox_host or "testserver" in inbox_host:
-        return
-
-    base_url = inbox_host[:-4] if inbox_host.endswith("/api") else inbox_host
-    remote = RemoteNode.objects.filter(base_url=base_url, is_active=True).first()
-    if remote is None:
-        return
-
-    remote_author_id = _extract_author_id_from_fqid(getattr(inbox_author, "url", ""))
-    if not remote_author_id:
-        return
-
-    inbox_url = f"{inbox_host}/authors/{remote_author_id}/inbox"
-    headers = add_auth_headers({"Content-Type": "application/json"}, remote)
-    try:
-        requests.post(inbox_url, json=payload, headers=headers, timeout=5)
-    except requests.RequestException:
-        return
+    send_json_to_remote_author_inbox(getattr(inbox_author, "url", ""), payload, timeout=5)
 
 
 def forward_like_to_remote_inbox(like_payload, inbox_author):
