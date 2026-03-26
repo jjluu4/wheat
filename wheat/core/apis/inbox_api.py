@@ -113,7 +113,7 @@ def create_or_update_follow(payload, request, inbox_owner):
         object_author = inbox_owner
 
     follow, _ = Follow.objects.get_or_create(actor=actor, target=object_author, defaults={"status": "REQUESTED"})
-    if follow.status != "REQUESTED":
+    if follow.status == "REJECTED":
         follow.status = "REQUESTED"
         follow.save(update_fields=["status"])
     return follow, None

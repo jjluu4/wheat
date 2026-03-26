@@ -200,3 +200,131 @@ class InboxApiTests(APITestCase):
         unlike_resp = self.client.post(self.inbox_url, unlike_payload, format="json", **headers)
         self.assertEqual(unlike_resp.status_code, 201)
         self.assertFalse(CommentLike.objects.filter(author=remote_author, comment=comment).exists())
+
+    def test_duplicate_follow_does_not_downgrade_accepted_follow(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-follow-accepted",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Accepted",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/remote-follow-accepted",
+        )
+        Follow.objects.create(actor=remote_author, target=self.owner, status="ACCEPTED")
+        payload = {
+            "type": "follow",
+            "id": "http://remote-node-a.example.com/api/follows/f-accepted",
+            "actor": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+            "object": {
+                "id": self.owner.url,
+                "host": self.owner.host,
+                "displayName": self.owner.displayName,
+                "github": "",
+                "profileImage": self.owner.profileImage,
+                "web": self.owner.web,
+            },
+        }
+
+        resp = self.client.post(
+            self.inbox_url,
+            payload,
+            format="json",
+            HTTP_AUTHORIZATION=basic_auth_value("remote_user", "remote_pass"),
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        follow = Follow.objects.get(actor=remote_author, target=self.owner)
+        self.assertEqual(follow.status, "ACCEPTED")
+
+    def test_accept_inbox_marks_follow_as_accepted(self):
+        remote_followee = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-followee",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Followee",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/remote-followee",
+        )
+        Follow.objects.create(actor=self.owner, target=remote_followee, status="REQUESTED")
+        payload = {
+            "type": "accept",
+            "id": "http://remote-node-a.example.com/api/accepts/a1",
+            "actor": {
+                "id": remote_followee.url,
+                "host": remote_followee.host,
+                "displayName": remote_followee.displayName,
+                "github": "",
+                "profileImage": remote_followee.profileImage,
+                "web": remote_followee.web,
+            },
+            "object": {
+                "id": self.owner.url,
+                "host": self.owner.host,
+                "displayName": self.owner.displayName,
+                "github": "",
+                "profileImage": self.owner.profileImage,
+                "web": self.owner.web,
+            },
+        }
+
+        resp = self.client.post(
+            self.inbox_url,
+            payload,
+            format="json",
+            HTTP_AUTHORIZATION=basic_auth_value("remote_user", "remote_pass"),
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        follow = Follow.objects.get(actor=self.owner, target=remote_followee)
+        self.assertEqual(follow.status, "ACCEPTED")
+
+    def test_unfollow_inbox_removes_follow_row(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-unfollow",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Unfollow",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/remote-unfollow",
+        )
+        Follow.objects.create(actor=remote_author, target=self.owner, status="REQUESTED")
+        payload = {
+            "type": "unfollow",
+            "id": "http://remote-node-a.example.com/api/unfollows/u1",
+            "actor": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+            "object": {
+                "id": self.owner.url,
+                "host": self.owner.host,
+                "displayName": self.owner.displayName,
+                "github": "",
+                "profileImage": self.owner.profileImage,
+                "web": self.owner.web,
+            },
+        }
+
+        resp = self.client.post(
+            self.inbox_url,
+            payload,
+            format="json",
+            HTTP_AUTHORIZATION=basic_auth_value("remote_user", "remote_pass"),
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertFalse(Follow.objects.filter(actor=remote_author, target=self.owner).exists())
