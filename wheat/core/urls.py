@@ -40,7 +40,7 @@ urlpatterns = [
 
     # API endpoints
     path("api/authors/<uuid:author_serial>/", author_api.single_author, name="api_single_author"),
-    path("api/authors", author_api.all_authors, name="api_all_authors"),
+    path("api/authors/", author_api.all_authors, name="api_all_authors"),
     path("api/authors/<uuid:author_serial>/entries/", entry_api.author_entries, name="api_author_entries"),
     path("api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", entry_api.single_entry, name="api_single_entry"),    
     path("api/authors/<uuid:author_serial>/follow_requests", follow_api.get_follow_requests_api, name="api_follow_requests"),
