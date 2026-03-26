@@ -144,9 +144,6 @@ def view_entry(request, author_serial, entry_serial):
     entry = get_object_or_404(Entry, serial=entry_serial, author=author)
 
     if entry.visibility == "DELETED":
-        # Only node admins can view deleted entries.
-        if request.user.is_authenticated and request.user.is_staff:
-            return render(request, "core/view_entry.html", {"entry": entry, "author": author})
         return HttpResponseForbidden("This entry has been deleted.")
 
     elif entry.visibility == "PUBLIC" or entry.visibility == "UNLISTED":

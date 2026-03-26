@@ -32,9 +32,7 @@ def author_profile(request, author_serial):
     )
 
     if is_owner:
-        entries = Entry.objects.filter(author=author)
-        if not request.user.is_staff:
-            entries = entries.exclude(visibility="DELETED")
+        entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
     else:
         viewer = get_requesting_author(request)
         if viewer is None:
@@ -45,9 +43,7 @@ def author_profile(request, author_serial):
                 q |= Q(visibility="UNLISTED")
             if is_friend(author, viewer):
                 q |= Q(visibility="FRIENDS")
-            entries = Entry.objects.filter(author=author).filter(q)
-            # Non-admin viewers should not see deleted entries.
-            entries = entries.exclude(visibility="DELETED")
+            entries = Entry.objects.filter(author=author).filter(q).exclude(visibility="DELETED")
 
     entries = entries.order_by("-published")
 

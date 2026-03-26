@@ -82,12 +82,8 @@ class Entry(models.Model):
             Q(visibility="UNLISTED", author__in=following) |
             Q(author=viewer)
         )
-        qs = Entry.objects.filter(entryFilter)
-        viewer_is_admin = getattr(getattr(viewer, "user", None), "is_staff", False)
-        if not viewer_is_admin:
-            qs = qs.exclude(visibility="DELETED")
 
-        return qs
+        return Entry.objects.filter(entryFilter).exclude(visibility="DELETED")
 
 
 

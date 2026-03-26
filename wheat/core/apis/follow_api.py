@@ -50,105 +50,101 @@ def _contextualize_remote_inbox_error(error, action_name):
             1,
         )
     return error
-
-
-def notify_remote_follow_event(
-    *,
-    remote_recipient,
-    event_type,
-    event_id,
-    summary,
-    actor,
-    obj,
-    error_action_name,
-    timeout=5,
-):
+def forward_follow_request_to_remote_inbox(actor, target):
+    """Deliver a follow request to the target author's remote inbox.
+    A unique event id is attached so a second follow request
+    after an unfollow is not dropped by inbox idempotency.
     """
-    helper for handling follow related events
-    """
-    recipient_fqid = normalize_url(getattr(remote_recipient, "url", ""))
-    recipient_host = normalize_url(getattr(remote_recipient, "host", ""))
-    if (not recipient_fqid and not recipient_host) or "testserver" in recipient_fqid or "testserver" in recipient_host:
+    target_fqid = normalize_url(getattr(target, "url", ""))
+    target_host = normalize_url(getattr(target, "host", ""))
+    if (not target_fqid and not target_host) or "testserver" in target_fqid or "testserver" in target_host:
         return True, None
 
+    # Unique id per delivery so inbox idempotency does not block a new request after unfollow
+    # (same actor/object would otherwise hash to the same synthetic event id).
+    follow_event_id = f"{normalize_url(actor.url)}/follows/{uuid.uuid4()}"
     payload = {
-        "type": event_type,
-        "id": event_id,
-        "summary": summary,
+        "type": "follow",
+        "id": follow_event_id,
+        "summary": f"{actor.displayName} wants to follow {target.displayName}",
         "actor": AuthorSerializer(actor).data,
-        "object": AuthorSerializer(obj).data,
+        "object": AuthorSerializer(target).data,
     }
-    delivered, error = send_json_to_remote_author_inbox(recipient_fqid, payload, timeout=timeout)
+    delivered, error = send_json_to_remote_author_inbox(target_fqid, payload, timeout=5)
     if delivered:
         return True, None
-    return False, _contextualize_remote_inbox_error(error, error_action_name)
-
-def forward_follow_request_to_remote_inbox(actor, target):
-    """
-    deliver a follow request to the target authors remote inbox
-    """
-    follow_event_id = f"{normalize_url(actor.url)}/follows/{uuid.uuid4()}"
-    return notify_remote_follow_event(
-        remote_recipient=target,
-        event_type="follow",
-        event_id=follow_event_id,
-        summary=f"{actor.displayName} wants to follow {target.displayName}",
-        actor=actor,
-        obj=target,
-        error_action_name="follow request",
-        timeout=5,
-    )
+    return False, _contextualize_remote_inbox_error(error, "follow request")
 
 
 def notify_remote_follow_acceptance(remote_follower, local_followed_author):
     """
-    notify the remote follower's node that the follow request was accepted
+    Notify the remote follower's node that the follow request was accepted.
+    Sends an "accept" payload to the follower's inbox so Follow(actor=follower, target=followed)
+    is set to ACCEPTED on the follower's home node.
     """
+    follower_fqid = normalize_url(getattr(remote_follower, "url", ""))
+    follower_host = normalize_url(getattr(remote_follower, "host", ""))
+    if (not follower_fqid and not follower_host) or "testserver" in follower_fqid or "testserver" in follower_host:
+        return True, None
+
     accept_event_id = f"{normalize_url(local_followed_author.url)}/accepts/{uuid.uuid4()}"
-    return notify_remote_follow_event(
-        remote_recipient=remote_follower,
-        event_type="accept",
-        event_id=accept_event_id,
-        summary=f"{local_followed_author.displayName} accepted your follow request",
-        actor=local_followed_author,
-        obj=remote_follower,
-        error_action_name="accept",
-        timeout=5,
-    )
+    payload = {
+        "type": "accept",
+        "id": accept_event_id,
+        "summary": f"{local_followed_author.displayName} accepted your follow request",
+        "actor": AuthorSerializer(local_followed_author).data,
+        "object": AuthorSerializer(remote_follower).data,
+    }
+    delivered, error = send_json_to_remote_author_inbox(follower_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    return False, _contextualize_remote_inbox_error(error, "accept")
 
 
 def notify_remote_unfollow(actor, target):
     """
-    tell the followee's node to remove Follow(actor=actor, target=target) so followers/following stay in sync
+    Tell the followee's node to remove Follow(actor=actor, target=target) so followers/following stay in sync.
     """
+    target_fqid = normalize_url(getattr(target, "url", ""))
+    target_host = normalize_url(getattr(target, "host", ""))
+    if (not target_fqid and not target_host) or "testserver" in target_fqid or "testserver" in target_host:
+        return True, None
+
     unfollow_event_id = f"{normalize_url(actor.url)}/unfollows/{uuid.uuid4()}"
-    return notify_remote_follow_event(
-        remote_recipient=target,
-        event_type="unfollow",
-        event_id=unfollow_event_id,
-        summary=f"{actor.displayName} unfollowed {target.displayName}",
-        actor=actor,
-        obj=target,
-        error_action_name="unfollow",
-        timeout=5,
-    )
+    payload = {
+        "type": "unfollow",
+        "id": unfollow_event_id,
+        "summary": f"{actor.displayName} unfollowed {target.displayName}",
+        "actor": AuthorSerializer(actor).data,
+        "object": AuthorSerializer(target).data,
+    }
+    delivered, error = send_json_to_remote_author_inbox(target_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    return False, _contextualize_remote_inbox_error(error, "unfollow")
 
 
 def notify_remote_follow_removed_by_followee(follower, followee):
     """
     When the followee removes a follower, notify the follower's home node to delete Follow(follower, followee).
     """
+    follower_fqid = normalize_url(getattr(follower, "url", ""))
+    follower_host = normalize_url(getattr(follower, "host", ""))
+    if (not follower_fqid and not follower_host) or "testserver" in follower_fqid or "testserver" in follower_host:
+        return True, None
+
     unfollow_event_id = f"{normalize_url(followee.url)}/unfollows/{uuid.uuid4()}"
-    return notify_remote_follow_event(
-        remote_recipient=follower,
-        event_type="unfollow",
-        event_id=unfollow_event_id,
-        summary=f"{followee.displayName} removed {follower.displayName} as a follower",
-        actor=follower,
-        obj=followee,
-        error_action_name="unfollow",
-        timeout=5,
-    )
+    payload = {
+        "type": "unfollow",
+        "id": unfollow_event_id,
+        "summary": f"{followee.displayName} removed {follower.displayName} as a follower",
+        "actor": AuthorSerializer(follower).data,
+        "object": AuthorSerializer(followee).data,
+    }
+    delivered, error = send_json_to_remote_author_inbox(follower_fqid, payload, timeout=5)
+    if delivered:
+        return True, None
+    return False, _contextualize_remote_inbox_error(error, "unfollow")
 
 
 def notify_remote_follow_rejection(remote_follower, local_followed_author):
