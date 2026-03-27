@@ -283,8 +283,10 @@ def inbox_item(request, author_serial):
         return Response({"error": "Unsupported inbox object type"}, status=400)
 
     event_id = build_item_id_from_payload(payload)
+    '''
     if InboxItem.objects.filter(owner=inbox_owner, item_id=event_id).exists():
         return Response({"type": object_type, "status": "already-processed"}, status=200)
+    '''
 
     if object_type == "accept":
         actor_payload = payload.get("actor")
@@ -363,11 +365,14 @@ def inbox_item(request, author_serial):
             return Response({"error": error}, status=400)
         data = {"type": "like", "id": like.url, "object": payload.get("object")}
         response = Response(data, status=201)
-
-    InboxItem.objects.create(
-        owner=inbox_owner,
-        item_type=object_type,
-        item_id=event_id,
-        payload=payload,
-    )
+    
+    if InboxItem.objects.filter(owner=inbox_owner, item_id=event_id).exists():
+        return Response({"type": object_type, "status": "already-processed"}, status=200)
+    else:
+        InboxItem.objects.create(
+            owner=inbox_owner,
+            item_type=object_type,
+            item_id=event_id,
+            payload=payload,
+        )        
     return response
