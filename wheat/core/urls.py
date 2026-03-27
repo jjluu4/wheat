@@ -46,9 +46,14 @@ urlpatterns = [
     path("api/authors/<uuid:author_serial>/follow_requests", follow_api.get_follow_requests_api, name="api_follow_requests"),
     path("api/authors/<uuid:author_serial>/following", follow_api.get_following_list, name="api_get_following_list"),
     path("api/authors/<uuid:author_serial>/followers", follow_api.followers_api, name="api_followers_list"),
+
     path('api/authors/<uuid:author_serial>/commented/', comment_api.author_commented, name='api_author_comments'),
     path('api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/', comment_api.author_commented_single, name='api_author_comments_single'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/', comment_api.entry_comments, name='api_entry_comments'),
+    path("api/authors/<path:author_fqid>/commented/", comment_api.author_commented_fqid, name="api_author_comments_fqid"),
+    path("api/commented/<path:comment_fqid>/", comment_api.comment_fqid, name="api_comment_fqid"),
+    path("api/entries/<path:entry_fqid>/comments/", comment_api.entry_comments_fqid, name="api_entry_comments_fqid"),
+
     path('api/authors/<uuid:author_serial>/liked/', like_api.author_liked, name='api_author_liked'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/', like_api.entry_likes, name='api_entry_likes'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/<uuid:comment_serial>/likes/', like_api.comment_likes, name='api_comment_likes'),

@@ -7,7 +7,7 @@ import urllib
 import requests
 
 from .auth import add_auth_headers
-from .models import RemoteNode
+from .models import RemoteNode, Entry, Author
 
 from .permissions import (
     get_requesting_author,
@@ -414,3 +414,40 @@ def fetch_remote_resource(fqid):
 
     except requests.exceptions.RequestException as e:
         return Response({"error": f"Failed to connect to remote node: {str(e)}"},status=503)
+
+def find_remote_node_by_url(url):
+    """Find an active RemoteNode whose base_url is a prefix of the given URL, returns None if no matching node is found"""
+    normalized = normalize_url(url)
+    for node in RemoteNode.objects.filter(is_active=True):
+        node_base = normalize_url(node.base_url)
+        if normalized.startswith(node_base):
+            return node
+    return None
+
+def get_or_fetch_remote_entry(entry_url, request=None):
+    """
+    Return an Entry instance for the given URL
+    - if not local, fetch from remote node and store
+    - returns None if the entry cannot be fetched/invalid
+    """
+    from .federation import create_or_update_entry_from_remote_payload, upsert_remote_author
+
+    entry = resolve_object_by_url(Entry, entry_url) # try to resolve locally
+    if entry is not None:
+        return entry
+
+    remote_node = find_remote_node_by_url(entry_url) # try to resolve remotely
+    if remote_node is None:
+        return None
+
+    payload = fetch_remote_json(entry_url, remote_node)
+    if not isinstance(payload, dict):
+        return None
+
+    author_payload = payload.get('author')
+    if not author_payload:
+        return None
+
+    author = upsert_remote_author(author_payload) # create/update local author record
+
+    return create_or_update_entry_from_remote_payload(payload, author) # create/update entry
