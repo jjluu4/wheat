@@ -119,8 +119,6 @@ def send_json_to_remote_author_inbox(author_fqid, payload, method="POST", timeou
 
     request_fn = {
         "POST": requests.post,
-        "PUT": requests.put,
-        "DELETE": requests.delete,
     }.get(method.upper())
     if request_fn is None:
         return False, f"Unsupported method {method}"
@@ -253,6 +251,9 @@ def build_entry_api_url(entry, request=None):
 
 
 def build_entry_web_url(entry, request=None):
+    stored = normalize_url(getattr(entry, "web", ""))
+    if stored.startswith("http://") or stored.startswith("https://"):
+        return stored
     return f"{build_author_web_url(entry.author, request)}/entries/{entry.serial}/"
 
 
@@ -322,6 +323,8 @@ def build_entry_payload(entry, request):
     payload = EntrySerializer(entry).data
     payload["author"] = AuthorSerializer(entry.author).data
     payload["web"] = build_entry_web_url(entry, request)
+    if entry.content_type == "image":
+        payload["imageUrl"] = f"{normalize_url(build_entry_api_url(entry, request))}/image/"
     content_text = (entry.content or "").strip()
     payload["description"] = ""
     if content_text:
