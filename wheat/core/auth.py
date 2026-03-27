@@ -24,6 +24,8 @@ def add_auth_headers(headers, remote):
 
 def get_remote_node_from_request(request):
     auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    if auth_header is None:
+        auth_header = request.headers['Authorization']    
     if not auth_header.startswith("Basic "):
         return None
     try:
