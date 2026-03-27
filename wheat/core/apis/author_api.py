@@ -24,7 +24,10 @@ def all_authors(request):
     page, size = get_pagination_params(request)
     offset = (page - 1) * size
 
-    authors = Author.objects.all().order_by("url")
+    authors = (
+        Author.objects.filter(user__isnull=False, user__is_active=True)
+        .order_by("displayName", "serial")
+    )
     
     serializer = AuthorSerializer(authors[offset:offset + size], many=True)
     
