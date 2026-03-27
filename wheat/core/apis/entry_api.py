@@ -73,7 +73,7 @@ def single_entry(request, author_serial, entry_serial):
             author=entryAuthor,
             payload=payload,
             visibility=entry.visibility,
-            method="PUT",
+            method="POST",
         )
         return Response(build_entry_payload(entry, request), status=200)
 
@@ -86,7 +86,7 @@ def single_entry(request, author_serial, entry_serial):
             author=entryAuthor,
             payload=payload,
             visibility="PUBLIC",
-            method="DELETE",
+            method="POST",
         )
         return Response(status=204)
 

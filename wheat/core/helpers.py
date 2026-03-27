@@ -119,8 +119,6 @@ def send_json_to_remote_author_inbox(author_fqid, payload, method="POST", timeou
 
     request_fn = {
         "POST": requests.post,
-        "PUT": requests.put,
-        "DELETE": requests.delete,
     }.get(method.upper())
     if request_fn is None:
         return False, f"Unsupported method {method}"
