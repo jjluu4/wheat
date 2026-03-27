@@ -1,11 +1,27 @@
+import json
 import uuid
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from ..auth import is_remote_node_authenticated
 from ..helpers import build_comment_payload, build_entry_payload, normalize_url, resolve_object_by_url
 from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem
+
+
+def parse_remote_published(payload):
+    published_raw = (payload.get("published") or "").strip()
+    if not published_raw:
+        return None
+
+    parsed = parse_datetime(published_raw)
+    if parsed is None:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed
 
 
 def create_or_update_author(author_payload, request):
@@ -64,6 +80,9 @@ def create_or_update_entry(payload, request):
     entry.content_type = payload.get("contentType", payload.get("content_type", "text/plain"))
     entry.image_url = payload.get("imageUrl", payload.get("image_url", "")) or ""
     entry.visibility = payload.get("visibility") if payload.get("visibility") in ("PUBLIC", "UNLISTED", "FRIENDS", "DELETED") else "PUBLIC"
+    published = parse_remote_published(payload)
+    if published is not None:
+        entry.published = published
     if not getattr(entry, "web", ""):
         base = normalize_url(request.build_absolute_uri("/"))
         entry.web = f"{base}/authors/{author.serial}/entries/{entry.serial}"
@@ -95,6 +114,9 @@ def create_or_update_comment(payload, request):
     comment.url = comment_id
     comment.content = payload.get("comment", payload.get("content", ""))
     comment.content_type = payload.get("contentType", payload.get("content_type", "text/plain"))
+    published = parse_remote_published(payload)
+    if published is not None:
+        comment.published = published
     comment.save()
     return comment, None
 
@@ -153,26 +175,38 @@ def create_or_update_like(payload, request):
 
     entry = resolve_object_by_url(Entry, object_url)
     if entry is not None:
+        published = parse_remote_published(payload)
         like, _ = EntryLike.objects.get_or_create(
             author=author,
             entry=entry,
-            defaults={"url": payload.get("id") or f"{normalize_url(author.url)}/liked/{uuid.uuid4()}"},
+            defaults={
+                "url": payload.get("id") or f"{normalize_url(author.url)}/liked/{uuid.uuid4()}",
+                "published": published or timezone.now(),
+            },
         )
         if not like.url:
             like.url = payload.get("id") or f"{normalize_url(author.url)}/liked/{like.serial}"
-            like.save(update_fields=["url"])
+        if published is not None:
+            like.published = published
+        like.save(update_fields=["url", "published"] if published is not None else ["url"])
         return like, None
 
     comment = resolve_object_by_url(Comment, object_url)
     if comment is not None:
+        published = parse_remote_published(payload)
         like, _ = CommentLike.objects.get_or_create(
             author=author,
             comment=comment,
-            defaults={"url": payload.get("id") or f"{normalize_url(author.url)}/liked/{uuid.uuid4()}"},
+            defaults={
+                "url": payload.get("id") or f"{normalize_url(author.url)}/liked/{uuid.uuid4()}",
+                "published": published or timezone.now(),
+            },
         )
         if not like.url:
             like.url = payload.get("id") or f"{normalize_url(author.url)}/liked/{like.serial}"
-            like.save(update_fields=["url"])
+        if published is not None:
+            like.published = published
+        like.save(update_fields=["url", "published"] if published is not None else ["url"])
         return like, None
 
     return None, "Like object target not found"
@@ -202,11 +236,33 @@ def delete_like_from_inbox(payload, request):
 
 
 def build_item_id_from_payload(payload):
+    payload_type = (payload.get("type") or "unknown").lower()
+    if payload_type == "entry":
+        dedup_payload = {
+            "type": payload_type,
+            "id": payload.get("id") or "",
+            "title": payload.get("title") or "",
+            "content": payload.get("content") or "",
+            "contentType": payload.get("contentType", payload.get("content_type", "")) or "",
+            "imageUrl": payload.get("imageUrl", payload.get("image_url", "")) or "",
+            "visibility": payload.get("visibility") or "",
+            "published": payload.get("published") or "",
+            "web": payload.get("web") or "",
+        }
+        generated = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            json.dumps(dedup_payload, sort_keys=True, separators=(",", ":")),
+        )
+        return f"https://inbox.local/events/{payload_type}/{generated}"
+
     payload_id = (payload.get("id") or "").strip()
     if payload_id:
         return payload_id
-    payload_type = (payload.get("type") or "unknown").lower()
-    generated = uuid.uuid5(uuid.NAMESPACE_URL, str(payload))
+
+    generated = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str),
+    )
     return f"https://inbox.local/events/{payload_type}/{generated}"
 
 
