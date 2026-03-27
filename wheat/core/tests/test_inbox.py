@@ -261,6 +261,38 @@ class InboxApiTests(APITestCase):
         like = EntryLike.objects.get(author=remote_author, entry=local_entry)
         self.assertEqual(like.published, parse_datetime(like_published))
 
+    def test_remote_entry_preserves_incoming_web_url(self):
+        payload = {
+            "type": "entry",
+            "id": "http://remote-node-a.example.com/api/authors/11111111-1111-1111-1111-111111111111/entries/web-preserved",
+            "title": "Remote entry",
+            "content": "hello from remote",
+            "contentType": "text/plain",
+            "visibility": "PUBLIC",
+            "web": "http://remote-node-a.example.com/authors/11111111-1111-1111-1111-111111111111/posts/web-preserved",
+            "author": {
+                "type": "author",
+                "id": "http://remote-node-a.example.com/api/authors/11111111-1111-1111-1111-111111111111",
+                "host": "http://remote-node-a.example.com/api/",
+                "displayName": "Remote User",
+                "github": "https://github.com/remote-user",
+                "profileImage": "https://placehold.co/64x64.png",
+                "web": "http://remote-node-a.example.com/authors/11111111-1111-1111-1111-111111111111",
+            },
+        }
+
+        resp = self.client.post(
+            self.inbox_url,
+            payload,
+            format="json",
+            HTTP_AUTHORIZATION=basic_auth_value("remote_user", "remote_pass"),
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        entry = Entry.objects.get(url=payload["id"])
+        self.assertEqual(entry.web, payload["web"])
+        self.assertEqual(resp.data["web"], payload["web"])
+
     def test_follow_comment_like_payloads_create_objects(self):
         remote_author = Author.objects.create(
             serial=uuid.uuid4(),

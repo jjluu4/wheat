@@ -229,6 +229,15 @@ class EntriesApiTests(APITestCase):
         self.public_entry.refresh_from_db()
         self.assertEqual(self.public_entry.visibility, "DELETED")
 
+    def test_single_image_entry_payload_uses_canonical_image_url(self):
+        """Image entry payloads expose the canonical entry image endpoint, not the raw stored image URL."""
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_image_entry.serial}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data["imageUrl"],
+            f"{self.public_image_entry.url}/image/",
+        )
+
     def testGetEntryByFqidPublic(self):
         """Anyone can fetch a public entry by its FQID."""
         encoded_fqid = urllib.parse.quote(self.public_entry.url, safe='')

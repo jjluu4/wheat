@@ -83,7 +83,8 @@ def create_or_update_entry(payload, request):
     published = parse_remote_published(payload)
     if published is not None:
         entry.published = published
-    if not getattr(entry, "web", ""):
+    entry.web = payload.get("web") or entry.web or ""
+    if not entry.web:
         base = normalize_url(request.build_absolute_uri("/"))
         entry.web = f"{base}/authors/{author.serial}/entries/{entry.serial}"
     entry.save()
