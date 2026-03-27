@@ -2,9 +2,10 @@ import base64
 import uuid
 
 from django.contrib.auth.models import User
+from django.utils.dateparse import parse_datetime
 from rest_framework.test import APITestCase
 
-from core.models import Author, Comment, CommentLike, Entry, Follow, InboxItem, RemoteNode
+from core.models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem, RemoteNode
 
 
 def basic_auth_value(username, password):
@@ -94,6 +95,171 @@ class InboxApiTests(APITestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(Entry.objects.count(), 1)
         self.assertEqual(InboxItem.objects.count(), 1)
+
+    def test_entry_update_same_fqid_processes_as_new_event(self):
+        entry_id = "http://remote-node-a.example.com/api/authors/11111111-1111-1111-1111-111111111111/entries/cccccccc-cccc-cccc-cccc-cccccccccccc"
+        author_payload = {
+            "type": "author",
+            "id": "http://remote-node-a.example.com/api/authors/11111111-1111-1111-1111-111111111111",
+            "host": "http://remote-node-a.example.com/api/",
+            "displayName": "Remote User",
+            "github": "https://github.com/remote-user",
+            "profileImage": "https://placehold.co/64x64.png",
+            "web": "http://remote-node-a.example.com/authors/11111111-1111-1111-1111-111111111111",
+        }
+        first_payload = {
+            "type": "entry",
+            "id": entry_id,
+            "title": "Original title",
+            "content": "original body",
+            "contentType": "text/plain",
+            "visibility": "PUBLIC",
+            "published": "2026-03-26T01:00:00Z",
+            "author": author_payload,
+        }
+        second_payload = {
+            **first_payload,
+            "title": "Updated title",
+            "content": "updated body",
+            "published": "2026-03-26T02:00:00Z",
+        }
+
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+        first = self.client.post(self.inbox_url, first_payload, format="json", **headers)
+        second = self.client.post(self.inbox_url, second_payload, format="json", **headers)
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(Entry.objects.count(), 1)
+        entry = Entry.objects.get(url=entry_id)
+        self.assertEqual(entry.title, "Updated title")
+        self.assertEqual(entry.content, "updated body")
+        self.assertEqual(entry.published, parse_datetime("2026-03-26T02:00:00Z"))
+        self.assertEqual(InboxItem.objects.filter(owner=self.owner).count(), 2)
+
+    def test_entry_delete_same_fqid_processes_after_create(self):
+        entry_id = "http://remote-node-a.example.com/api/authors/11111111-1111-1111-1111-111111111111/entries/dddddddd-dddd-dddd-dddd-dddddddddddd"
+        author_payload = {
+            "type": "author",
+            "id": "http://remote-node-a.example.com/api/authors/11111111-1111-1111-1111-111111111111",
+            "host": "http://remote-node-a.example.com/api/",
+            "displayName": "Remote User",
+            "github": "https://github.com/remote-user",
+            "profileImage": "https://placehold.co/64x64.png",
+            "web": "http://remote-node-a.example.com/authors/11111111-1111-1111-1111-111111111111",
+        }
+        create_payload = {
+            "type": "entry",
+            "id": entry_id,
+            "title": "Delete me",
+            "content": "body",
+            "contentType": "text/plain",
+            "visibility": "PUBLIC",
+            "published": "2026-03-26T03:00:00Z",
+            "author": author_payload,
+        }
+        delete_payload = {
+            **create_payload,
+            "visibility": "DELETED",
+            "published": "2026-03-26T04:00:00Z",
+        }
+
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+        first = self.client.post(self.inbox_url, create_payload, format="json", **headers)
+        second = self.client.post(self.inbox_url, delete_payload, format="json", **headers)
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        entry = Entry.objects.get(url=entry_id)
+        self.assertEqual(entry.visibility, "DELETED")
+        self.assertEqual(entry.published, parse_datetime("2026-03-26T04:00:00Z"))
+        self.assertEqual(InboxItem.objects.filter(owner=self.owner).count(), 2)
+
+    def test_remote_published_timestamps_are_preserved_for_entry_comment_and_like(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/timestamp-user",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Timestamp User",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/timestamp-user",
+        )
+        local_entry = Entry.objects.create(
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}",
+            author=self.owner,
+            title="Local entry",
+            content="local body",
+            content_type="text/plain",
+            visibility="PUBLIC",
+        )
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+
+        entry_published = "2026-03-26T05:00:00Z"
+        entry_payload = {
+            "type": "entry",
+            "id": "http://remote-node-a.example.com/api/authors/timestamp-user/entries/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            "title": "Timestamped entry",
+            "content": "remote body",
+            "contentType": "text/plain",
+            "visibility": "PUBLIC",
+            "published": entry_published,
+            "author": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+        }
+        entry_resp = self.client.post(self.inbox_url, entry_payload, format="json", **headers)
+        self.assertEqual(entry_resp.status_code, 201)
+        remote_entry = Entry.objects.get(url=entry_payload["id"])
+        self.assertEqual(remote_entry.published, parse_datetime(entry_published))
+
+        comment_published = "2026-03-26T06:00:00Z"
+        comment_payload = {
+            "type": "comment",
+            "id": "http://remote-node-a.example.com/api/authors/timestamp-user/commented/ffffffff-ffff-ffff-ffff-ffffffffffff",
+            "entry": local_entry.url,
+            "contentType": "text/plain",
+            "comment": "dated comment",
+            "published": comment_published,
+            "author": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+        }
+        comment_resp = self.client.post(self.inbox_url, comment_payload, format="json", **headers)
+        self.assertEqual(comment_resp.status_code, 201)
+        comment = Comment.objects.get(url=comment_payload["id"])
+        self.assertEqual(comment.published, parse_datetime(comment_published))
+
+        like_published = "2026-03-26T07:00:00Z"
+        like_payload = {
+            "type": "like",
+            "id": "http://remote-node-a.example.com/api/authors/timestamp-user/liked/timestamp-like",
+            "object": local_entry.url,
+            "published": like_published,
+            "author": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+        }
+        like_resp = self.client.post(self.inbox_url, like_payload, format="json", **headers)
+        self.assertEqual(like_resp.status_code, 201)
+        like = EntryLike.objects.get(author=remote_author, entry=local_entry)
+        self.assertEqual(like.published, parse_datetime(like_published))
 
     def test_follow_comment_like_payloads_create_objects(self):
         remote_author = Author.objects.create(
