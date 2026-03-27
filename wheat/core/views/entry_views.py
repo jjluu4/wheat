@@ -93,7 +93,7 @@ def edit_entry(request, author_serial, entry_serial):
                 author=author,
                 payload=payload,
                 visibility=entry.visibility,
-                method="PUT",
+                method="POST",
             )
 
             return redirect("author_profile", author_serial=author.serial)
@@ -131,7 +131,7 @@ def delete_entry(request, author_serial, entry_serial):
             author=author,
             payload=payload,
             visibility="PUBLIC",
-            method="DELETE",
+            method="POST",
         )
 
         return redirect("author_profile", author_serial=author.serial)
