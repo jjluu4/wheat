@@ -1,5 +1,5 @@
-import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.2.6/+esm";
-import { marked } from "https://cdn.jsdelivr.net/npm/marked@15.0.6/+esm";
+import DOMPurify from "./vendor/dompurify.esm.js";
+import { marked } from "./vendor/marked.esm.js";
 
 function decodeHtml(html) {
     const el = document.createElement("div");
