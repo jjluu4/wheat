@@ -1,8 +1,10 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from ..federation import sync_remote_authors_and_public_entries
 from ..forms import RemoteNodeForm
 from ..models import RemoteNode
 
@@ -96,4 +98,19 @@ def remote_node_toggle(request, pk):
     remote_node = get_object_or_404(RemoteNode, pk=pk)
     remote_node.is_active = not remote_node.is_active
     remote_node.save()
+    return redirect("remote_node_list")
+
+
+@login_required
+@require_POST
+def remote_node_sync(request):
+    forbidden = _forbid_non_staff(request)
+    if forbidden:
+        return forbidden
+
+    result = sync_remote_authors_and_public_entries()
+    messages.success(
+        request,
+        f"Sync complete: imported/updated {result['authors']} authors and {result['entries']} entries.",
+    )
     return redirect("remote_node_list")

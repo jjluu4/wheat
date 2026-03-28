@@ -7,6 +7,7 @@ import urllib
 from ..auth import is_remote_node_authenticated, require_auth_for_view
 from ..models import Author
 from ..serializers import AuthorSerializer
+from ..helpers import fetch_remote_resource, get_pagination_params
 
 
 @api_view(['GET'])
@@ -20,27 +21,23 @@ def all_authors(request):
         - size: Number of authors per page (default: 5)
     """
     require_auth_for_view(False)
-
-    try:
-        page = int(request.GET.get('page', 1))
-        if page < 1:
-            page = 1
-    except Exception:
-        page = 1
-
-    try:
-        size = int(request.GET.get('size', 5))
-        if size < 1:
-            size = 5
-    except Exception:
-        size = 5
-
+    page, size = get_pagination_params(request)
     offset = (page - 1) * size
-    serializer = AuthorSerializer(Author.objects.all()[offset:offset + size], many=True)
-    return Response({"type": "authors", "authors": serializer.data})
 
+    authors = (
+        Author.objects.filter(user__isnull=False, user__is_active=True)
+        .order_by("displayName", "serial")
+    )
+    
+    serializer = AuthorSerializer(authors[offset:offset + size], many=True)
+    
+    return Response({
+        "type": "authors", 
+        "authors": serializer.data,
+    })
 
 @api_view(['GET', 'PUT'])
+@authentication_classes([SessionAuthentication])
 def single_author(request, author_serial):
     """
     Handles operations on a single author profile
@@ -84,5 +81,8 @@ def single_author_fqid(request, author_fqid):
         return Response({"error": "Authentication required"}, status=401)
 
     decoded_fqid = urllib.parse.unquote(author_fqid)
-    author = get_object_or_404(Author, url=decoded_fqid)
-    return Response(AuthorSerializer(author).data)
+    try:
+        author = Author.objects.get(url=decoded_fqid)
+        return Response(AuthorSerializer(author).data)
+    except Author.DoesNotExist:
+        return fetch_remote_resource(decoded_fqid)

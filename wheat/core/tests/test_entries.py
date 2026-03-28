@@ -8,11 +8,18 @@ from core.models import Author, Entry, Follow
 class AuthorsApiTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="pass12345")
-        self.author = Author.objects.create(user=self.user, displayName="User1", serial=uuid.uuid4(), url=uuid.uuid4())
+        self.author = Author.objects.create(
+            user=self.user,
+            displayName="User1",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+            host="http://testserver/api/",
+            web=f"http://testserver/authors/{uuid.uuid4()}",
+        )
 
     def testAllAuthorsGet(self):
         """GET /api/authors returns an authors collection."""
-        resp = self.client.get("/api/authors")
+        resp = self.client.get("/api/authors/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "authors")
         self.assertIn("authors", resp.data)
@@ -23,6 +30,101 @@ class AuthorsApiTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "author")
         self.assertEqual(resp.data["displayName"], "User1")
+
+    def test_all_authors_excludes_imported_remote_authors(self):
+        Author.objects.create(
+            displayName="RemoteOnly",
+            serial=uuid.uuid4(),
+            url="http://remote-node.example.com/api/authors/remote-only",
+            host="http://remote-node.example.com/api/",
+            web="http://remote-node.example.com/authors/remote-only",
+        )
+
+        resp = self.client.get("/api/authors/")
+
+        self.assertEqual(resp.status_code, 200)
+        author_ids = {author["id"] for author in resp.data["authors"]}
+        self.assertIn(self.author.url, author_ids)
+        self.assertNotIn("http://remote-node.example.com/api/authors/remote-only", author_ids)
+
+    def test_all_authors_excludes_inactive_local_users(self):
+        inactive_user = User.objects.create_user(username="inactive", password="pass12345", is_active=False)
+        inactive_author = Author.objects.create(
+            user=inactive_user,
+            displayName="Inactive User",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+            host="http://testserver/api/",
+            web=f"http://testserver/authors/{uuid.uuid4()}",
+        )
+
+        resp = self.client.get("/api/authors/")
+
+        self.assertEqual(resp.status_code, 200)
+        author_ids = {author["id"] for author in resp.data["authors"]}
+        self.assertNotIn(inactive_author.url, author_ids)
+
+    def test_all_authors_are_ordered_by_display_name_then_serial(self):
+        user_a = User.objects.create_user(username="author-a", password="pass12345")
+        user_b = User.objects.create_user(username="author-b", password="pass12345")
+        user_c = User.objects.create_user(username="author-c", password="pass12345")
+        user_d = User.objects.create_user(username="author-d", password="pass12345")
+        user_e = User.objects.create_user(username="author-e", password="pass12345")
+
+        author_a = Author.objects.create(
+            user=user_a,
+            displayName="Alpha",
+            serial=uuid.UUID("00000000-0000-0000-0000-000000000003"),
+            url="http://testserver/api/authors/alpha-third",
+            host="http://testserver/api/",
+            web="http://testserver/authors/alpha-third",
+        )
+        author_b = Author.objects.create(
+            user=user_b,
+            displayName="Alpha",
+            serial=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+            url="http://testserver/api/authors/alpha-first",
+            host="http://testserver/api/",
+            web="http://testserver/authors/alpha-first",
+        )
+        author_c = Author.objects.create(
+            user=user_c,
+            displayName="Bravo",
+            serial=uuid.uuid4(),
+            url="http://testserver/api/authors/bravo",
+            host="http://testserver/api/",
+            web="http://testserver/authors/bravo",
+        )
+        author_d = Author.objects.create(
+            user=user_d,
+            displayName="Charlie",
+            serial=uuid.uuid4(),
+            url="http://testserver/api/authors/charlie",
+            host="http://testserver/api/",
+            web="http://testserver/authors/charlie",
+        )
+        author_e = Author.objects.create(
+            user=user_e,
+            displayName="Zulu",
+            serial=uuid.uuid4(),
+            url="http://testserver/api/authors/zulu",
+            host="http://testserver/api/",
+            web="http://testserver/authors/zulu",
+        )
+
+        resp = self.client.get("/api/authors/?page=1&size=5")
+
+        self.assertEqual(resp.status_code, 200)
+        returned_ids = [author["id"] for author in resp.data["authors"]]
+        expected_ids = [
+            author_b.url,
+            author_a.url,
+            author_c.url,
+            author_d.url,
+            self.author.url,
+        ]
+        self.assertEqual(returned_ids, expected_ids)
+        self.assertNotIn(author_e.url, returned_ids)
 
 
 class EntriesApiTests(APITestCase):
@@ -126,6 +228,15 @@ class EntriesApiTests(APITestCase):
         self.assertEqual(resp.status_code, 204)
         self.public_entry.refresh_from_db()
         self.assertEqual(self.public_entry.visibility, "DELETED")
+
+    def test_single_image_entry_payload_uses_canonical_image_url(self):
+        """Image entry payloads expose the canonical entry image endpoint, not the raw stored image URL."""
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_image_entry.serial}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data["imageUrl"],
+            f"{self.public_image_entry.url}/image/",
+        )
 
     def testGetEntryByFqidPublic(self):
         """Anyone can fetch a public entry by its FQID."""

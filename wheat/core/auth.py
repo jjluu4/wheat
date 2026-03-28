@@ -35,7 +35,7 @@ def parse_remote_node_auth(request):
     request.remote_auth_error = None
     request.remote_auth_attempted = False
 
-    auth_header = request.META.get("HTTP_AUTHORIZATION")
+    auth_header = request.META.get("HTTP_AUTHORIZATION") or request.headers.get("Authorization", "")
     if not auth_header:
         return None
 
@@ -66,9 +66,8 @@ def parse_remote_node_auth(request):
 
 
 def get_remote_node_from_request(request):
-    remote_node = getattr(request, "remote_node", None)
-    if remote_node is not None:
-        return remote_node
+    if hasattr(request, "remote_auth_attempted"):
+        return getattr(request, "remote_node", None)
     return parse_remote_node_auth(request)
 
 

@@ -2,7 +2,8 @@ from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid
-from core.models import Author, Comment, Entry, Follow
+from unittest.mock import patch
+from core.models import Author, Comment, Entry, Follow, RemoteNode
 
 
 class CommentsAPITests(APITestCase):
@@ -197,7 +198,7 @@ class CommentsAPITests(APITestCase):
         )
 
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.data["error"], "Invalid entry URL format")
+        self.assertEqual(resp.data["error"], "Entry not found and could not be fetched from remote node")
 
     def test_author_commented_post_requires_permission_to_view_entry(self):
         """Cannot comment on entry without permission to view it"""
@@ -229,6 +230,47 @@ class CommentsAPITests(APITestCase):
 
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["content"], "Using comment field")
+
+    @patch("core.apis.comment_api.send_json_to_remote_author_inbox")
+    def test_author_commented_post_forwards_to_remote_entry_author_via_shared_helper(self, mock_send):
+        remote_owner = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-owner",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Owner",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-owner/",
+        )
+        remote_entry_serial = uuid.uuid4()
+        remote_entry = Entry.objects.create(
+            author=remote_owner,
+            serial=remote_entry_serial,
+            url=f"http://remote-node-a.example.com/api/authors/remote-owner/entries/{remote_entry_serial}/",
+            title="Remote entry",
+            content="Remote",
+            content_type="text/plain",
+            visibility="PUBLIC",
+            published=timezone.now(),
+        )
+
+        self.client.force_login(self.friend_user)
+        resp = self.client.post(
+            self.author_commented_url(self.friend),
+            data={
+                "type": "comment",
+                "entry": remote_entry.url,
+                "content": "Forward to remote owner",
+            },
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_owner.url)
+        self.assertEqual(mock_send.call_args.kwargs["timeout"], 5)
+        self.assertEqual(mock_send.call_args.args[1]["type"], "comment")
+        self.assertEqual(mock_send.call_args.args[1]["entry"], remote_entry.url)
 
     def test_author_commented_post_accepts_form_data(self):
         """POST accepts form-encoded data"""
@@ -570,3 +612,147 @@ class CommentsAPITests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         contents = [c["content"] for c in resp.data["src"]]
         self.assertIn(special_comment.content, contents)
+
+    def setUpRemoteNode(self):
+        """Create a dummy remote node for testing."""
+        return RemoteNode.objects.create(
+            name="Remote Node",
+            base_url="http://remote-node-a.example.com",
+            api_base_url="http://remote-node-a.example.com/api",
+            username="user",
+            password="pass",
+            is_active=True,
+        )
+
+    @patch("core.helpers.fetch_remote_json")
+    @patch("core.apis.comment_api.send_json_to_remote_author_inbox")
+    def test_author_commented_post_fetches_remote_entry_when_not_local(self, mock_send, mock_fetch):
+        """When commenting on a remote entry not locally stored, it should be fetched and stored."""
+        remote_node = self.setUpRemoteNode()
+
+        remote_owner_serial = "remote-owner-uuid"
+        remote_entry_serial = "remote-entry-uuid"
+        remote_owner_url = f"http://remote-node-a.example.com/api/authors/{remote_owner_serial}"
+        remote_entry_url = f"{remote_owner_url}/entries/{remote_entry_serial}"
+
+        fake_payload = {
+            "type": "entry",
+            "id": remote_entry_url,
+            "title": "Remote Entry",
+            "content": "Remote content",
+            "contentType": "text/plain",
+            "visibility": "PUBLIC",
+            "author": {
+                "type": "author",
+                "id": remote_owner_url,
+                "host": "http://remote-node-a.example.com/api/",
+                "displayName": "Remote Owner",
+                "github": "",
+                "profileImage": "",
+                "web": f"http://remote-node-a.example.com/authors/{remote_owner_serial}",
+            },
+        }
+
+        mock_fetch.return_value = fake_payload
+
+        self.client.force_login(self.friend_user)
+
+        resp = self.client.post(
+            self.author_commented_url(self.friend),
+            data={
+                "type": "comment",
+                "entry": remote_entry_url,
+                "content": "Comment on remote entry",
+            },
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 201)
+
+        entry = Entry.objects.get(url=remote_entry_url)
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.content, "Remote content")
+        self.assertEqual(entry.author.url, remote_owner_url)
+
+        comment = Comment.objects.get(content="Comment on remote entry")
+        self.assertEqual(comment.entry, entry)
+
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_owner_url)
+        self.assertEqual(mock_send.call_args.args[1]["type"], "comment")
+        self.assertEqual(mock_send.call_args.args[1]["entry"], remote_entry_url)
+
+    @patch("core.helpers.fetch_remote_json")
+    def test_author_commented_post_remote_entry_fetch_fails(self, mock_fetch):
+        """When remote entry fetch fails, return an error."""
+        self.setUpRemoteNode()
+        remote_entry_url = "http://remote-node-a.example.com/api/authors/owner/entries/entry"
+
+        mock_fetch.return_value = None  # simulate fetch failure
+
+        self.client.force_login(self.friend_user)
+        resp = self.client.post(
+            self.author_commented_url(self.friend),
+            data={
+                "type": "comment",
+                "entry": remote_entry_url,
+                "content": "Comment on remote entry",
+            },
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data["error"], "Entry not found and could not be fetched from remote node")
+
+    @patch("core.helpers.fetch_remote_json")
+    def test_author_commented_post_remote_entry_fetch_returns_invalid(self, mock_fetch):
+        """When remote fetch returns malformed payload, return error."""
+        self.setUpRemoteNode()
+        remote_entry_url = "http://remote-node-a.example.com/api/authors/owner/entries/entry"
+
+        mock_fetch.return_value = {"type": "wrong"}  # missing author
+
+        self.client.force_login(self.friend_user)
+        resp = self.client.post(
+            self.author_commented_url(self.friend),
+            data={
+                "type": "comment",
+                "entry": remote_entry_url,
+                "content": "Comment on remote entry",
+            },
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data["error"], "Entry not found and could not be fetched from remote node")
+
+    @patch("core.helpers.fetch_remote_json")
+    def test_author_commented_post_remote_entry_already_exists_locally(self, mock_fetch):
+        """If remote entry already exists locally, do not fetch again."""
+        self.setUpRemoteNode()
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-owner",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Owner",
+            github="",
+            profileImage="",
+            web="http://remote-node-a.example.com/authors/remote-owner",
+        )
+        remote_entry = self.make_entry(remote_author, "Already existing", visibility="PUBLIC")
+        remote_entry.url = "http://remote-node-a.example.com/api/authors/remote-owner/entries/existing"
+        remote_entry.save()
+
+        self.client.force_login(self.friend_user)
+        resp = self.client.post(
+            self.author_commented_url(self.friend),
+            data={
+                "type": "comment",
+                "entry": remote_entry.url,
+                "content": "Comment on existing remote entry",
+            },
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        mock_fetch.assert_not_called()

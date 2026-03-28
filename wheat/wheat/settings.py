@@ -89,11 +89,12 @@ if os.environ.get("DATABASE_URL") != None:
         )
     }
 else:
-    # Running locally.
+    # Running locally. Use DJANGO_DB_NAME env for multi-node testing (e.g. db_8000.sqlite3).
+    db_name = os.environ.get("DJANGO_DB_NAME", "db.sqlite3")
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": BASE_DIR / db_name,
         }
     }
 

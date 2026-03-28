@@ -516,7 +516,7 @@ class EntryViewPageInteractionTests(TestCase):
         self.assertContains(resp, "toggleLike")
         self.assertContains(resp, "Comments")
         self.assertContains(resp, "Comment")
-        self.assertContains(resp, "entry.js?v=likes-ui-1")
+        self.assertContains(resp, "entry.js?v=likes-ui-4")
 
     def test_friend_sees_like_and_comment_controls_on_friends_entry_page(self):
         """Friend sees like/comment UI on a friends-only entry page."""
@@ -583,6 +583,59 @@ class EntryProfileVisibilityTests(TestCase):
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertNotContains(resp, "New entry")
         self.assertNotContains(resp, "Edit profile")
+
+
+class AuthorProfileFriendsVisibilityTests(TestCase):
+    """Friends-only entries appear on HTML profile for mutual friends (matches stream rules)."""
+
+    def setUp(self):
+        self.owner_user = User.objects.create_user(username="apf-owner", password="pass12345")
+        self.friend_user = User.objects.create_user(username="apf-friend", password="pass12345")
+        self.stranger_user = User.objects.create_user(username="apf-stranger", password="pass12345")
+        self.owner = Author.objects.create(
+            user=self.owner_user,
+            url="http://testserver/api/authors/apf-owner",
+            host="http://testserver/api/",
+            displayName="APFOwner",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/apf-owner/",
+        )
+        self.friend = Author.objects.create(
+            user=self.friend_user,
+            url="http://testserver/api/authors/apf-friend",
+            host="http://testserver/api/",
+            displayName="APFFriend",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/apf-friend/",
+        )
+        from core.models import Follow
+
+        Follow.objects.create(actor=self.owner, target=self.friend, status="ACCEPTED")
+        Follow.objects.create(actor=self.friend, target=self.owner, status="ACCEPTED")
+
+        self.friends_only = Entry.objects.create(
+            url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}",
+            author=self.owner,
+            title="Friends only profile",
+            content="Secret for mutual friends",
+            content_type="text/plain",
+            visibility="FRIENDS",
+            published=timezone.now(),
+        )
+
+    def test_mutual_friend_sees_friends_entry_on_profile(self):
+        self.client.force_login(self.friend_user)
+        resp = self.client.get(reverse("author_profile", args=[self.owner.serial]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Secret for mutual friends")
+
+    def test_stranger_does_not_see_friends_entry_on_profile(self):
+        self.client.force_login(self.stranger_user)
+        resp = self.client.get(reverse("author_profile", args=[self.owner.serial]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "Secret for mutual friends")
 
 
 class StreamDeletedEntryVisibilityTests(TestCase):

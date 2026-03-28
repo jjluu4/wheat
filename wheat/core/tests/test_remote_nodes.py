@@ -1,8 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from urllib.parse import parse_qs, urlparse
+from unittest.mock import patch
 
-from core.models import RemoteNode
+from core.federation import sync_remote_authors_and_public_entries
+from core.models import Author, RemoteNode
 
 
 User = get_user_model()
@@ -62,6 +65,9 @@ class RemoteNodeViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
         response = self.client.post(reverse("remote_node_delete", args=[self.node.pk]))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(reverse("remote_node_sync"))
         self.assertEqual(response.status_code, 403)
 
     def test_staff_user_can_view_remote_node_pages(self):
@@ -224,6 +230,19 @@ class RemoteNodeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Partner Node")
 
+    @patch("core.views.remote_node_views.sync_remote_authors_and_public_entries")
+    def test_staff_can_sync_remote_authors(self, mock_sync):
+        mock_sync.return_value = {"authors": 3, "entries": 5}
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse("remote_node_sync"))
+        self.assertEqual(response.status_code, 302)
+        mock_sync.assert_called_once()
+
+    def test_sync_route_rejects_get(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("remote_node_sync"))
+        self.assertEqual(response.status_code, 405)
+
     def test_staff_nav_shows_manage_nodes_link(self):
         self.client.force_login(self.staff_user)
         response = self.client.get(reverse("author_list"))
@@ -235,3 +254,140 @@ class RemoteNodeViewTests(TestCase):
         response = self.client.get(reverse("author_list"))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Manage Nodes")
+
+
+class RemoteNodeSyncTests(TestCase):
+    def setUp(self):
+        self.node = RemoteNode.objects.create(
+            name="Partner Node",
+            base_url="https://partner.example.com",
+            api_base_url="https://partner.example.com/api",
+            username="partner-user",
+            password="partner-pass",
+            is_active=True,
+        )
+
+    @staticmethod
+    def author_payload(author_id, display_name):
+        return {
+            "type": "author",
+            "id": f"https://partner.example.com/api/authors/{author_id}",
+            "host": "https://partner.example.com/api",
+            "displayName": display_name,
+            "github": "",
+            "profileImage": "https://placehold.co/60x60.png",
+            "web": f"https://partner.example.com/authors/{author_id}",
+        }
+
+    @staticmethod
+    def entry_payload(author_id, entry_id, visibility="PUBLIC"):
+        return {
+            "type": "entry",
+            "id": f"https://partner.example.com/api/authors/{author_id}/entries/{entry_id}",
+            "title": f"Entry {entry_id}",
+            "content": f"Body {entry_id}",
+            "contentType": "text/plain",
+            "visibility": visibility,
+            "author": RemoteNodeSyncTests.author_payload(author_id, f"Remote {author_id}"),
+        }
+
+    def test_sync_walks_all_author_and_entry_pages(self):
+        fetch_calls = []
+
+        def fake_fetch(url, remote_node, timeout=10):
+            fetch_calls.append(url)
+            parsed = urlparse(url)
+            page = parse_qs(parsed.query).get("page", ["1"])[0]
+
+            if parsed.path == "/api/authors":
+                if page == "1":
+                    return {"authors": [self.author_payload("author-1", "Remote One")]}
+                if page == "2":
+                    return {"authors": [self.author_payload("author-2", "Remote Two")]}
+                return {"authors": []}
+
+            if parsed.path == "/api/authors/author-1/entries/":
+                if page == "1":
+                    return {"entries": [self.entry_payload("author-1", "entry-1")]}
+                if page == "2":
+                    return {"entries": [self.entry_payload("author-1", "entry-2")]}
+                return {"entries": []}
+
+            if parsed.path == "/api/authors/author-2/entries/":
+                if page == "1":
+                    return {"entries": [self.entry_payload("author-2", "entry-3")]}
+                return {"entries": []}
+
+            return None
+
+        created_entry_urls = []
+
+        def fake_create_or_update(entry_payload, author):
+            created_entry_urls.append(entry_payload["id"])
+            return object()
+
+        with patch("core.federation.fetch_remote_json", side_effect=fake_fetch):
+            with patch("core.federation.create_or_update_entry_from_remote_payload", side_effect=fake_create_or_update):
+                result = sync_remote_authors_and_public_entries()
+
+        self.assertEqual(result, {"authors": 2, "entries": 3})
+        self.assertEqual(
+            set(Author.objects.values_list("url", flat=True)),
+            {
+                "https://partner.example.com/api/authors/author-1",
+                "https://partner.example.com/api/authors/author-2",
+            },
+        )
+        self.assertEqual(
+            created_entry_urls,
+            [
+                "https://partner.example.com/api/authors/author-1/entries/entry-1",
+                "https://partner.example.com/api/authors/author-1/entries/entry-2",
+                "https://partner.example.com/api/authors/author-2/entries/entry-3",
+            ],
+        )
+        self.assertIn("https://partner.example.com/api/authors?page=1&size=100", fetch_calls)
+        self.assertIn("https://partner.example.com/api/authors?page=2&size=100", fetch_calls)
+        self.assertIn("https://partner.example.com/api/authors/author-1/entries/?page=1&size=100", fetch_calls)
+        self.assertIn("https://partner.example.com/api/authors/author-1/entries/?page=2&size=100", fetch_calls)
+        self.assertIn("https://partner.example.com/api/authors/author-2/entries/?page=1&size=100", fetch_calls)
+
+    def test_sync_imports_only_public_entries(self):
+        def fake_fetch(url, remote_node, timeout=10):
+            parsed = urlparse(url)
+            page = parse_qs(parsed.query).get("page", ["1"])[0]
+
+            if parsed.path == "/api/authors":
+                if page == "1":
+                    return {"authors": [self.author_payload("author-1", "Remote One")]}
+                return {"authors": []}
+
+            if parsed.path == "/api/authors/author-1/entries/":
+                if page == "1":
+                    return {
+                        "entries": [
+                            self.entry_payload("author-1", "public-entry", "PUBLIC"),
+                            self.entry_payload("author-1", "unlisted-entry", "UNLISTED"),
+                            self.entry_payload("author-1", "friends-entry", "FRIENDS"),
+                            self.entry_payload("author-1", "deleted-entry", "DELETED"),
+                        ]
+                    }
+                return {"entries": []}
+
+            return None
+
+        created_entry_urls = []
+
+        def fake_create_or_update(entry_payload, author):
+            created_entry_urls.append(entry_payload["id"])
+            return object()
+
+        with patch("core.federation.fetch_remote_json", side_effect=fake_fetch):
+            with patch("core.federation.create_or_update_entry_from_remote_payload", side_effect=fake_create_or_update):
+                result = sync_remote_authors_and_public_entries()
+
+        self.assertEqual(result, {"authors": 1, "entries": 1})
+        self.assertEqual(
+            created_entry_urls,
+            ["https://partner.example.com/api/authors/author-1/entries/public-entry"],
+        )

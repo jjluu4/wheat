@@ -6,15 +6,18 @@ from django.http import HttpResponse
 import base64, urllib, mimetypes, io, requests
 from PIL import Image as PILImage
 
-from ..auth import require_auth_for_view
-from ..auth import is_remote_node_authenticated
-from ..auth import add_auth_headers
+from ..auth import (
+    require_auth_for_view,
+    is_remote_node_authenticated,
+    add_auth_headers,
+)
+from ..federation import distribute_entry_to_remote_recipients
 from ..models import Author, Entry, Image, RemoteNode
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
 )
-from ..helpers import get_pagination_params, build_entry_payload
+from ..helpers import get_pagination_params, build_entry_payload, resolve_object_by_url
 from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
@@ -29,11 +32,11 @@ def single_entry(request, author_serial, entry_serial):
 
     if request.method == "GET":
         require_auth_for_view(False)
-        if not can_view_entry(entry, requestingAuthor, request.user):
+        if not can_view_entry(entry, requestingAuthor, request.user) and not is_remote_node_authenticated(request):
             if entry.visibility == "DELETED":
                 return Response({"error": "Entry not found"}, status=404)
 
-            if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
+            if not request.user.is_authenticated and entry.visibility == "FRIENDS":
                 return Response({"error": "Authentication required"}, status=401)
 
             return Response({"error": "You don't have permission to view this entry"}, status=403)
@@ -67,12 +70,26 @@ def single_entry(request, author_serial, entry_serial):
             return Response({"error": "imageUrl is required for image entries"}, status=400)
 
         entry.save()
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=entryAuthor,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
         return Response(build_entry_payload(entry, request), status=200)
 
     if request.method == "DELETE":
         require_auth_for_view(True)
         entry.visibility = "DELETED"
         entry.save(update_fields=["visibility"])
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=entryAuthor,
+            payload=payload,
+            visibility="PUBLIC",
+            method="POST",
+        )
         return Response(status=204)
 
 @api_view(["GET", "POST"])
@@ -96,7 +113,9 @@ def author_entries(request, author_serial):
         offset = (page - 1) * size
         remote_authenticated = is_remote_node_authenticated(request)
 
-        qs = Entry.objects.filter(author=author).exclude(visibility="DELETED").order_by("-published")
+        qs = Entry.objects.filter(author=author).order_by("-published")
+        if not request.user.is_staff:
+            qs = qs.exclude(visibility="DELETED")
 
         is_owner = request.user.is_authenticated and (request.user.is_staff or requestingAuthor == author)
         is_friend = requestingAuthor is not None and author.get_friends().filter(serial=requestingAuthor.serial).exists()
@@ -159,6 +178,14 @@ def author_entries(request, author_serial):
         entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
         entry.save(update_fields=["url"])
 
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=author,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
+
         return Response(build_entry_payload(entry, request), status=201)
 
 @api_view(["GET"])
@@ -172,7 +199,9 @@ def get_entry_fqid(request, entry_fqid):
     """
     require_auth_for_view(False)
     decoded_fqid = urllib.parse.unquote(entry_fqid)
-    entry = get_object_or_404(Entry, url=decoded_fqid)
+    entry = resolve_object_by_url(Entry, decoded_fqid)
+    if entry is None:
+        return Response({"error": "Entry not found"}, status=404)
 
     requestingAuthor = get_requesting_author(request)
 
@@ -288,9 +317,10 @@ def serve_image(request, entry):
     Serves the image from an entry as binary, either from a locally stored image or from a base64 encoded image.
     """
     requestingAuthor = get_requesting_author(request)
+    isRemoteAuth = is_remote_node_authenticated(request)
 
     # Ensure the user has permissions to view the entry.
-    if not can_view_entry(entry, requestingAuthor, request.user):
+    if not can_view_entry(entry, requestingAuthor, request.user) and not isRemoteAuth:
         return Response({"error": "You do not have permission to view this image entry."}, status=403)
 
     # Ensure correct content type

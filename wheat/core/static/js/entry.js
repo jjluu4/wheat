@@ -20,9 +20,50 @@ function updateEntryLikeCount(entryNode, count) {
     likeCount.textContent = `${count} like${count === 1 ? '' : 's'}`;
 }
 
+function postUnlike(userSerial, objectUrl, csrfToken) {
+    const localObjectUrl = toSameNodeApiPath(objectUrl);
+    const str = objectUrl != null ? String(objectUrl) : '';
+    const objectForBody =
+        localObjectUrl != null
+            ? localObjectUrl
+            : /^https?:\/\//i.test(str)
+              ? str
+              : null;
+    if (!objectForBody) {
+        return Promise.reject(new Error('Rejected cross-node or non-api unlike target'));
+    }
+
+    return fetch(`/api/authors/${userSerial}/liked/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            type: 'unlike',
+            object: objectForBody,
+        }),
+    }).then(async (response) => {
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = {};
+        }
+        return { response, data };
+    });
+}
+
 function postLike(userSerial, objectUrl, csrfToken) {
     const localObjectUrl = toSameNodeApiPath(objectUrl);
-    if (!localObjectUrl) {
+    const str = objectUrl != null ? String(objectUrl) : '';
+    const objectForBody =
+        localObjectUrl != null
+            ? localObjectUrl
+            : /^https?:\/\//i.test(str)
+              ? str
+              : null;
+    if (!objectForBody) {
         return Promise.reject(new Error('Rejected cross-node or non-api like target'));
     }
 
@@ -34,7 +75,7 @@ function postLike(userSerial, objectUrl, csrfToken) {
         },
         body: JSON.stringify({
             type: 'like',
-            object: localObjectUrl,
+            object: objectForBody,
         }),
     }).then(async (response) => {
         let data = {};
@@ -84,21 +125,30 @@ function toggleLike(entrySerial) {
     const userSerial = getCurrentUserSerial(entryNode);
     if (!userSerial) return;
 
+    const button = entryNode.querySelector('.entry-like-button');
     const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
-    postLike(userSerial, objectUrl, getCsrfToken(entryNode))
-        .then(({ response, data }) => {
+    const csrf = getCsrfToken(entryNode);
+    const liked = button && button.dataset.liked === '1';
+
+    const req = liked ? postUnlike(userSerial, objectUrl, csrf) : postLike(userSerial, objectUrl, csrf);
+    req.then(({ response, data }) => {
             if (response.ok) {
-                const button = entryNode.querySelector('.entry-like-button');
                 if (button) {
-                    button.textContent = 'Liked';
+                    if (liked) {
+                        button.textContent = 'Like';
+                        button.dataset.liked = '0';
+                    } else {
+                        button.textContent = 'Liked';
+                        button.dataset.liked = '1';
+                    }
                 }
                 refreshEntryLikeCount(entrySerial);
                 return;
             }
-            console.error('Entry like failed', response.status, data);
+            console.error('Entry like/unlike failed', response.status, data);
         })
         .catch((error) => {
-            console.error('Entry like failed', error);
+            console.error('Entry like/unlike failed', error);
         });
 }
 
@@ -204,10 +254,16 @@ function loadComments(entrySerial, page=1) {
                     const likeButton = document.createElement('button');
                     likeButton.type = 'button';
                     likeButton.textContent = 'Like';
+                    likeButton.dataset.liked = '0';
+                    const commentObjectUrl = comment.id || comment.url;
                     likeButton.onclick = () => {
-                        postLike(currentUserSerial, comment.id || comment.url, getCsrfToken(entryNode))
+                        const liked = likeButton.dataset.liked === '1';
+                        const fn = liked ? postUnlike : postLike;
+                        fn(currentUserSerial, commentObjectUrl, getCsrfToken(entryNode))
                             .then(({ response, data }) => {
                                 if (response.ok) {
+                                    likeButton.dataset.liked = liked ? '0' : '1';
+                                    likeButton.textContent = liked ? 'Like' : 'Liked';
                                     loadComments(entrySerial, page);
                                     return;
                                 }

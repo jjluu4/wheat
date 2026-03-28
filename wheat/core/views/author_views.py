@@ -4,9 +4,9 @@ from django.http import HttpResponseForbidden
 import uuid
 
 from ..models import Author, Entry, Follow
+from ..permissions import get_requesting_author
 from ..github import fetch_public_events
 from ..github_to_entries import save_event_as_entry
-from ..permissions import get_requesting_author
 
 def author_list(request):
     """Render a list of all authors ordered by display name."""
@@ -27,7 +27,6 @@ def author_profile(request, author_serial):
             for e in events:
                 save_event_as_entry(e, author)
         except Exception:
-            # Don't break the profile page if GitHub API fails
             pass
 
     is_owner = (
@@ -36,14 +35,12 @@ def author_profile(request, author_serial):
     )
 
     if is_owner:
-        entries = Entry.objects.filter(author=author).exclude(visibility="DELETED")
-        entries_heading = "Your Entries"
+        entries = Entry.objects.filter(author=author)
+        if not request.user.is_staff:
+            entries = entries.exclude(visibility="DELETED")
+        entries_heading = "Your Entries" if author.user_id == request.user.id else "Visible Entries"
     elif requesting_author:
-        entries = (
-            Entry.get_entries(requesting_author)
-            .filter(author=author)
-            .exclude(visibility="DELETED")
-        )
+        entries = Entry.get_entries(requesting_author).filter(author=author)
         entries_heading = "Visible Entries"
     else:
         entries = Entry.objects.filter(author=author, visibility="PUBLIC")
@@ -57,7 +54,6 @@ def author_profile(request, author_serial):
             actor=requesting_author,
             target=author
         ).first()
-
         if follow:
             followStatus = follow.status
 

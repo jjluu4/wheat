@@ -1,8 +1,18 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponseNotFound
+import logging
 
+from ..apis.follow_api import (
+    forward_follow_request_to_remote_inbox,
+    notify_remote_follow_acceptance,
+    notify_remote_follow_rejection,
+    notify_remote_unfollow,
+)
 from ..models import Author, Follow
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def follow_author(request, author_serial):
@@ -10,14 +20,21 @@ def follow_author(request, author_serial):
     actor = get_object_or_404(Author, user=request.user)
     target = get_object_or_404(Author, serial=author_serial)
 
-    follow, created = Follow.objects.get_or_create(
-        actor=actor,
-        target=target
-    )
+    follow = Follow.objects.filter(actor=actor, target=target).first()
 
-    if not created and (follow.status == "DECLINED" or follow.status == "REJECTED"):
-        follow.status = "REQUESTED"
-        follow.save()
+    if follow is None or follow.status != "ACCEPTED":
+        # For remote targets this delivers to their inbox; for local/testserver it no-ops safely.
+        delivered, delivery_error = forward_follow_request_to_remote_inbox(actor, target)
+        if not delivered:
+            
+            messages.error(request, delivery_error)
+            return redirect("author_profile", author_serial=target.serial)
+
+        if follow is None:
+            Follow.objects.create(actor=actor, target=target, status="REQUESTED")
+        elif follow.status != "REQUESTED":
+            follow.status = "REQUESTED"
+            follow.save(update_fields=["status"])
     
     return redirect("author_profile", author_serial=target.serial)
 
@@ -36,6 +53,9 @@ def accept_follow(request, author_serial):
 
         follow.status = "ACCEPTED"
         follow.save()
+        if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
+            delivered, delivery_error = notify_remote_follow_acceptance(actor, target)
+            
 
         return redirect("author_profile", author_serial=target.serial)
     
@@ -58,6 +78,9 @@ def reject_follow(request, author_serial):
         follow.status = "REJECTED"
         follow.save()
 
+        if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
+            delivered, err = notify_remote_follow_rejection(actor, target)
+
         return redirect("author_profile", author_serial=target.serial)
     
     except Follow.DoesNotExist:
@@ -71,7 +94,7 @@ def follow_requests(request, author_serial):
     requestList = Follow.objects.filter(
         target=target,
         status="REQUESTED"
-    )
+    ).select_related("actor").order_by("actor__displayName", "actor__url")
 
     return render(request, "core/follow_requests.html", {"requests": requestList, "author": target})
 
@@ -82,8 +105,8 @@ def following(request, author_serial):
 
     followingQuery = Follow.objects.filter(
         actor=author,
-        status="ACCEPTED"
-    ).select_related("target")
+        status__in=["REQUESTED", "ACCEPTED"]
+    ).select_related("target").order_by("target__displayName", "target__url")
 
     followingList = []
     for q in followingQuery:
@@ -99,7 +122,7 @@ def followers(request, author_serial):
     followerQuery = Follow.objects.filter(
         target=author,
         status="ACCEPTED"
-    ).select_related("actor")
+    ).select_related("actor").order_by("actor__displayName", "actor__url")
 
     followerList = []
     for q in followerQuery:
@@ -109,20 +132,15 @@ def followers(request, author_serial):
 
 @login_required
 def unfollow(request, author_serial):
-    """Remove an accepted follow relationship from the current user to the target author."""
+    """Remove a follow relationship (ACCEPTED or REQUESTED) from the current user to the target author."""
     actor = get_object_or_404(Author, user=request.user)
     target = get_object_or_404(Author, serial=author_serial)
 
-    try:
-        follow = Follow.objects.get(
-            actor=actor,
-            target=target,
-            status="ACCEPTED"
-        )
-
-        follow.delete()
-
-        return redirect("author_profile", author_serial=target.serial)
-    
-    except Follow.DoesNotExist:
+    follow = Follow.objects.filter(actor=actor, target=target).first()
+    if follow is None:
         return HttpResponseNotFound("Follow request cannot be found.")
+
+    follow.delete()
+    if getattr(target, "host", "") and "testserver" not in getattr(target, "host", ""):
+        delivered, err = notify_remote_unfollow(actor, target)
+    return redirect("author_profile", author_serial=target.serial)
