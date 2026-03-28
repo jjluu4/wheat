@@ -5,6 +5,8 @@ from django.contrib.auth.admin import UserAdmin
 
 import uuid
 
+from .helpers import build_local_avatar_placeholder_url
+
 
 admin.site.register(Author)
 admin.site.register(Entry)
@@ -43,7 +45,7 @@ def approve_pending_users(modeladmin, request, queryset):
                     displayName=user.username,
                     github=f"https://github.com/{user.username}",
                     description="",
-                    profileImage="https://placehold.co/150x150.png",
+                    profileImage=build_local_avatar_placeholder_url(request),
                 )
 
 admin.site.unregister(User)

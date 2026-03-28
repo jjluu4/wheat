@@ -39,7 +39,7 @@ class Author(models.Model):
     displayName = models.CharField(max_length=32)
     github = models.URLField(blank=True, default="")
     description = models.TextField(blank=True, default="")
-    profileImage = models.URLField(blank=True, default="https://placehold.co/600x400")
+    profileImage = models.URLField(blank=True, default="")
     web = models.URLField(blank=True, default="")
 
     def get_followers(self):

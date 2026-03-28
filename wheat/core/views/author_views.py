@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 import uuid
 
-from ..helpers import remote_authors_fetch_session_key
+from ..helpers import build_local_avatar_placeholder_url, remote_authors_fetch_session_key
 from ..models import Author, Entry, Follow, RemoteNode
 from ..permissions import get_requesting_author
 from ..github import fetch_public_events
@@ -123,7 +123,7 @@ def my_profile(request):
             displayName=request.user.username,
             github=f"https://github.com/{request.user.username}",
             description="",
-            profileImage="https://placehold.co/150x150.png",
+            profileImage=build_local_avatar_placeholder_url(request),
         )
 
     return redirect("author_profile", author_serial=author.serial)

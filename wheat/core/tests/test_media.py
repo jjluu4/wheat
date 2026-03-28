@@ -1,7 +1,9 @@
 import uuid
 from unittest.mock import Mock, patch
 
+from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 
 from core.helpers import (
     build_author_profile_image_url,
@@ -11,7 +13,7 @@ from core.helpers import (
     is_allowlisted_media_url,
     is_same_node_media_url,
 )
-from core.models import Author, Entry, RemoteNode
+from core.models import Author, Entry, Follow, RemoteNode
 
 
 class MediaHelperTests(TestCase):
@@ -166,3 +168,66 @@ class MediaProxyApiTests(TestCase):
 
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp["Location"], "/media/avatar.png")
+
+
+class MediaTemplateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="media-user", password="pass12345")
+        self.author = Author.objects.create(
+            user=self.user,
+            displayName="Template Author",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+            host="http://testserver/api/",
+            web=f"http://testserver/authors/{uuid.uuid4()}",
+            profileImage="https://partner.example.com/media/avatar.png",
+        )
+        self.entry = Entry.objects.create(
+            author=self.author,
+            url=f"http://testserver/api/authors/{self.author.serial}/entries/{uuid.uuid4()}",
+            title="Remote Image Entry",
+            content="caption",
+            content_type="image/png",
+            image_url="https://partner.example.com/media/entry.png",
+            visibility="PUBLIC",
+        )
+
+    def test_author_list_uses_same_node_avatar_urls(self):
+        resp = self.client.get(reverse("author_list"))
+
+        self.assertContains(resp, f'/api/authors/{self.author.serial}/profile-image/')
+        self.assertNotContains(resp, "https://partner.example.com/media/avatar.png")
+
+    def test_author_profile_uses_same_node_avatar_and_entry_image_urls(self):
+        resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
+
+        self.assertContains(resp, f'/api/authors/{self.author.serial}/profile-image/')
+        self.assertContains(resp, f'/api/authors/{self.author.serial}/entries/{self.entry.serial}/image/')
+        self.assertNotContains(resp, "https://partner.example.com/media/avatar.png")
+        self.assertNotContains(resp, "https://partner.example.com/media/entry.png")
+
+    def test_follow_requests_page_uses_same_node_avatar_urls(self):
+        requester = Author.objects.create(
+            displayName="Requester",
+            serial=uuid.uuid4(),
+            url="http://partner.example.com/api/authors/requester",
+            host="http://partner.example.com/api/",
+            web="http://partner.example.com/authors/requester",
+            profileImage="https://partner.example.com/media/requester.png",
+        )
+        self.client.force_login(self.user)
+
+        Follow.objects.create(actor=requester, target=self.author, status="REQUESTED")
+
+        resp = self.client.get(reverse("follow_requests", args=[self.author.serial]))
+
+        self.assertContains(resp, f'/api/authors/{requester.serial}/profile-image/')
+        self.assertNotContains(resp, "https://partner.example.com/media/requester.png")
+
+    def test_index_uses_same_node_avatar_urls_for_authenticated_user(self):
+        self.client.force_login(self.user)
+
+        resp = self.client.get(reverse("index"))
+
+        self.assertContains(resp, f'/api/authors/{self.author.serial}/profile-image/')
+        self.assertNotContains(resp, "https://partner.example.com/media/avatar.png")
