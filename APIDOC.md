@@ -1,141 +1,43 @@
-# Overview
-<p>The Wheat Social Distribution API allows for easy communication with the Wheat Social Distribution Web App. Using the Django Rest Framework, one can send and receive simple HTTP requests and responses to and from the Wheat Social Distribution Web App’s server. All of the information one needs to interact with this API can be found in the following document.</p>
+# Endpoints
 
-<p>All API object <code>id</code> fields are FQIDs: full URLs that uniquely identify the object on its home node.</p>
-
-# Where to Start
-
-<p>The Wheat Social Distribution API supports both local client usage and a limited set of remote node-to-node requests. Local browser and API clients use the project’s existing local authentication flow. Remote node-to-node requests currently use HTTP Basic Auth with credentials configured through the staff-only remote node management UI at <code>/staff/nodes/</code>.</p>
-
-<p>However, certain requests made at specific endpoints may require signing up to successfully complete. The ability to make GET requests towards friends-only entries, as well as POST, PUT and DELETE requests are dependent upon specific user permissions, and will be denied in all cases where the user is not logged in. To sign up, one must only go to the address where their local node is currently running, press the “Sign up” button in the top right corner, and enter whatever username and password one finds appealing. This username and password can then be utilized when making requests to the API (how to achieve this is discussed below). </p>
-
-## Remote Node Authentication
-
-<p>Node-to-node inbox requests require HTTP Basic Auth. The username and password must match an active remote node configured in the target server’s <code>/staff/nodes/</code> page. Requests with missing, malformed, or invalid Basic Auth headers receive a <code>401 Unauthorized</code> response and a <code>WWW-Authenticate: Basic realm="Node to Node API"</code> challenge.</p>
-
-<p>Example header:</p>
-
-> Authorization: Basic &lt;base64(username:password)&gt;
-
-# HTTP Requests and Responses
-
-<p>One can interact with the Wheat Social Distribution API by making HTTP requests at specific API endpoints. This section goes over the general procedures when making requests and receiving responses with the API.</p>
-
-## Requests
-
-<p>There are a number of methods one can use to send an HTTP request. One of the most common methods is through CURL requests. An example of a simple GET request with CURL can be seen below.</p>
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/ 
-
-<p>As mentioned previously, some HTTP requests will require login in order to be successfully carried out. To achieve this, the format in the example GET request below can be applied to any type of CURL request. </p>
-
-> curl --user example_username:example_password -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/1ff24238-e302-40a9-b20c-96e6b32b23b1/
-
-<p>There are various types of HTTP requests that one can make. For the Wheat Social Distribution API there are up to four types of API requests that can be made depending on the particular endpoint. A summary of these different types with example CURL requests can be viewed below. </p>
-
-___
-#### Request Types
-| Request Type | Usage | Example Curl |
-| --------------- | --------------- | --------------- |
-| GET | Retrieves data from the server. For this API, data is retrieved in the form of a JSON. | curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/  |
-| PUT | Modifies data in the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ -H "Content-Type: application/json" -d @/example/path.json |
-| POST | Sends data to the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13/entries/ -H "Content-Type: application/json" -d @/example/path.json |
-| DELETE | Deletes data from the server. With this API, data is typically not deleted, but rather marked as “Deleted” such that it won’t ever show up in the UI, but can still technically be accessed later | curl -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ |
-
-___
-#### Pagination
-
-Pagination, where a request will return the **x** th page of results with **y** results per page, can be used with certain endpoints by using the format seen in the example below. One can find which endpoints do and do not support pagination further down in this documentation, in the section on API Endpoints.
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors?page=**x**&size=**y**
-
-___
-## Responses
-
-<p>Once an HTTP request has been made, the API user will receive a response code concerning their request’s status (and possibly some data alongside it). If the response code comes back in the format 2XX, it means the request was processed successfully. If a response code with format 4XX is returned, it means that something went wrong while processing the request. In the table below, one can find a complete list of response codes one will encounter while using this API, as well as more specific meanings for each one. </p>
-
-| Response | Meaning |
-| --------------- | --------------- |
-| 200 Ok | The request has succeeded. |
-| 201 Created | A new object has been successfully created. Typically appears after successful PUT or POST requests. |
-| 204 No Content | The request has been successfully completed, but no content was returned. Typically appears after successful DELETE requests. |
-| 400 Bad Request | The request is invalid in some way. Typically suggests incorrect syntax within the request. |
-| 401 Unauthorized | The user making this request has not been authenticated to make the specified http request (In other words, logging in is probably required to make this request). |
-| 403 Forbidden | The user making this request does not have sufficient permissions to view the requested content. |
-| 404 Not Found | The requested content could not be found. |
-
-___
 ## Browser-Safe Media Routes
-
-<p>The web UI only embeds same-node image URLs. Author avatars, entry images, and allowlisted remote markdown images are loaded through the routes below so the browser never needs to request configured remote-node media directly.</p>
 
 **GET /api/authors/{author_serial}/profile-image/**
 > curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/profile-image/
 
-**Description:** Retrieve an author avatar through this node. Same-node avatar URLs are redirected locally. Configured remote-node avatars are fetched server-side with the stored Basic Auth credentials. Missing or disallowed avatars fall back to the local placeholder image.
+**Description:** Retrieve an author avatar through this node.
+
+#### Parameters
+author_serial (string): The UUID of an author.
+
+#### Response Body
+Raw image bytes returned from this node, or a redirect to a same-node image URL.
+
+#### Status Codes
+200 - Returns image bytes successfully<br>
+302 - Redirects to a same-node avatar image or local placeholder image<br>
+404 - Object Does Not Exist<br>
 
 **GET /api/media/image-proxy/?url={absolute_image_url}**
 > curl -X GET "http<nolink>:\//127.0.0.1:8000/api/media/image-proxy/?url=https%3A%2F%2Fpartner.example.com%2Fmedia%2Fexample.png"
 
-**Description:** Proxy an image through this node. Only same-node image URLs and URLs belonging to active configured remote nodes are allowed.
+**Description:** Proxy an image through this node. Only same-node image URLs and URLs from active configured remote nodes are allowed.
 
-**Proxy Error Codes:** <br>400 [Occurs if the URL is missing or not allowlisted], <br>404 [Occurs if the remote image does not exist], <br>502 [Occurs if the upstream response is not a successful image response], <br>503 [Occurs if the remote node cannot be reached]
+#### Queries
+url (string): The absolute image URL to proxy.
 
-**Entry Image Routes**
+#### Response Body
+Raw image bytes returned from this node, or a redirect to a same-node image URL.
 
-Existing image-entry routes also honor this same-origin behavior:
+#### Status Codes
+200 - Returns image bytes successfully<br>
+302 - Redirects to a same-node image URL<br>
+400 - URL is missing or not allowlisted<br>
+404 - Image not found on remote node<br>
+502 - Upstream response was not a successful image response<br>
+503 - Remote node could not be reached<br>
 
-- `GET /api/authors/{author_serial}/entries/{entry_serial}/image/`
-- `GET /api/entries/{entry_fqid}/image/`
-
-These routes now serve local uploads, local base64 image entries, and stored remote image-backed entries through this node.
-
-___
-## Inbox API - Receive remote objects for a local author
-
-___
-#### Endpoint Pattern
-
-> &lt;Node Address&gt;/api/authors/&lt;Author Serial&gt;/inbox
-
-___
-#### Authentication
-
-<p>This endpoint is intended for remote node-to-node traffic. It requires HTTP Basic Auth using an active remote node credential pair configured on the receiving server.</p>
-
-___
-#### POST Request with curl
-
-> curl -X POST http<nolink>:\//127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13/inbox -H "Authorization: Basic &lt;base64(username:password)&gt;" -H "Content-Type: application/json" -d @/example/path/remote-entry.json
-
-> **CREATES or UPDATES the received object with Code=200 or Code=201**
-
-<p>The incoming object must belong to the same remote node as the authenticated Basic Auth credential pair. Currently, entry create/update/delete traffic is enforced on this endpoint.</p>
-
-Possible Error Codes: <br>400 [Occurs if the payload is malformed], <br>401 [Occurs if Basic Auth is missing or invalid], <br>403 [Occurs if the payload author does not match the authenticated remote node], <br>404 [Occurs if the inbox owner does not exist]
-
-# Objects
-
-<p>The following section goes over the numerous JSON “Objects” that represent different parts of the Wheat Social Distribution Web App. These objects are utilized when interacting with API endpoints, both as data being sent to the server, and data being received from the server. This section covers the major endpoints that are associated with each object type, the requests and responses associated with those endpoints, and the make-up of each object, providing examples for reference. </p>
-
-# API Endpoints and Their Objects
-
-<p>The following section covers each of the API Endpoints that one can interact with while using this API. For each endpoint a template is provided for the general layout of each endpoint. An example curl command is also provided for each viable request type at each endpoint, as well as the response behavior that comes about from that command. A list of possible error response codes is also provided for each example. </p>
-
-___
-## Authors API - Retrieve a list of authors
-
-___
-#### Endpoint Pattern
-
-Non-Paginated:
-> \<Node Address\>/api/authors
-
-Paginated:
-> \<Node Address\>/api/authors?page=\<Page Number\>&size=\<Results Per Page\>
-
-___
-#### GET Request with curl
+## Author API
 
 **GET /api/authors**
 > curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors
@@ -350,7 +252,7 @@ author_serial (string): The UUID of an author
 ```
 {
     "type": string,
-    "following”: List<Author>
+    "following": List<Author>
 }
 ```
 
@@ -474,7 +376,7 @@ author_serial (string): The UUID of an author
 ```
 {
     "type": string,
-    "following”: List<Author>
+    "following": List<Author>
 }
 ```
 
@@ -596,9 +498,9 @@ author_serial (string): The UUID of an author
 ```
 {
     "type": string,
-    "summary”: string,
-    "actor”: Author,
-    "object”: Author
+    "summary": string,
+    "actor": Author,
+    "object": Author
 }
 ```
 
@@ -660,17 +562,17 @@ entry_serial (string): The UUID of an entry
 ```
 {
     "type": string,
-    "title”: string,
+    "title": string,
     "id": string,
-    "web”: string,
+    "web": string,
     "description": string,
-    "contentType”: string,
+    "contentType": string,
     "imageUrl": string,
-    "author”: Author,
+    "author": Author,
     "published": Date,
-    "visibility”: Author,
+    "visibility": Author,
     "likes": List<Like>,
-    "comments”: List<Comment>,
+    "comments": List<Comment>,
 }
 ```
 
@@ -790,17 +692,17 @@ entry_serial (string): The UUID of an entry
 ```
 {
     "type": string,
-    "title”: string,
+    "title": string,
     "id": string,
-    "web”: string,
+    "web": string,
     "description": string,
-    "contentType”: string,
+    "contentType": string,
     "imageUrl": string,
-    "author”: Author,
+    "author": Author,
     "published": Date,
-    "visibility”: Author,
+    "visibility": Author,
     "likes": List<Like>,
-    "comments”: List<Comment>,
+    "comments": List<Comment>,
 }
 ```
 
@@ -886,17 +788,17 @@ entry_fqid (string): The FQID of an entry
 ```
 {
     "type": string,
-    "title”: string,
+    "title": string,
     "id": string,
-    "web”: string,
+    "web": string,
     "description": string,
-    "contentType”: string,
+    "contentType": string,
     "imageUrl": string,
-    "author”: Author,
+    "author": Author,
     "published": Date,
-    "visibility”: Author,
+    "visibility": Author,
     "likes": List<Like>,
-    "comments”: List<Comment>,
+    "comments": List<Comment>,
 }
 ```
 
@@ -1027,7 +929,7 @@ GET /api/authors/{author_serial}/entries/?page={page_number}&size={size}
 500 - Internal Server Error<br>
 
 **POST /api/authors/{author_serial}/entries/**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/
+> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/
 
 **Description:** Retrieve a list of entries from an author
 
@@ -1043,17 +945,17 @@ author_serial (string): The UUID of an author.
 ```
 {
     "type": string,
-    "title”: string,
+    "title": string,
     "id": string,
-    "web”: string,
+    "web": string,
     "description": string,
-    "contentType”: string,
+    "contentType": string,
     "imageUrl": string,
-    "author”: Author,
+    "author": Author,
     "published": Date,
-    "visibility”: Author,
+    "visibility": Author,
     "likes": List<Like>,
-    "comments”: List<Comment>,
+    "comments": List<Comment>,
 }
 ```
 
@@ -1110,7 +1012,7 @@ entry_serial (string): The UUID of an entry.
 
 #### Example Response
 ```
-{b'\xff\xd8\xff\xe0\x00\x10JFI………’}
+{b'\xff\xd8\xff\xe0\x00\x10JFI...'}
 ```
 
 #### Status Codes
@@ -1121,8 +1023,8 @@ entry_serial (string): The UUID of an entry.
 500 - Internal Server Error<br>
 503 - Failure to Connect to Remote Node<br>
 
-**GET /api//entries/{entry_fqid}/image**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api//entries/{entry_fqid}/image
+**GET /api/entries/{entry_fqid}/image**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/image
 
 **Description:** Retrieve an image from an image entry using fqid
 
@@ -1140,7 +1042,7 @@ entry_fqid (string): The FQID of an entry.
 
 #### Example Response
 ```
-{b'\xff\xd8\xff\xe0\x00\x10JFI………’}
+{b'\xff\xd8\xff\xe0\x00\x10JFI...'}
 ```
 
 #### Status Codes
@@ -1745,7 +1647,7 @@ comment_fqid (string): The FQID of a comment.
 
 ## Likes API
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/likes*
+**GET /api/authors/{author_serial}/entries/{entry_serial}/likes**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/likes
 
 **Description:** Retrieve a list of likes on an entry
@@ -1810,7 +1712,7 @@ entry_serial (string): The UUID of an entry
 500 - Internal Server Error<br>
 
 /api/entries/{ENTRY_FQID}/likes
-**GET /api/entries/{entry_fqid}/likes*
+**GET /api/entries/{entry_fqid}/likes**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/likes
 
 **Description:** Retrieve a list of likes on an entry with an fqid
@@ -1873,7 +1775,7 @@ entry_fqid (string): The FQID of an entry
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes*
+**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes
 
 **Description:** Retrieve a list of likes on a comment
@@ -1940,7 +1842,7 @@ comment_fqid (string): The FQID of a comment
 
 ## Liked API
 
-**GET /api/authors/{author_serial}/liked*
+**GET /api/authors/{author_serial}/liked**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked
 
 **Description:** Retrieve a list of all likes an author has made
@@ -2004,7 +1906,7 @@ author_serial (string): The UUID of an author
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**POST /api/authors/{author_serial}/liked*
+**POST /api/authors/{author_serial}/liked**
 > curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked
 
 **Description:** Post a like to an author’s profile
@@ -2058,7 +1960,7 @@ author_serial (string): The UUID of an author
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/liked/{like_serial}*
+**GET /api/authors/{author_serial}/liked/{like_serial}**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked/{like_serial}
 
 **Description:** Retrieve a like
@@ -2112,7 +2014,7 @@ like_serial (string): The UUID of a like
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_fqid}/liked*
+**GET /api/authors/{author_fqid}/liked**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/liked
 
 **Description:** Retrieve a list of all likes an author has made
@@ -2176,7 +2078,7 @@ author_serial (string): The UUID of an author
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**POST /api/authors/{author_fqid}/liked*
+**POST /api/authors/{author_fqid}/liked**
 > curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/liked
 
 **Description:** Post a like to an author’s profile with their fqid
@@ -2229,7 +2131,7 @@ author_serial (string): The UUID of an author
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/liked/{like_fqid}*
+**GET /api/liked/{like_fqid}**
 > curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/liked/{like_fqid}
 
 **Description:** Retrieve a like with its fqid
@@ -2286,13 +2188,13 @@ like_serial (string): The UUID of a like
 ## Inbox API
 
 **POST /api/authors/{author_serial}/inbox**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/inbox
+> curl -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/inbox -H "Authorization: Basic &lt;base64(username:password)&gt;" -H "Content-Type: application/json" -d @/example/path/exampleFile.json
 
 **Description:** Post an object to a remote author’s inbox
 
-#### Auth
-<example_username>: username of remote node of author_serial
-<example_password>: password for remote node of author_serial
+#### Headers
+Authorization (string): Basic &lt;base64(username:password)&gt; for an active remote node configured on the receiving server.
+Content-Type (string): application/json
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -2302,17 +2204,17 @@ author_serial (string): The UUID of an author.
 ```
 {
     "type": string,
-    "title”: string,
+    "title": string,
     "id": string,
-    "web”: string,
+    "web": string,
     "description": string,
-    "contentType”: string,
+    "contentType": string,
     "imageUrl": string,
-    "author”: Author,
+    "author": Author,
     "published": Date,
-    "visibility”: Author,
+    "visibility": Author,
     "likes": List<Like>,
-    "comments”: List<Comment>,
+    "comments": List<Comment>,
 }
 ```
 
@@ -2346,9 +2248,9 @@ author_serial (string): The UUID of an author.
 ```
 {
     "type": string,
-    "summary”: string,
-    "actor”: Author,
-    "object”: Author
+    "summary": string,
+    "actor": Author,
+    "object": Author
 }
 ```
 
