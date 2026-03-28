@@ -1,4 +1,4 @@
-{% load static %}
+{% load static core_media %}
 <!doctype html>
 <html>
 
@@ -46,12 +46,11 @@
                 <ul class="matrix">
                     {% for a in authors %}
                     <li>
+                        {% author_avatar_url a request as author_avatar_src %}
                         <a href="{% url 'author_profile' a.serial %}" class="author-card">
-                            {% if a.profileImage %}
-                                <div>
-                                    <img class="avatar avatar-small" src="{{ a.profileImage }}" alt="{{ a.displayName }} avatar">
-                                </div>
-                            {% endif %}
+                            <div>
+                                <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ a.displayName }} avatar">
+                            </div>
                             <h3 class="profile-link">{{ a.displayName }}</h3>
                         </a>
                     </li>

@@ -1,5 +1,6 @@
 from django.db.models import Q
 from django.http import QueryDict
+from django.templatetags.static import static
 
 from .models import Author, EntryLike, CommentLike, Comment
 from .serializers import EntrySerializer, AuthorSerializer, EntryLikeSerializer, CommentSerializer, CommentLikeSerializer
@@ -328,6 +329,13 @@ def build_author_web_url(author, request=None):
 
 def build_author_profile_image_url(author, request=None):
     path = f"/api/authors/{author.serial}/profile-image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def build_local_avatar_placeholder_url(request=None):
+    path = static("images/avatar-placeholder.svg")
     if request is not None:
         return request.build_absolute_uri(path)
     return path

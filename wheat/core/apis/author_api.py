@@ -10,6 +10,7 @@ from ..auth import is_remote_node_authenticated, require_auth_for_view
 from ..models import Author, RemoteNode
 from ..serializers import AuthorSerializer
 from ..helpers import (
+    build_local_avatar_placeholder_url,
     fetch_remote_authors_page,
     fetch_remote_image,
     fetch_remote_resource,
@@ -125,10 +126,10 @@ def author_profile_image(request, author_serial):
     if target.get("kind") == "remote":
         fetched = fetch_remote_image(target["url"], target["remote_node"])
         if fetched["status"] != 200:
-            return Response({"error": fetched["error"]}, status=fetched["status"])
+            return HttpResponseRedirect(build_local_avatar_placeholder_url(request))
         return HttpResponse(fetched["content"], content_type=fetched["content_type"])
 
-    return Response({"error": target["error"]}, status=target["status"])
+    return HttpResponseRedirect(build_local_avatar_placeholder_url(request))
 
 
 @api_view(['GET'])
