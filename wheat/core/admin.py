@@ -5,6 +5,8 @@ from django.contrib.auth.admin import UserAdmin
 
 import uuid
 
+from .helpers import build_local_avatar_placeholder_url
+
 
 admin.site.register(Author)
 admin.site.register(Entry)
@@ -39,7 +41,7 @@ def create_local_author_if_missing(request, user):
         displayName=user.username,
         github=f"https://github.com/{user.username}",
         description="",
-        profileImage="https://placehold.co/150x150.png",
+        profileImage=build_local_avatar_placeholder_url(request),
     )
 
 
@@ -51,7 +53,6 @@ def approve_pending_users(modeladmin, request, queryset):
             user.save()
         if user.is_active:
             create_local_author_if_missing(request, user)
-
 
 admin.site.unregister(User)
 @admin.register(User)

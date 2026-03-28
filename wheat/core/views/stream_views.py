@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 import uuid
 
+from ..helpers import build_local_avatar_placeholder_url
 from ..models import Author, Entry
 @login_required
 def my_stream(request):
@@ -20,7 +21,7 @@ def my_stream(request):
             displayName=request.user.username,
             github=f"https://github.com/{request.user.username}",
             description="",
-            profileImage="https://placehold.co/150x150.png",
+            profileImage=build_local_avatar_placeholder_url(request),
         )
     allEntries = Entry.get_entries(author)
     if not request.user.is_staff:

@@ -38,3 +38,4 @@ Staff users can manage remote node credentials through the web UI at `/staff/nod
 - Deleting a node only affects local configuration. It does not send any request to the remote server.
 - Configured remote-node credentials are also used for node-to-node HTTP Basic Auth on the inbox API.
 - Browser and local web-app traffic continue to use the project’s existing local authentication; remote Basic Auth is only enforced on remote-only surfaces such as the inbox API.
+

@@ -1,4 +1,5 @@
-{% load static %}
+{% load static core_media %}
+{% allowlisted_media_origins_json as media_origins_json %}
 <div class="topnav">
     <div class="container">
         <a class="brand" href="{% url 'index' %}">
@@ -26,6 +27,7 @@
         </div>
     </div>
 </div>
+<script id="media-origin-config" type="application/json">{{ media_origins_json|safe }}</script>
 <script>
     (function () {
         const body = document.body;

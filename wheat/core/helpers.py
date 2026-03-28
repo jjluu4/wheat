@@ -1,4 +1,6 @@
 from django.db.models import Q
+from django.http import QueryDict
+from django.templatetags.static import static
 
 from .models import Author, EntryLike, CommentLike, Comment
 from .serializers import EntrySerializer, AuthorSerializer, EntryLikeSerializer, CommentSerializer, CommentLikeSerializer
@@ -425,6 +427,20 @@ def build_author_web_url(author, request=None):
     return stored
 
 
+def build_author_profile_image_url(author, request=None):
+    path = f"/api/authors/{author.serial}/profile-image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def build_local_avatar_placeholder_url(request=None):
+    path = static("images/avatar-placeholder.svg")
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def build_entry_api_url(entry, request=None):
     stored = (getattr(entry, "url", "") or "").strip()
     if stored.startswith("http://") or stored.startswith("https://"):
@@ -439,6 +455,22 @@ def build_entry_web_url(entry, request=None):
     return f"{build_author_web_url(entry.author, request)}/entries/{entry.serial}/"
 
 
+def build_browser_entry_image_url(entry, request=None):
+    path = f"/api/authors/{entry.author.serial}/entries/{entry.serial}/image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def build_media_proxy_url(media_url, request=None):
+    query = QueryDict(mutable=True)
+    query["url"] = media_url
+    path = f"/api/media/image-proxy/?{query.urlencode()}"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def build_comment_api_url(comment, request=None):
     stored = (getattr(comment, "url", "") or "").strip()
     if stored.startswith("http://") or stored.startswith("https://"):
@@ -448,6 +480,104 @@ def build_comment_api_url(comment, request=None):
 
 def build_comment_web_url(comment, request=None):
     return f"{build_author_web_url(comment.author, request)}/comments/{comment.serial}"
+
+
+def get_request_origin(request):
+    if request is None:
+        return ""
+    parsed = urllib.parse.urlparse(request.build_absolute_uri("/"))
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return normalize_url(f"{parsed.scheme}://{parsed.netloc}")
+
+
+def is_same_node_media_url(url, request=None):
+    raw = (url or "").strip()
+    if not raw:
+        return False
+    if raw.startswith("/"):
+        return True
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return False
+
+    request_origin = get_request_origin(request)
+    if not request_origin:
+        return False
+
+    return normalize_url(f"{parsed.scheme}://{parsed.netloc}") == request_origin
+
+
+def get_allowlisted_remote_node_for_media_url(url, request=None):
+    raw = decode_fqid(url)
+    if not raw or is_same_node_media_url(raw, request):
+        return None
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+
+    return find_remote_node_by_url(raw)
+
+
+def is_allowlisted_media_url(url, request=None):
+    return is_same_node_media_url(url, request) or get_allowlisted_remote_node_for_media_url(url, request) is not None
+
+
+def resolve_image_proxy_target(url, request=None):
+    raw = decode_fqid(url)
+    if not raw:
+        return {"error": "Image URL is required.", "status": 400}
+
+    if is_same_node_media_url(raw, request):
+        if raw.startswith("/"):
+            path = raw
+        else:
+            parsed = urllib.parse.urlparse(raw)
+            path = urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
+        return {"kind": "local", "path": path}
+
+    remote_node = get_allowlisted_remote_node_for_media_url(raw, request)
+    if remote_node is None:
+        return {"error": "Image URL is not allowlisted.", "status": 400}
+
+    return {"kind": "remote", "url": raw, "remote_node": remote_node}
+
+
+def fetch_remote_image(url, remote_node, timeout=10):
+    headers = {
+        "Accept": "image/*",
+        "User-Agent": "SocialDistribution/1.0",
+    }
+    headers = add_auth_headers(headers, remote_node)
+
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout)
+    except requests.RequestException as exc:
+        return {
+            "error": f"Failed to connect to remote node: {exc}",
+            "status": 503,
+        }
+
+    if response.status_code == 404:
+        return {"error": "Image not found on remote node.", "status": 404}
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return {
+            "error": f"Remote node returned status {response.status_code}",
+            "status": 502,
+        }
+
+    content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip()
+    if not content_type.startswith("image/"):
+        return {"error": "Remote resource is not an image.", "status": 502}
+
+    return {
+        "content": response.content,
+        "content_type": content_type,
+        "status": 200,
+    }
 
 
 def build_author_commented_collection_id(author, request=None):
