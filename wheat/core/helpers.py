@@ -417,6 +417,61 @@ def is_allowlisted_media_url(url, request=None):
     return is_same_node_media_url(url, request) or get_allowlisted_remote_node_for_media_url(url, request) is not None
 
 
+def resolve_image_proxy_target(url, request=None):
+    raw = decode_fqid(url)
+    if not raw:
+        return {"error": "Image URL is required.", "status": 400}
+
+    if is_same_node_media_url(raw, request):
+        if raw.startswith("/"):
+            path = raw
+        else:
+            parsed = urllib.parse.urlparse(raw)
+            path = urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
+        return {"kind": "local", "path": path}
+
+    remote_node = get_allowlisted_remote_node_for_media_url(raw, request)
+    if remote_node is None:
+        return {"error": "Image URL is not allowlisted.", "status": 400}
+
+    return {"kind": "remote", "url": raw, "remote_node": remote_node}
+
+
+def fetch_remote_image(url, remote_node, timeout=10):
+    headers = {
+        "Accept": "image/*",
+        "User-Agent": "SocialDistribution/1.0",
+    }
+    headers = add_auth_headers(headers, remote_node)
+
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout)
+    except requests.RequestException as exc:
+        return {
+            "error": f"Failed to connect to remote node: {exc}",
+            "status": 503,
+        }
+
+    if response.status_code == 404:
+        return {"error": "Image not found on remote node.", "status": 404}
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return {
+            "error": f"Remote node returned status {response.status_code}",
+            "status": 502,
+        }
+
+    content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip()
+    if not content_type.startswith("image/"):
+        return {"error": "Remote resource is not an image.", "status": 502}
+
+    return {
+        "content": response.content,
+        "content_type": content_type,
+        "status": 200,
+    }
+
+
 def build_author_commented_collection_id(author, request=None):
     return f"{build_author_api_url(author, request)}/commented/"
 

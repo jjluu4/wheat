@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import HttpResponse, HttpResponseRedirect
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
@@ -8,7 +9,13 @@ import urllib
 from ..auth import is_remote_node_authenticated, require_auth_for_view
 from ..models import Author, RemoteNode
 from ..serializers import AuthorSerializer
-from ..helpers import fetch_remote_authors_page, fetch_remote_resource, get_pagination_params
+from ..helpers import (
+    fetch_remote_authors_page,
+    fetch_remote_image,
+    fetch_remote_resource,
+    get_pagination_params,
+    resolve_image_proxy_target,
+)
 
 
 @api_view(['GET'])
@@ -103,6 +110,25 @@ def single_author(request, author_serial):
     author.save()
     serializer = AuthorSerializer(author)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def author_profile_image(request, author_serial):
+    require_auth_for_view(False)
+    author = get_object_or_404(Author, serial=author_serial)
+    target = resolve_image_proxy_target(author.profileImage, request)
+
+    if target.get("kind") == "local":
+        return HttpResponseRedirect(target["path"])
+
+    if target.get("kind") == "remote":
+        fetched = fetch_remote_image(target["url"], target["remote_node"])
+        if fetched["status"] != 200:
+            return Response({"error": fetched["error"]}, status=fetched["status"])
+        return HttpResponse(fetched["content"], content_type=fetched["content_type"])
+
+    return Response({"error": target["error"]}, status=target["status"])
 
 
 @api_view(['GET'])
