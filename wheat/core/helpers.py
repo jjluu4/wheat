@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import QueryDict
 
 from .models import Author, EntryLike, CommentLike, Comment
 from .serializers import EntrySerializer, AuthorSerializer, EntryLikeSerializer, CommentSerializer, CommentLikeSerializer
@@ -325,6 +326,13 @@ def build_author_web_url(author, request=None):
     return stored
 
 
+def build_author_profile_image_url(author, request=None):
+    path = f"/api/authors/{author.serial}/profile-image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def build_entry_api_url(entry, request=None):
     stored = (getattr(entry, "url", "") or "").strip()
     if stored.startswith("http://") or stored.startswith("https://"):
@@ -339,6 +347,22 @@ def build_entry_web_url(entry, request=None):
     return f"{build_author_web_url(entry.author, request)}/entries/{entry.serial}/"
 
 
+def build_browser_entry_image_url(entry, request=None):
+    path = f"/api/authors/{entry.author.serial}/entries/{entry.serial}/image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def build_media_proxy_url(media_url, request=None):
+    query = QueryDict(mutable=True)
+    query["url"] = media_url
+    path = f"/api/media/image-proxy/?{query.urlencode()}"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def build_comment_api_url(comment, request=None):
     stored = (getattr(comment, "url", "") or "").strip()
     if stored.startswith("http://") or stored.startswith("https://"):
@@ -348,6 +372,49 @@ def build_comment_api_url(comment, request=None):
 
 def build_comment_web_url(comment, request=None):
     return f"{build_author_web_url(comment.author, request)}/comments/{comment.serial}"
+
+
+def get_request_origin(request):
+    if request is None:
+        return ""
+    parsed = urllib.parse.urlparse(request.build_absolute_uri("/"))
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return normalize_url(f"{parsed.scheme}://{parsed.netloc}")
+
+
+def is_same_node_media_url(url, request=None):
+    raw = (url or "").strip()
+    if not raw:
+        return False
+    if raw.startswith("/"):
+        return True
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return False
+
+    request_origin = get_request_origin(request)
+    if not request_origin:
+        return False
+
+    return normalize_url(f"{parsed.scheme}://{parsed.netloc}") == request_origin
+
+
+def get_allowlisted_remote_node_for_media_url(url, request=None):
+    raw = decode_fqid(url)
+    if not raw or is_same_node_media_url(raw, request):
+        return None
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+
+    return find_remote_node_by_url(raw)
+
+
+def is_allowlisted_media_url(url, request=None):
+    return is_same_node_media_url(url, request) or get_allowlisted_remote_node_for_media_url(url, request) is not None
 
 
 def build_author_commented_collection_id(author, request=None):
