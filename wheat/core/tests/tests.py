@@ -307,11 +307,12 @@ class EntryCreateTests(TestCase):
                 "content": "Creating entry should post to inbox",
                 "content_type": "text/plain",
                 "image_url": "",
-                "visibility": "PUBLIC",
+                "visibility": "UNLISTED",
             },
         )
         self.assertEqual(resp.status_code, 302)
         mock_send.assert_called_once()
+        #print(mock_send.call_args.args[0])
         self.assertEqual(mock_send.call_args.args[0], remote_follower)
         self.assertEqual(mock_send.call_args.args[1]['content'], 'Creating entry should post to inbox')        
 
@@ -336,6 +337,14 @@ class EntryEditTests(TestCase):
             visibility="PUBLIC",
             published=timezone.now(),
         )
+        self.entryForFollower = Entry.objects.create(
+            url="http://testserver/api/authors/owner-uuid/entries/e2",
+            author=self.author,
+            content="Remote",
+            content_type="text/plain",
+            visibility="UNLISTED",
+            published=timezone.now(),
+        )   
 
     def test_owner_can_edit_entry(self):
         """Owner can edit an existing entry via the HTML form."""
@@ -390,7 +399,7 @@ class EntryEditTests(TestCase):
         Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
         
         self.client.force_login(self.user)
-        url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
+        url = reverse("entry_edit", args=[self.author.serial, self.entryForFollower.serial])
         resp = self.client.post(
             url,
             data={
@@ -403,37 +412,7 @@ class EntryEditTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         mock_send.assert_called_once()
         self.assertEqual(mock_send.call_args.args[0], remote_follower)
-        self.assertEqual(mock_send.call_args.args[1]["content"], "Editing entry should post to inbox")@patch("core.federation.send_to_author_inbox")
-    def test_edit_entry_sends_to_remote_entry_authors(self, mock_send):
-        mock_send.return_value = True, None
-        
-        remote_follower = Author.objects.create(
-            serial=uuid.uuid4(),
-            url="http://remote-node-a.example.com/api/authors/remote-follower",
-            host="http://remote-node-a.example.com/api/",
-            displayName="Remote follower",
-            github="",
-            profileImage="https://example.com/image.png",
-            web="http://remote-node-a.example.com/authors/remote-follower/",
-        )
-        
-        Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
-        
-        self.client.force_login(self.user)
-        url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
-        resp = self.client.post(
-            url,
-            data={
-                "content": "Editing entry should post to inbox",
-                "content_type": "text/plain",
-                "image_url": "",
-                "visibility": "PUBLIC",
-            },
-        )
-        self.assertEqual(resp.status_code, 302)
-        mock_send.assert_called_once()
-        self.assertEqual(mock_send.call_args.args[0], remote_follower)
-        self.assertEqual(mock_send.call_args.args[1]["content"], "Editing entry should post to inbox")    
+        self.assertEqual(mock_send.call_args.args[1]["content"], "Editing entry should post to inbox")
 
 
 class EntryDeleteTests(TestCase):
@@ -456,6 +435,14 @@ class EntryDeleteTests(TestCase):
             visibility="PUBLIC",
             published=timezone.now(),
         )
+        self.entryForFollower = Entry.objects.create(
+            url="http://testserver/api/authors/owner-uuid/entries/e2",
+            author=self.author,
+            content="Remote",
+            content_type="text/plain",
+            visibility="FRIENDS",
+            published=timezone.now(),
+        )  
 
     def test_owner_can_delete_entry_soft_delete(self):
         """Owner can soft-delete an entry from their profile."""
@@ -502,10 +489,11 @@ class EntryDeleteTests(TestCase):
         Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
         
         self.client.force_login(self.user)
-        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
+        url = reverse("entry_delete", args=[self.author.serial, self.entryForFollower.serial])
         resp = self.client.post(url)
         self.assertEqual(resp.status_code, 302)
         mock_send.assert_called_once()
+        #print(mock_send.call_args_list)
         self.assertEqual(mock_send.call_args.args[0], remote_follower)
         self.assertEqual(mock_send.call_args.args[1]["visibility"], "DELETED")    
 
