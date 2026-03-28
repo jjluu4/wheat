@@ -72,7 +72,7 @@ class RemoteNodeForm(forms.ModelForm):
         ]
         help_texts = {
             "name": "Optional label to identify this remote node.",
-            "api_base_url": "Optional. Defaults to <base_url>/api.",
+            "api_base_url": "Optional. Use the API root (…/api), or leave blank to use <base_url>/api. A bare site URL (no path) is treated as …/api.",
         }
 
     def __init__(self, *args, **kwargs):

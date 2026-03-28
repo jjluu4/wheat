@@ -1,4 +1,3 @@
-from django.db.models import Q
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
@@ -8,27 +7,27 @@ import urllib
 from ..auth import is_remote_node_authenticated, require_auth_for_view
 from ..models import Author, RemoteNode
 from ..serializers import AuthorSerializer
-from ..helpers import fetch_remote_authors_page, fetch_remote_resource, get_pagination_params
+from ..helpers import (
+    authors_native_to_this_node_qs,
+    fetch_remote_authors_page,
+    fetch_remote_resource,
+    get_pagination_params,
+)
 
 
 @api_view(['GET'])
 @authentication_classes([SessionAuthentication])
 def all_authors(request):
     """
-    Paginated authors known to this node: registered users (active) plus federated
-    authors stored locally (e.g. from inbox). Remote nodes are listed separately via
-    GET /api/remote-nodes/<pk>/authors/ when a client wants that node's catalog.
+    Paginated authors whose canonical ``host`` is this node (local signups and native
+    profiles). Federated copies of foreign authors (inbox, etc.) are omitted here;
+    use remote-node catalog endpoints to browse another node's authors.
     """
     require_auth_for_view(False)
     page, size = get_pagination_params(request)
     offset = (page - 1) * size
 
-    authors_qs = (
-        Author.objects.filter(
-            Q(user__isnull=True) | Q(user__isnull=False, user__is_active=True)
-        )
-        .order_by("displayName", "serial")
-    )
+    authors_qs = authors_native_to_this_node_qs(request)
     total = authors_qs.count()
     page_rows = authors_qs[offset : offset + size]
 

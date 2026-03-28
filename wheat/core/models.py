@@ -4,6 +4,7 @@ from django.db.models import Q, CheckConstraint, UniqueConstraint, F
 from django.conf import settings
 from django.core.exceptions import ValidationError
 import uuid
+import urllib.parse
 
 # Core is only responsible for base offline functionality, other models for node and interconnectivity should be in a new app
 # -Z
@@ -213,6 +214,12 @@ class RemoteNode(models.Model):
 
         if self.base_url and not self.api_base_url:
             self.api_base_url = f"{self.base_url}/api"
+
+        if self.api_base_url:
+            parts = urllib.parse.urlsplit(self.api_base_url)
+            api_path = (parts.path or "").strip().rstrip("/")
+            if not api_path:
+                self.api_base_url = self._normalize_url(f"{parts.scheme}://{parts.netloc}/api")
 
         duplicate_qs = RemoteNode.objects.filter(base_url=self.base_url)
         if self.pk:

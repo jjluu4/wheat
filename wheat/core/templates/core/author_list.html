@@ -24,27 +24,16 @@
             </div>
             {% endif %}
 
-            {% if remote_nodes_fetch %}
-            <div class="card">
-                <h2>Remote author catalogs</h2>
-                
-                {% for row in remote_nodes_fetch %}
-                <div class="remote-fetch-row">
-                    <form method="post" action="{% url 'fetch_remote_node_authors_page' row.node.pk %}">
-                        {% csrf_token %}
-                        <strong>{% if row.node.name %}{{ row.node.name }}{% else %}{{ row.node.base_url }}{% endif %}</strong>
-                        <span class="hint">(remote page {{ row.next_remote_page }})</span>
-                        <button type="submit">Fetch next 5 authors</button>
-                    </form>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+            <p class="hint authors-page-hint">Each section shows up to <strong>{{ authors_list_page_size }}</strong> authors. <strong>This node</strong> lists only profiles whose home is here (not federated copies from elsewhere). Other sections query each active remote node live when you are signed in (this page does not copy remote authors into your database).</p>
 
-            <div class="card">
-                {% if authors %}
+            {% for section in author_sections %}
+            <div class="card author-node-section">
+                <h2 class="author-node-heading">{{ section.label }}</h2>
+                {% if section.kind == "local" %}
+                <p class="pager-meta author-node-meta">{{ section.subtitle }} — page {{ section.page_obj.number }} of {{ section.page_obj.paginator.num_pages }} ({{ section.page_obj.paginator.count }} author{{ section.page_obj.paginator.count|pluralize }})</p>
+                {% if section.page_obj.object_list %}
                 <ul class="matrix">
-                    {% for a in authors %}
+                    {% for a in section.page_obj %}
                     <li>
                         <a href="{% url 'author_profile' a.serial %}" class="author-card">
                             {% if a.profileImage %}
@@ -58,9 +47,86 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p>No authors yet.</p>
+                <p>No authors in this section.</p>
+                {% endif %}
+                {% if section.page_obj.paginator.num_pages > 1 %}
+                <nav class="pager" aria-label="Pagination for {{ section.label }}">
+                    {% if section.prev_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.prev_url }}">Previous {{ authors_list_page_size }}</a>
+                    {% else %}
+                    <span class="pager-disabled">Previous {{ authors_list_page_size }}</span>
+                    {% endif %}
+                    {% if section.next_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.next_url }}">Next {{ authors_list_page_size }}</a>
+                    {% else %}
+                    <span class="pager-disabled">Next {{ authors_list_page_size }}</span>
+                    {% endif %}
+                    {% if section.first_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.first_url }}">First page</a>
+                    {% endif %}
+                    {% if section.last_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.last_url }}">Last page</a>
+                    {% endif %}
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <p class="pager-meta author-node-meta">{{ section.subtitle }} — page {{ section.page }}{% if section.num_pages %} of {{ section.num_pages }}{% endif %}{% if section.total_count is not None %} ({{ section.total_count }} total){% endif %}</p>
+                {% if section.error %}
+                <p class="hint">Could not load this section: {{ section.error }}</p>
+                {% elif section.items %}
+                <ul class="matrix">
+                    {% for item in section.items %}
+                    <li>
+                        {% if item.id %}
+                        <a href="{% url 'author_open_remote' %}?fqid={{ item.id|urlencode }}" class="author-card">
+                        {% elif item.url %}
+                        <a href="{% url 'author_open_remote' %}?fqid={{ item.url|urlencode }}" class="author-card">
+                        {% elif item.web %}
+                        <a href="{{ item.web }}" class="author-card" rel="noopener noreferrer">
+                        {% else %}
+                        <div class="author-card author-card-static">
+                        {% endif %}
+                            {% if item.profileImage %}
+                                <div>
+                                    <img class="avatar avatar-small" src="{{ item.profileImage }}" alt="{{ item.displayName }} avatar">
+                                </div>
+                            {% endif %}
+                            <h3 class="profile-link">{{ item.displayName|default:"(no name)" }}</h3>
+                        {% if item.id or item.url or item.web %}
+                        </a>
+                        {% else %}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>No authors in this section.</p>
+                {% endif %}
+                {% if section.prev_url is not None or section.next_url is not None or section.first_url is not None or section.last_url is not None %}
+                <nav class="pager" aria-label="Pagination for {{ section.label }}">
+                    {% if section.prev_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.prev_url }}">Previous {{ authors_list_page_size }}</a>
+                    {% else %}
+                    <span class="pager-disabled">Previous {{ authors_list_page_size }}</span>
+                    {% endif %}
+                    {% if section.next_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.next_url }}">Next {{ authors_list_page_size }}</a>
+                    {% else %}
+                    <span class="pager-disabled">Next {{ authors_list_page_size }}</span>
+                    {% endif %}
+                    {% if section.first_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.first_url }}">First page</a>
+                    {% endif %}
+                    {% if section.last_url is not None %}
+                    <a class="button-link" href="{% url 'author_list' %}{{ section.last_url }}">Last page</a>
+                    {% endif %}
+                </nav>
+                {% endif %}
                 {% endif %}
             </div>
+            {% endfor %}
         </div>
 
     </div>

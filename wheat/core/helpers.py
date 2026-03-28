@@ -25,6 +25,24 @@ def normalize_url(value):
     return value.rstrip("/")
 
 
+def resolved_remote_api_base(node):
+    """
+    API root for outbound calls to a RemoteNode (e.g. .../api/authors/).
+
+    If ``api_base_url`` is the site origin only (no path), append ``/api`` so we do not
+    request HTML routes like ``/authors/`` instead of ``/api/authors/``.
+    """
+    base = node.api_base_url or f"{normalize_url(node.base_url)}/api"
+    base = normalize_url(base)
+    if not base:
+        return ""
+    parts = urllib.parse.urlsplit(base)
+    path = (parts.path or "").strip().rstrip("/")
+    if not path:
+        return normalize_url(f"{parts.scheme}://{parts.netloc}/api")
+    return base
+
+
 def url_variants(value):
     """Return trailing-slash variants for exact URL matching in stored FQIDs."""
     raw = (value or "").strip()
@@ -37,6 +55,31 @@ def url_variants(value):
         if candidate and candidate not in variants:
             variants.append(candidate)
     return variants
+
+
+def local_node_api_base_for_request(request):
+    """Absolute API root for this deployment (e.g. http://host/api), no trailing slash."""
+    origin = normalize_url(request.build_absolute_uri("/").rstrip("/"))
+    if not origin:
+        return ""
+    return normalize_url(f"{origin}/api")
+
+
+def authors_native_to_this_node_qs(request):
+    """
+    Authors whose ``host`` matches this node's API root: registered users and any row
+    whose canonical home is here. Excludes federated authors cached from other nodes
+    (their ``host`` points at the remote API).
+    """
+    api_root = local_node_api_base_for_request(request)
+    variants = url_variants(api_root) if api_root else []
+    if not variants:
+        return Author.objects.none()
+    return (
+        Author.objects.filter(host__in=variants)
+        .filter(Q(user__isnull=True) | Q(user__isnull=False, user__is_active=True))
+        .order_by("displayName", "serial")
+    )
 
 
 def resolve_object_by_url(model, object_url):
@@ -135,8 +178,7 @@ def send_json_to_remote_author_inbox(author_fqid, payload, method="POST", timeou
     return True, None
 
 
-def fetch_remote_json(url, remote_node, timeout=10):
-    """Fetch JSON from a configured remote node using Basic Auth."""
+def fetch_remote_json_result(url, remote_node, timeout=10):
     headers = {
         "Accept": "application/json",
         "User-Agent": "SocialDistribution/1.0",
@@ -145,22 +187,32 @@ def fetch_remote_json(url, remote_node, timeout=10):
 
     try:
         response = requests.get(url, headers=headers, timeout=timeout)
-    except requests.RequestException:
-        return None
+    except requests.RequestException as exc:
+        return None, f"Could not reach remote: {exc}"
 
     if response.status_code != 200:
-        return None
+        return None, f"Remote returned HTTP {response.status_code} for {url}"
 
     try:
         payload = response.json()
     except ValueError:
-        return None
+        return None, (
+            f"Response was not JSON (HTTP {response.status_code}); "
+        )
 
-    return payload if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return None, "JSON root was not an object"
+
+    return payload, None
+
+
+def fetch_remote_json(url, remote_node, timeout=10):
+    """Fetch JSON from a configured remote node using Basic Auth."""
+    payload, _err = fetch_remote_json_result(url, remote_node, timeout=timeout)
+    return payload
 
 
 def build_paginated_remote_authors_url(api_base, page, size):
-    """Build ``{api_base}/authors?page=&size=`` with normalized api_base."""
     try:
         page = int(page)
     except (TypeError, ValueError):
@@ -169,7 +221,7 @@ def build_paginated_remote_authors_url(api_base, page, size):
         size = int(size)
     except (TypeError, ValueError):
         size = 5
-    base = f"{normalize_url(api_base)}/authors"
+    base = f"{normalize_url(api_base)}/authors/"
     parts = urllib.parse.urlsplit(base)
     query = dict(urllib.parse.parse_qsl(parts.query, keep_blank_values=True))
     query["page"] = str(max(1, page))
@@ -205,15 +257,15 @@ def fetch_remote_authors_page(node, page=1, page_size=None):
     """
     if page_size is None:
         page_size = REMOTE_AUTHORS_FETCH_CHUNK_SIZE
-    api_base = normalize_url(node.api_base_url or f"{node.base_url}/api")
+    api_base = resolved_remote_api_base(node)
     url = build_paginated_remote_authors_url(api_base, page, page_size)
-    payload = fetch_remote_json(url, node)
+    payload, fetch_err = fetch_remote_json_result(url, node)
     if payload is None:
         return {
             "upserted": 0,
             "authors": [],
             "has_more": False,
-            "error": "Could not fetch remote authors (network, HTTP error, or invalid JSON).",
+            "error": fetch_err or "Could not fetch remote authors.",
             "item_count": 0,
             "page": page,
             "page_size": page_size,
@@ -238,6 +290,54 @@ def fetch_remote_authors_page(node, page=1, page_size=None):
         "item_count": len(items),
         "page": page,
         "page_size": page_size,
+    }
+
+
+def fetch_remote_authors_catalog_page(node, page=1, page_size=None):
+    """
+    GET one page of a remote node's /api/authors for display only (no local DB writes).
+    Returns author dicts as returned by the remote, plus pagination hints.
+    """
+    if page_size is None:
+        page_size = REMOTE_AUTHORS_FETCH_CHUNK_SIZE
+    api_base = resolved_remote_api_base(node)
+    url = build_paginated_remote_authors_url(api_base, page, page_size)
+    payload, fetch_err = fetch_remote_json_result(url, node)
+    if payload is None:
+        return {
+            "error": fetch_err or "Could not fetch remote authors.",
+            "authors": [],
+            "page": page,
+            "page_size": page_size,
+            "total_count": None,
+            "has_next": False,
+            "num_pages": None,
+        }
+
+    items = _author_items_from_remote_payload(payload)
+    authors = [i for i in items if isinstance(i, dict)]
+
+    total_raw = payload.get("count")
+    try:
+        total_count = int(total_raw) if total_raw is not None else None
+    except (TypeError, ValueError):
+        total_count = None
+
+    if total_count is not None:
+        has_next = page * page_size < total_count
+        num_pages = max(1, (total_count + page_size - 1) // page_size)
+    else:
+        has_next = len(authors) >= page_size
+        num_pages = None
+
+    return {
+        "error": None,
+        "authors": authors,
+        "page": page,
+        "page_size": page_size,
+        "total_count": total_count,
+        "has_next": has_next,
+        "num_pages": num_pages,
     }
 
 

@@ -34,7 +34,8 @@ class AuthorsApiTests(APITestCase):
         self.assertEqual(resp.data["type"], "author")
         self.assertEqual(resp.data["displayName"], "User1")
 
-    def test_all_authors_includes_federated_authors_without_local_user(self):
+    def test_all_authors_excludes_federated_foreign_host_authors(self):
+        """Cached copies of other-node authors (different ``host``) are not in /api/authors/."""
         remote = Author.objects.create(
             displayName="RemoteOnly",
             serial=uuid.uuid4(),
@@ -48,8 +49,8 @@ class AuthorsApiTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         author_ids = {author["id"] for author in resp.data["authors"]}
         self.assertIn(self.author.url, author_ids)
-        self.assertIn(remote.url, author_ids)
-        self.assertEqual(resp.data["count"], 2)
+        self.assertNotIn(remote.url, author_ids)
+        self.assertEqual(resp.data["count"], 1)
 
     def test_all_authors_excludes_inactive_local_users(self):
         inactive_user = User.objects.create_user(username="inactive", password="pass12345", is_active=False)
@@ -142,6 +143,7 @@ class EntriesApiTests(APITestCase):
         Follow.objects.create(actor=self.friend, target=self.owner, status="ACCEPTED")
 
         self.public_entry = Entry.objects.create(author=self.owner, url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", content="Public entry", content_type="text/plain", visibility="PUBLIC", published=timezone.now())
+        self.unlisted_entry = Entry.objects.create(author=self.owner, url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", content="Unlisted entry", content_type="text/plain", visibility="UNLISTED", published=timezone.now())
         self.friends_entry = Entry.objects.create(author=self.owner, url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}", content="Friends entry", content_type="text/plain", visibility="FRIENDS", published=timezone.now())
         self.valid_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAA2ElEQVR4nADIADf/BDXz4verCCMpcXxWC+YCixid+Mu9maNkCQHpN8GxHvAq2l6ZIoP8c9FwtYKXRvf0tokCXKcYA/FjP2qHJoG6TQEukT84DGn0K+qrAcb7Njtlq13Ox0rCxygUB39oHyYbYewyQARYGGz39IGxkhDUTj0wEPYcTPaZx5IbFAYByvSftPHtXMFyM6Nmuu0nN/jmLKbKZRmVAO9/B5FDLx8H1d7G7Q7YX3dKUtd6tSZe6gR80gbxFI7Ts+ktpXk2FBIKGdD8ykm0/ooBAAD//9rrXuup1DRZAAAAAElFTkSuQmCC="
         self.public_image_entry = Entry.objects.create(
@@ -173,13 +175,55 @@ class EntriesApiTests(APITestCase):
         )        
 
     def testAuthorEntriesListUnauthOnlyPublic(self):
-        """Unauthenticated user sees only public entries in author entries list."""
+        """Unauthenticated user sees public and unlisted entries, not friends-only."""
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "entries")
         items = resp.data.get("src") or resp.data.get("entries") or []
         contents = [entry["content"] for entry in items]
         self.assertIn("Public entry", contents)
+        self.assertIn("Unlisted entry", contents)
+        self.assertNotIn("Friends entry", contents)
+
+    def testAuthorEntriesListRemoteNodeSeesPublicAndUnlisted(self):
+        """Remote node Basic Auth can list public and unlisted entries without following."""
+        auth = base64.b64encode("remote-user:remote-pass".encode()).decode()
+        headers = {"Authorization": f"Basic {auth}"}
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        items = resp.data.get("src") or resp.data.get("entries") or []
+        contents = [entry["content"] for entry in items]
+        self.assertIn("Public entry", contents)
+        self.assertIn("Unlisted entry", contents)
+        self.assertNotIn("Friends entry", contents)
+
+    def testAuthorEntriesListLoggedInNonFollowerSeesPublicAndUnlisted(self):
+        """Logged-in user who does not follow the author still sees public and unlisted entries."""
+        stranger_user = User.objects.create_user(username="stranger", password="pass12345")
+        Author.objects.create(user=stranger_user, displayName="Stranger", serial=uuid.uuid4(), url=uuid.uuid4())
+        self.client.login(username="stranger", password="pass12345")
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/")
+        self.assertEqual(resp.status_code, 200)
+        items = resp.data.get("src") or resp.data.get("entries") or []
+        contents = [entry["content"] for entry in items]
+        self.assertIn("Public entry", contents)
+        self.assertIn("Unlisted entry", contents)
+        self.assertNotIn("Friends entry", contents)
+
+    def testAuthorEntriesListFollowerWithRemoteAuthGetsUnlisted(self):
+        """Follower visibility is not overridden when Basic Auth is also present (session + remote)."""
+        follower_user = User.objects.create_user(username="follower", password="pass12345")
+        follower = Author.objects.create(user=follower_user, displayName="Follower", serial=uuid.uuid4(), url=uuid.uuid4())
+        Follow.objects.create(actor=follower, target=self.owner, status="ACCEPTED")
+        auth = base64.b64encode("remote-user:remote-pass".encode()).decode()
+        headers = {"Authorization": f"Basic {auth}"}
+        self.client.login(username="follower", password="pass12345")
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        items = resp.data.get("src") or resp.data.get("entries") or []
+        contents = [entry["content"] for entry in items]
+        self.assertIn("Public entry", contents)
+        self.assertIn("Unlisted entry", contents)
         self.assertNotIn("Friends entry", contents)
 
     def testAuthorEntriesListFriendSeesFriends(self):

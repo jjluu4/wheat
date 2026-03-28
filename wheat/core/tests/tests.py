@@ -219,6 +219,28 @@ class AuthorListPageTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Skar")
 
+    def test_open_remote_author_requires_fqid(self):
+        resp = self.client.get(reverse("author_open_remote"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_open_remote_author_redirects_to_local_profile(self):
+        """Catalog should link here so Follow uses this node; resolve_remote_author upserts then we redirect."""
+        from unittest.mock import patch
+
+        remote = Author.objects.create(
+            url="http://remote.example/api/authors/r1",
+            host="http://remote.example/api/",
+            displayName="Remote",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://remote.example/authors/r1/",
+        )
+        with patch("core.views.author_views.resolve_remote_author", return_value=remote):
+            resp = self.client.get(
+                reverse("author_open_remote") + "?fqid=" + "http://remote.example/api/authors/r1"
+            )
+        self.assertRedirects(resp, reverse("author_profile", args=[remote.serial]), fetch_redirect_response=False)
+
 
 class EntryCreateTests(TestCase):
     def setUp(self):

@@ -3,7 +3,7 @@ import uuid
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 
-from core.admin import approve_pending_users
+from core.admin import approve_pending_users, create_local_author_if_missing
 from core.models import Author
 
 
@@ -43,4 +43,15 @@ class AdminApprovalTests(TestCase):
         self.assertEqual(response.status_code, 200)
         author_ids = {item["id"] for item in response.data["authors"]}
         self.assertIn(author.url, author_ids)
+
+    def test_create_local_author_if_missing_is_idempotent(self):
+        request = self.factory.get("/", HTTP_HOST="testserver")
+        request.user = self.staff_user
+        u = User.objects.create_user(username="solo-active", password="pass12345", is_active=True)
+        self.assertFalse(Author.objects.filter(user=u).exists())
+
+        create_local_author_if_missing(request, u)
+        self.assertEqual(Author.objects.filter(user=u).count(), 1)
+        create_local_author_if_missing(request, u)
+        self.assertEqual(Author.objects.filter(user=u).count(), 1)
 

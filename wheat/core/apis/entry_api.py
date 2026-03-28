@@ -121,14 +121,15 @@ def author_entries(request, author_serial):
         is_friend = requestingAuthor is not None and author.get_friends().filter(serial=requestingAuthor.serial).exists()
         is_follower = requestingAuthor is not None and author.get_followers().filter(serial=requestingAuthor.serial).exists()
 
+        
         if is_owner or request.user.is_staff or is_friend:
-            pass  
-        elif remote_authenticated:
-            qs = qs.filter(visibility="PUBLIC")
+            pass
         elif is_follower:
             qs = qs.exclude(visibility="FRIENDS")
+        elif remote_authenticated:
+            qs = qs.filter(visibility__in=("PUBLIC", "UNLISTED"))
         else:
-            qs = qs.filter(visibility="PUBLIC")
+            qs = qs.filter(visibility__in=("PUBLIC", "UNLISTED"))
 
         total = qs.count()
         page_entries = list(qs[offset : offset + size])

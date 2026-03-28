@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
+from core.helpers import build_paginated_remote_authors_url, resolved_remote_api_base
 from core.models import Author, RemoteNode
 
 User = get_user_model()
@@ -230,20 +231,69 @@ class RemoteNodeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Partner Node")
 
-    def test_staff_nav_shows_manage_nodes_link(self):
+    def test_remote_node_clean_adds_api_when_api_base_is_site_root_only(self):
+        node = RemoteNode(
+            base_url="http://127.0.0.1:9001",
+            api_base_url="http://127.0.0.1:9001",
+            username="u",
+            password="p",
+        )
+        node.full_clean()
+        self.assertEqual(node.api_base_url, "http://127.0.0.1:9001/api")
+
+    def test_resolved_remote_api_base_targets_api_authors_not_html_list(self):
+        node = RemoteNode(
+            base_url="http://127.0.0.1:9002",
+            api_base_url="http://127.0.0.1:9002",
+            username="u",
+            password="p",
+        )
+        api_root = resolved_remote_api_base(node)
+        self.assertEqual(api_root, "http://127.0.0.1:9002/api")
+        url = build_paginated_remote_authors_url(api_root, 1, 5)
+        self.assertIn("127.0.0.1:9002/api/authors/", url)
+
+    @patch("core.views.author_views.fetch_remote_authors_catalog_page")
+    def test_staff_nav_shows_manage_nodes_link(self, mock_catalog):
+        mock_catalog.return_value = {
+            "error": None,
+            "authors": [
+                {
+                    "displayName": "Remote Author",
+                    "web": "https://partner.example.com/authors/ra",
+                    "id": "https://partner.example.com/api/authors/ra",
+                    "profileImage": "",
+                }
+            ],
+            "page": 1,
+            "page_size": 5,
+            "total_count": 6,
+            "has_next": True,
+            "num_pages": 2,
+        }
         self.client.force_login(self.staff_user)
         response = self.client.get(reverse("author_list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Manage Nodes")
-        self.assertContains(response, "Remote author catalogs")
-        self.assertContains(response, "Fetch next 5 authors")
+        self.assertContains(response, "Partner Node")
+        self.assertContains(response, "Remote Author")
 
-    def test_non_staff_nav_hides_manage_nodes_link(self):
+    @patch("core.views.author_views.fetch_remote_authors_catalog_page")
+    def test_non_staff_nav_hides_manage_nodes_link(self, mock_catalog):
+        mock_catalog.return_value = {
+            "error": None,
+            "authors": [],
+            "page": 1,
+            "page_size": 5,
+            "total_count": 0,
+            "has_next": False,
+            "num_pages": 1,
+        }
         self.client.force_login(self.regular_user)
         response = self.client.get(reverse("author_list"))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Manage Nodes")
-        self.assertNotContains(response, "Remote author catalogs")
+        self.assertContains(response, "Partner Node")
 
     @patch("core.views.remote_node_views.fetch_remote_authors_page")
     def test_staff_fetch_remote_authors_page_redirects(self, mock_fetch):

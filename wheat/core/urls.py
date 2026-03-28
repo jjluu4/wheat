@@ -25,6 +25,7 @@ urlpatterns = [
     path("authors/", author_views.author_list, name="author_list"),
 
     path("authors/me/", author_views.my_profile, name="my_profile"),
+    path("authors/open/", author_views.open_remote_author, name="author_open_remote"),
     
     path("stream/", stream_views.my_stream, name="my_stream"),
 
