@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch
 import uuid
-from core.models import Author, Entry
+from core.models import Author, Entry, Follow
 from django.contrib.auth import get_user_model
 
 # Tests here are mostly for APIs probably for pt1
@@ -281,6 +281,39 @@ class EntryCreateTests(TestCase):
         )
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.url, reverse("author_profile", args=[self.author.serial]))
+        
+    @patch("core.federation.send_to_author_inbox")
+    def test_create_entry_sends_to_remote_entry_authors(self, mock_send):
+        '''Creating a new entry sends that entry to the inboxes of all remote followers'''
+        mock_send.return_value = True, None
+        
+        remote_follower = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-follower",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote follower",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-follower/",
+        )
+        
+        Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
+        
+        self.client.force_login(self.user)
+        url = reverse("entry_create", args=[self.author.serial])
+        resp = self.client.post(
+            url,
+            data={
+                "content": "Creating entry should post to inbox",
+                "content_type": "text/plain",
+                "image_url": "",
+                "visibility": "PUBLIC",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_follower)
+        self.assertEqual(mock_send.call_args.args[1]['content'], 'Creating entry should post to inbox')        
 
 
 class EntryEditTests(TestCase):
@@ -338,6 +371,69 @@ class EntryEditTests(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.entry.refresh_from_db()
         self.assertEqual(self.entry.content, "Original")
+        
+    @patch("core.federation.send_to_author_inbox")
+    def test_edit_entry_sends_to_remote_entry_authors(self, mock_send):
+        '''Editing an entry updates that entry in the inboxes of all remote followers'''
+        mock_send.return_value = True, None
+        
+        remote_follower = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-follower",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote follower",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-follower/",
+        )
+        
+        Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
+        
+        self.client.force_login(self.user)
+        url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
+        resp = self.client.post(
+            url,
+            data={
+                "content": "Editing entry should post to inbox",
+                "content_type": "text/plain",
+                "image_url": "",
+                "visibility": "PUBLIC",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_follower)
+        self.assertEqual(mock_send.call_args.args[1]["content"], "Editing entry should post to inbox")@patch("core.federation.send_to_author_inbox")
+    def test_edit_entry_sends_to_remote_entry_authors(self, mock_send):
+        mock_send.return_value = True, None
+        
+        remote_follower = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-follower",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote follower",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-follower/",
+        )
+        
+        Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
+        
+        self.client.force_login(self.user)
+        url = reverse("entry_edit", args=[self.author.serial, self.entry.serial])
+        resp = self.client.post(
+            url,
+            data={
+                "content": "Editing entry should post to inbox",
+                "content_type": "text/plain",
+                "image_url": "",
+                "visibility": "PUBLIC",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_follower)
+        self.assertEqual(mock_send.call_args.args[1]["content"], "Editing entry should post to inbox")    
 
 
 class EntryDeleteTests(TestCase):
@@ -387,6 +483,31 @@ class EntryDeleteTests(TestCase):
         self.client.force_login(self.user)
         resp = self.client.get(reverse("author_profile", args=[self.author.serial]))
         self.assertNotContains(resp, "To delete")
+    
+    @patch("core.federation.send_to_author_inbox")
+    def test_delete_entry_updates_remote_entry_authors(self, mock_send):
+        '''Deleting an entry sends an update for that entry to the inboxes of all remote followers'''
+        mock_send.return_value = True, None
+        
+        remote_follower = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/remote-follower",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote follower",
+            github="",
+            profileImage="https://example.com/image.png",
+            web="http://remote-node-a.example.com/authors/remote-follower/",
+        )
+        
+        Follow.objects.create(actor=remote_follower, target=self.author, status="ACCEPTED")
+        
+        self.client.force_login(self.user)
+        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
+        resp = self.client.post(url)
+        self.assertEqual(resp.status_code, 302)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], remote_follower)
+        self.assertEqual(mock_send.call_args.args[1]["visibility"], "DELETED")    
 
 
 class EntryViewPageInteractionTests(TestCase):
