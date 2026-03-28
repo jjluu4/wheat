@@ -66,6 +66,32 @@ ___
 | 404 Not Found | The requested content could not be found. |
 
 ___
+## Browser-Safe Media Routes
+
+<p>The web UI only embeds same-node image URLs. Author avatars, entry images, and allowlisted remote markdown images are loaded through the routes below so the browser never needs to request configured remote-node media directly.</p>
+
+**GET /api/authors/{author_serial}/profile-image/**
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/profile-image/
+
+**Description:** Retrieve an author avatar through this node. Same-node avatar URLs are redirected locally. Configured remote-node avatars are fetched server-side with the stored Basic Auth credentials. Missing or disallowed avatars fall back to the local placeholder image.
+
+**GET /api/media/image-proxy/?url={absolute_image_url}**
+> curl -X GET "http<nolink>:\//127.0.0.1:8000/api/media/image-proxy/?url=https%3A%2F%2Fpartner.example.com%2Fmedia%2Fexample.png"
+
+**Description:** Proxy an image through this node. Only same-node image URLs and URLs belonging to active configured remote nodes are allowed.
+
+**Proxy Error Codes:** <br>400 [Occurs if the URL is missing or not allowlisted], <br>404 [Occurs if the remote image does not exist], <br>502 [Occurs if the upstream response is not a successful image response], <br>503 [Occurs if the remote node cannot be reached]
+
+**Entry Image Routes**
+
+Existing image-entry routes also honor this same-origin behavior:
+
+- `GET /api/authors/{author_serial}/entries/{entry_serial}/image/`
+- `GET /api/entries/{entry_fqid}/image/`
+
+These routes now serve local uploads, local base64 image entries, and stored remote image-backed entries through this node.
+
+___
 ## Inbox API - Receive remote objects for a local author
 
 ___
