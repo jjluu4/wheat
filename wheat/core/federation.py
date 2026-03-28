@@ -6,12 +6,31 @@ from .models import Author, Entry
 
 
 def remote_authors_for_entry(author, visibility):
+    """
+    PUBLIC: every known author on a *different* node (same host as poster excluded so
+    co-locals already see the row locally). UNLISTED: accepted followers only.
+    FRIENDS: mutual follows only.
+    """
     followers = Author.objects.filter(
         following__target=author,
         following__status="ACCEPTED",
     ).exclude(host__contains="testserver")
 
-    if visibility in ("PUBLIC", "UNLISTED"):
+    if visibility == "PUBLIC":
+        poster_host = normalize_url(author.host or "")
+        candidates = Author.objects.exclude(host__contains="testserver").exclude(pk=author.pk)
+        if poster_host:
+            recipients = [
+                a
+                for a in candidates
+                if normalize_url(a.host or "") != poster_host
+            ]
+        else:
+            recipients = list(followers)
+        by_pk = {a.pk: a for a in recipients}
+        return list(by_pk.values())
+
+    if visibility == "UNLISTED":
         return list(followers)
 
     if visibility != "FRIENDS":
@@ -33,7 +52,8 @@ def send_to_author_inbox(target_author, payload, method="POST"):
 def distribute_payload_to_remote_recipients(author, payload, visibility, method="POST"):
     """
     Deliver arbitrary JSON to remote inboxes for the set of recipients allowed
-    by `visibility` (PUBLIC/UNLISTED -> followers, FRIENDS -> mutuals/friends).
+    by `visibility` (PUBLIC -> all known foreign-node authors, UNLISTED -> followers,
+    FRIENDS -> mutuals).
     """
     recipients = remote_authors_for_entry(author, visibility)
     failures = []
