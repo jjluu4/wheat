@@ -8,9 +8,13 @@ from ..models import Author, Entry, Follow
 from ..permissions import get_requesting_author, is_friend
 from ..github import fetch_public_events
 from ..github_to_entries import save_event_as_entry
-
+from ..federation import sync_remote_authors_and_public_entries
 def author_list(request):
     """Render a list of all authors ordered by display name."""
+    try:
+        sync_remote_authors_and_public_entries()
+    except Exception:
+        pass
     authors = Author.objects.order_by("displayName")
     return render(request, "core/author_list.html", {"authors": authors})
 
