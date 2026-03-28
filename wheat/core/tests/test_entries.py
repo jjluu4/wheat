@@ -2,7 +2,7 @@ from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid, urllib, base64
-from core.models import Author, Entry, Follow
+from core.models import Author, Entry, Follow, RemoteNode
 
 
 class AuthorsApiTests(APITestCase):
@@ -152,6 +152,25 @@ class EntriesApiTests(APITestCase):
             visibility="PUBLIC", 
             published=timezone.now()
         )
+        
+        self.friends_image_entry = Entry.objects.create(
+            author=self.friend, 
+            url=f"http://testserver/api/authors/{self.friend.serial}/entries/{uuid.uuid4()}", 
+            content=f"data:image/png;base64,{self.valid_base64}", 
+            content_type="image", 
+            visibility="FRIENDS", 
+            published=timezone.now()
+        )
+        
+        self.remote_node = RemoteNode.objects.create(
+            name="Remote Node",
+            base_url="https://remote.example.com",
+            api_base_url="https://remote.example.com/api",
+            username="remote-user",
+            password="remote-pass",
+            is_active=True,
+            notes="remote",
+        )        
 
     def testAuthorEntriesListUnauthOnlyPublic(self):
         """Unauthenticated user sees only public entries in author entries list."""
@@ -184,6 +203,15 @@ class EntriesApiTests(APITestCase):
         """Fetching a friends-only entry without authentication is rejected."""
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/")
         self.assertEqual(resp.status_code, 401)
+    
+    def testSingleEntryGetFriendsWithRemoteAuth(self):
+        """Fetching a friends-only entry with authentication is accepted."""
+        auth = base64.b64encode("remote-user:remote-pass".encode()).decode()
+        headers = {"Authorization": f"Basic {auth}"}
+        resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.friends_entry.serial}/", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["type"], "entry")
+        self.assertEqual(resp.data["content"], "Friends entry")    
 
     def testSingleEntryGetFriendsFriendCanView(self):
         """Friend can fetch a friends-only entry."""
@@ -271,6 +299,15 @@ class EntriesApiTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "image/png")
         self.assertEqual(resp.content, base64.b64decode(self.valid_base64))
+    
+    def testGetFriendsImageEntryRemote(self):
+        """Fetching a friends-only image entry with remote authentication returns its raw binary"""
+        auth = base64.b64encode("remote-user:remote-pass".encode()).decode()
+        headers = {"Authorization": f"Basic {auth}"}        
+        resp = self.client.get(f"/api/authors/{self.friend.serial}/entries/{self.friends_image_entry.serial}/image/", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "image/png")
+        self.assertEqual(resp.content, base64.b64decode(self.valid_base64))     
 
     def testGetFqidImageEntry(self):
         """Fetching an image entry via FQID returns raw binary."""
@@ -281,6 +318,16 @@ class EntriesApiTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "image/png")
         self.assertEqual(resp.content, base64.b64decode(self.valid_base64))
+    
+    def testGetFriendsImageEntryFqidRemote(self):
+        """Fetching a friends-only image entry with remote authentication through the fqid endpoint returns its raw binary"""
+        encoded_fqid = urllib.parse.quote(self.friends_image_entry.url, safe='')
+        auth = base64.b64encode("remote-user:remote-pass".encode()).decode()
+        headers = {"Authorization": f"Basic {auth}"}        
+        resp = self.client.get(f"/api/entries/{encoded_fqid}/image/", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "image/png")
+        self.assertEqual(resp.content, base64.b64decode(self.valid_base64))     
 
     def testImageEntryInvalidType(self):
         """Fetching the image endpoint on a text entry returns 404."""
