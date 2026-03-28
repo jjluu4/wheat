@@ -1,104 +1,31 @@
-# Overview
+<br><br><br>
 
-<p>The Wheat Social Distribution API allows for easy communication with the Wheat Social Distribution Web App. Using the Django Rest Framework, one can send and receive simple HTTP requests and responses to and from the Wheat Social Distribution Web App’s server. All of the information one needs to interact with this API can be found in the following document.</p>
+# Endpoints
 
-<p>All API object <code>id</code> fields are FQIDs: full URLs that uniquely identify the object on its home node.</p>
+## Author API
 
-# Where to Start
-
-<p>All one must technically do in order to begin making requests towards the API is know what the hostname of the node they wish to make requests to. </p>
-
-<p>However, certain requests made at specific endpoints may require signing up to successfully complete. The ability to make GET requests towards friends-only entries, as well as POST, PUT and DELETE requests are dependent upon specific user permissions, and will be denied in all cases where the user is not logged in. To sign up, one must only go to the address where their local node is currently running, press the “Sign up” button in the top right corner, and enter whatever username and password one finds appealing. This username and password can then be utilized when making requests to the API (how to achieve this is discussed below). </p>
-
-# HTTP Requests and Responses
-
-<p>One can interact with the Wheat Social Distribution API by making HTTP requests at specific API endpoints. This section goes over the general procedures when making requests and receiving responses with the API.</p>
-
-## Requests
-
-<p>There are a number of methods one can use to send an HTTP request. One of the most common methods is through CURL requests. An example of a simple GET request with CURL can be seen below.</p>
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/ 
-
-<p>As mentioned previously, some HTTP requests will require login in order to be successfully carried out. To achieve this, the format in the example GET request below can be applied to any type of CURL request. </p>
-
-> curl --user example_username:example_password -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/1ff24238-e302-40a9-b20c-96e6b32b23b1/
-
-<p>There are various types of HTTP requests that one can make. For the Wheat Social Distribution API there are up to four types of API requests that can be made depending on the particular endpoint. A summary of these different types with example CURL requests can be viewed below. </p>
-
-___
-#### Request Types
-| Request Type | Usage | Example Curl |
-| --------------- | --------------- | --------------- |
-| GET | Retrieves data from the server. For this API, data is retrieved in the form of a JSON. | curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/8d77aa07-b5ab-4532-8367-9973d287b36e/entries/5d65a728-df4e-44b7-a7f2-653fc73f2b14/  |
-| PUT | Modifies data in the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ -H "Content-Type: application/json" -d @/example/path.json |
-| POST | Sends data to the server. For this API, sent data should be in the form of a JSON object. Correct JSON representations for specific API endpoints can be found further down. | curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13/entries/ -H "Content-Type: application/json" -d @/example/path.json |
-| DELETE | Deletes data from the server. With this API, data is typically not deleted, but rather marked as “Deleted” such that it won’t ever show up in the UI, but can still technically be accessed later | curl -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/c6ede70c-0130-4b20-951c-d9bb8ad5a24e/entries/812ceb53-c4fe-4897-861c-9e672bf366f8/ |
-
-___
-#### Pagination
-
-Pagination, where a request will return the **x** th page of results with **y** results per page, can be used with certain endpoints by using the format seen in the example below. One can find which endpoints do and do not support pagination further down in this documentation, in the section on API Endpoints.
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors?page=**x**&size=**y**
-
-___
-## Responses
-
-<p>Once an HTTP request has been made, the API user will receive a response code concerning their request’s status (and possibly some data alongside it). If the response code comes back in the format 2XX, it means the request was processed successfully. If a response code with format 4XX is returned, it means that something went wrong while processing the request. In the table below, one can find a complete list of response codes one will encounter while using this API, as well as more specific meanings for each one. </p>
-
-| Response | Meaning |
-| --------------- | --------------- |
-| 200 Ok | The request has succeeded. |
-| 201 Created | A new object has been successfully created. Typically appears after successful PUT or POST requests. |
-| 204 No Content | The request has been successfully completed, but no content was returned. Typically appears after successful DELETE requests. |
-| 400 Bad Request | The request is invalid in some way. Typically suggests incorrect syntax within the request. |
-| 401 Unauthorized | The user making this request has not been authenticated to make the specified http request (In other words, logging in is probably required to make this request). |
-| 403 Forbidden | The user making this request does not have sufficient permissions to view the requested content. |
-| 404 Not Found | The requested content could not be found. |
-
-# Objects
-
-<p>The following section goes over the numerous JSON “Objects” that represent different parts of the Wheat Social Distribution Web App. These objects are utilized when interacting with API endpoints, both as data being sent to the server, and data being received from the server. This section covers the major endpoints that are associated with each object type, the requests and responses associated with those endpoints, and the make-up of each object, providing examples for reference. </p>
-
-# API Endpoints and Their Objects
-
-<p>The following section covers each of the API Endpoints that one can interact with while using this API. For each endpoint a template is provided for the general layout of each endpoint. An example curl command is also provided for each viable request type at each endpoint, as well as the response behavior that comes about from that command. A list of possible error response codes is also provided for each example. </p>
-
-___
-## Authors API - Retrieve a list of authors
-
-___
-#### Endpoint Pattern
-
-Non-Paginated:
-> \<Node Address\>/api/authors
-
-Paginated:
-> \<Node Address\>/api/authors?page=\<Page Number\>&size=\<Results Per Page\>
-
-___
-#### GET Request with curl
-
+**GET /api/authors**
 > curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors
 
-> **RETURNS “Authors Object” with Code=200**
+**Description:** Retrieve a list of all authors.
 
-Possible Error Codes: <br>NONE
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
 
-___
-## Authors Object
+#### Example with Query Keywords
+GET /api/authors?page={page_number}&size={size}
 
-Represents a set of Authors on the Wheat Social Distribution Web App. 
+#### Response Body
 
-#### Object Fields
+```
+{
+    "type": string,
+    "authors": List<Author>
+}
+```
 
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For an authors object this will always be set as “authors”. |
-| “authors” | Array | JSON array of Author Objects. |
-
-#### Example of Authors Object
+#### Example Response
 
 ```
 {
@@ -128,53 +55,34 @@ Represents a set of Authors on the Wheat Social Distribution Web App.
 }
 ```
 
-___
-## Author API - Retrieve an author. Edit information about an author through the API
+#### Status Codes
+200 - Success<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**GET /api/authors/{author_serial}/**
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/
 
-> \<Node Address\>/api/authors/\<Author Serial\>/
+**Description:** Retrieve one specific author.
 
-___
-#### GET Request with curl
+#### Parameters
+author_serial (string): The UUID of an author.
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/
+#### Response Body
 
-> **RETURNS “Author Object” with Code=200**
+```
+{
+    "type": string,
+    "serial": string,
+    "id": string,
+    "host": string,
+    "displayName": string,
+    "github": string,
+    "profileImage": string,
+    "web": string
+}
+```
 
-Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-#### PUT Request with curl
-
-> curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
-
-> **EDITS Author in database with Code=200**
-
-Edits the Author with the corresponding serial in the database according to the “Author Object” contained in “exampleFile.json”. If successful returns Code=200
-
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to edit an author they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Author Object
-
-Represents a single user on the Wheat Social Distribution Web App.
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For an author object this will always be set as “author” |
-| “serial” | String | A unique identifier that is associated with a single author on a particular node. |
-| “id” | URL | The FQID (fully qualified id) of this particular author object. |
-| “host” | URL | The url of the host node that the author exists on. |
-| “displayName” | String | The author’s display name on the Wheat social distribution platform. |
-| “github” | URL | The link to the author’s connected github account. |
-| “profileImage” | URL | A link to the author’s chosen profile picture. |
-| “web” | URL | The web link to the author’s profile page. |
-
-#### Example of Author Object
+#### Example Response
 
 ```
 {
@@ -189,162 +97,451 @@ Represents a single user on the Wheat Social Distribution Web App.
 }
 ```
 
-___
-## Entries API - Retrieve a list of entries created by an author. Create a new entry through the API
+#### Status Codes
+200 - Success<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**PUT /api/authors/{author_serial}/**
+> curl --user <example_username>:<example_password> -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/
 
-Non-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/
+**Description:** Edit a specific author.
 
-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/?page=\<Page Number\>&size=\<Results Per Page\>
+#### Auth
+<example_username>: username of author connected to <author_serial>
+<example_password>: password for author connected to <author_serial>
 
-___
-#### GET Request with curl
+#### Parameters
+author_serial (string): The UUID of an author.
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/
-
-> **RETURNS “Entries Object” with Code=200**
-
-Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-#### POST Request with curl
-
-> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
-
-> **CREATES Entry in database with Code=201**
-
-Creates a new Entry in the database under the Author with the corresponding serial according to the “Entry Object” contained in “exampleFile.json”. If successful returns Code=201
-
-Possible Error Codes: <br>400 [Occurs if the contentType is listed as “Image” but no ImageUrl is provided], <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to post an entry for an author they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Entries Object
-
-Represents a set of Entries on the Wheat Social Distribution Web App. 
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For an entries object this will always be set as “entries”. |
-| “page_number” | Integer | The page number corresponding to the associated entries. |
-| “size” | Integer | The number of entry objects contained within the entries object, as well as the number per page in respect to the page number. |
-| “count” | Integer | The total number of entries under the given author. |
-| “src” | Array | JSON array of Entry Objects. |
-
-#### Example of Entries Object
+#### Request Body
 
 ```
 {
-    "type": "entries",
-    "page_number": 1,
-    "size": 5,
-    "count": 1,
-    "src": [
-        {
-            "type": "entry",
-            "title": "Typing",
-            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588",
-            "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/",
-            "description": "I am typing on the computer. :)",
-            "contentType": "text/markdown",
-            "content": "I am typing on the computer. :)",
-            "imageUrl": "",
-            "author": {
-                "type": "author",
-                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
-                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
-                "host": "http://127.0.0.1:8000/api/",
-                "displayName": "Johnson",
-                "github": "https://github.com/Johnson",
-                "profileImage": "https://placehold.co/150x150.png",
-                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
-            },
-            "published": "2026-03-16T12:45:27.099220Z",
-            "visibility": "PUBLIC",
-            "likes": {
-                "type": "likes",
-                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
-                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
-                "page_number": 1,
-                "size": 50,
-                "count": 0,
-                "src": []
-            }
-        }
-    ],
-    }
+    "type": string,
+    "serial": string,
+    "id": string,
+    "host": string,
+    "displayName": string,
+    "github": string,
+    "profileImage": string,
+    "web": string
+}
 ```
 
-___
-## Entry API - Retrieve an entry. Edit an entry. Delete an entry.
+#### Example Request
 
-___
-#### Endpoint Pattern
+```
+{
+    "type": "author",
+    "serial": "02309c0a-b28d-457d-815c-2ce5722bad13",
+    "id": "http://127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13",
+    "host": "http://127.0.0.1:8000/api/",
+    "displayName": "NewAccount2",
+    "github": "https://github.com/NewAccount2",
+    "profileImage": "https://placehold.co/150x150.png",
+    "web": "http://127.0.0.1:8000/authors/02309c0a-b28d-457d-815c-2ce5722bad13/"
+}
+```
 
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-> \<Node Address\>/api/entries/\<Entry FQID\>/
+**GET /api/authors/{author_fqid}/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}
 
-___
-#### GET Request with curl
+**Description:** Retrieve one specific author.
 
-> curl -X GET http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
+#### Auth
+<example_username>: username of remote node <author_fqid> originates from
+<example_password>: password  for remote node <author_fqid> originates from
 
-> curl -X GET http<nolink>://127.0.0.1:8000/api/entries/http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
+#### Parameters
+author_fqid (string): The FQID of an author
 
-> **RETURNS “Entry Object” with Code=200**
+#### Response Body
 
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>404 [Occurs if Author Serial does not exist in database]
+```
+{
+    "type": string,
+    "serial": string,
+    "id": string,
+    "host": string,
+    "displayName": string,
+    "github": string,
+    "profileImage": string,
+    "web": string
+}
+```
 
-___
-#### PUT Request with curl
+#### Example Response
 
-> curl --user example_username:example_password -X PUT http<nolink>://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+```
+{
+    "type": "author",
+    "serial": "02309c0a-b28d-457d-815c-2ce5722bad13",
+    "id": "http://127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13",
+    "host": "http://127.0.0.1:8000/api/",
+    "displayName": "NewAccount2",
+    "github": "https://github.com/NewAccount2",
+    "profileImage": "https://placehold.co/150x150.png",
+    "web": "http://127.0.0.1:8000/authors/02309c0a-b28d-457d-815c-2ce5722bad13/"
+}
+```
 
-> **EDITS Entry in database with Code=200**
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+500 - Internal Server Error<br>
 
-Edits the Entry with the corresponding serial in the database according to the “Entry Object” contained in “exampleFile.json”. If successful returns Code=200
+## Following API
 
-Possible Error Codes: <br>400 [Occurs if the contentType is listed as “Image” but no ImageUrl is provided], <br>401 [Occurs if user has not logged in], <br> 403 [Occurs if user attempts to edit an entry for an author they do not have permission to], <br> 404 [Occurs if Entry does not exist in database]
+**GET /api/authors/{author_serial}/following**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/following
 
-___
-#### DELETE Request with curl
+**Description:** Retrieve a list of authors that an author is following
 
-> curl -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/07f29235-2621-4f59-89dc-70c2f2cee588/
+#### Auth
+<example_username>: username of author
+<example_password>: password for author
 
-> **DELETES “Entry Object” with Code=204**
+#### Parameters
+author_serial (string): The UUID of an author
 
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to delete an entry for an author they do not have permission to]
+#### Response Body
 
-___
-## Entry Object
+```
+{
+    "type": string,
+    "following”: List<Author>
+}
+```
 
-Represents a single entry on the Wheat Social Distribution Web App. Entry Objects with visibility as “Friends” can only be requested by users who are friends with the associated author. Objects listed as “Deleted” can only be requested by the Admin of the Node.
+#### Example Response
 
-#### Object Fields
+```
+{
+    "type": "following",
+    "following": [
+        {
+            "type": "author",
+            "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+            "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+            "host": "http://127.0.0.1:8000/api/",
+            "displayName": "NewAccount",
+            "github": "https://github.com/NewAccount",
+            "profileImage": "https://placehold.co/150x150.png",
+            "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+        }
+    ]
+}
+```
 
-| Key | Value Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For an Entry object this will always be set as “entry” |
-| “title” | String | The title of the entry as it shows up on the web app. |
-| “id” | URL |The FQID (fully qualified id) of this particular entry object. |
-| “web” | URL | The link to the entry’s web page. |
-| “description” | String | The description of the entry as it shows up on the web app. |
-| “contentType” | String | Denotes the type of content contained within the entry. Can be either “text/plain”, “text/markdown”, or “image” |
-| “content” | String | The content of the entry as it shows up on the web app. |
-| “imageUrl” | URL | The url for the entry’s image. Used only when the content type of the post is “image”. This field is an empty string when the content type is anything other than “image”. |
-| “author” | Author Object | An Author Object which corresponds to the Author of the given Entry. See above for more information on Author Objects. |
-| “published” | Date and Time | The date and time when the given Entry was published. |
-| “visibility” | String | Denotes the visibility of the post to others based on the Author’s preferences while posting. Will show up as either “Public”, “Unlisted”, “Friends”, or “Deleted”. |
-| “likes” | Likes Object | A Likes Object which shows a page of up to fifty likes received by the given Entry on the web app. See below for more information on Likes Objects. |
-| “comments” | Comments Object | A Comments Object which shows a page of up to five comments made under the given Entry on the web app. See below for more information on Comments Objects. |
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-#### Example of Entry Object
+**GET /api/authors/{author_serial}/following/{foreign_author_fqid}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/following/{foreign_author_fqid}
+
+**Description:** Check if a local author is following a remote author.
+
+#### Auth
+<example_username>: username of author connected with author_serial
+<example_password>: password for author connected with author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author
+foreign_author_fqid (string): The FQID of a remote author
+
+#### Response Body
+
+```
+{"is_following": Boolean}
+```
+
+#### Example Response
+
+```
+{"is_following": True}
+```
+
+
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**PUT /api/authors/{author_serial}/following/{foreign_author_fqid}**
+> curl --user <example_username>:<example_password> -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/following/{foreign_author_fqid}
+
+**Description:** Generates a follow request by a local author for a remote author.
+
+#### Auth
+<example_username>: username of author connected with author_serial
+<example_password>: password for author connected with author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author
+foreign_author_fqid (string): The FQID of a remote author
+
+#### Status Codes
+204 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+502 - Delivery Error<br>
+
+**DELETE /api/authors/{author_serial}/following/{foreign_author_fqid}**
+> curl --user <example_username>:<example_password> -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/following/{foreign_author_fqid}
+
+**Description:** Unfollows local author from remote author.
+
+#### Auth
+<example_username>: username of author connected with author_serial
+<example_password>: password for author connected with author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author
+foreign_author_fqid (string): The FQID of a remote author
+
+#### Status Codes
+204 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+
+## Followers API
+
+**GET /api/authors/{author_serial}/followers**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/followers
+
+**Description:** Retrieve a list of authors who are followers of an author
+
+#### Auth
+<example_username>: username of author
+<example_password>: password for author
+
+#### Parameters
+author_serial (string): The UUID of an author
+
+#### Response Body
+
+```
+{
+    "type": string,
+    "following”: List<Author>
+}
+```
+
+#### Example Response
+
+```
+{
+    "type": "followers",
+    "followers": [
+        {
+            "type": "author",
+            "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+            "host": "http://127.0.0.1:8000/api/",
+            "displayName": "Johnson",
+            "github": "https://github.com/Johnson",
+            "profileImage": "https://placehold.co/150x150.png",
+            "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+        }
+
+    ]
+}
+```
+
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**GET /api/authors/{author_serial}/followers/{foreign_author_fqid}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/followers/{foreign_author_fqid}
+
+**Description:** Check if a remote author follows a local author.
+
+#### Auth
+<example_username>: username of author connected with author_serial *or* username of remote node of author_fqid
+<example_password>: password for author connected with author_serial *or* password for remote node of author_fqid
+
+#### Parameters
+author_serial (string): The UUID of an author
+foreign_author_fqid (string): The FQID of a remote author
+
+#### Response Body
+
+```
+{"is_follower": Boolean}
+```
+
+#### Example Response
+
+```
+{"is_follower": True}
+```
+
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**PUT /api/authors/{author_serial}/followers/{foreign_author_fqid}**
+> curl --user <example_username>:<example_password> -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/followers/{foreign_author_fqid}
+
+**Description:** Accept a follow request from a remote author
+
+#### Auth
+<example_username>: username of author connected with author_serial
+<example_password>: password for author connected with author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author
+foreign_author_fqid (string): The FQID of a remote author
+
+#### Status Codes
+204 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+502 - Delivery Error<br>
+
+**DELETE /api/authors/{author_serial}/followers/{foreign_author_fqid}**
+> curl --user <example_username>:<example_password> -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/followers/{foreign_author_fqid}
+
+**Description:** Remove a remote author as a follower of a local author.
+
+#### Auth
+<example_username>: username of author connected with author_serial
+<example_password>: password for author connected with author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author
+foreign_author_fqid (string): The FQID of a remote author
+
+#### Status Codes
+204 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+## Follow Request API
+
+**GET /api/authors/{author_serial}/follow_requests**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/follow_requests
+
+**Description:** Retrieve a list of authors that have made follow requests to an author.
+
+#### Auth
+<example_username>: username of author
+<example_password>: password for author
+
+#### Parameters
+author_serial (string): The UUID of an author
+
+#### Response Body
+
+```
+{
+    "type": string,
+    "summary”: string,
+    "actor”: Author,
+    "object”: Author
+}
+```
+
+#### Example Response
+
+```
+[
+    {
+        "type": "follow",
+        "summary": "NewAccount1 wants to follow NewAccount2",
+        "actor": {
+            "type": "author",
+            "serial": "a1c2ddb7-f5a1-4854-a79e-b04113c33c39",
+            "id": "http://127.0.0.1:8000/api/authors/da1638bc-2f5a-4ef9-9531-2d090c6eac16",
+            "host": "http://127.0.0.1:8000/api",
+            "displayName": "NewAccount1",
+            "github": "https://github.com/NewAccount1",
+            "profileImage": "https://placehold.co/150x150.png",
+            "web": "http://127.0.0.1:8000/authors/da1638bc-2f5a-4ef9-9531-2d090c6eac16/"
+        },
+        "object": {
+            "type": "author",
+            "serial": "1c910cfb-348c-407d-9ad5-f6859b74d308",
+            "id": "http://127.0.0.1:8002/api/authors/1c910cfb-348c-407d-9ad5-f6859b74d308",
+            "host": "http://127.0.0.1:8002/api",
+            "displayName": "NewAccount2",
+            "github": "https://github.com/NewAccount2",
+            "profileImage": "https://placehold.co/150x150.png",
+            "web": "http://127.0.0.1:8002/authors/1c910cfb-348c-407d-9ad5-f6859b74d308/"
+        }
+    }
+]
+```
+
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+## Entries API
+
+**GET /api/authors/{author_serial}/entries/{entry_serial}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}
+
+**Description:** Retrieve an entry
+
+#### Auth
+<example_username>: username of an author (should be friend to access friends-only entries locally) *or* username of remote node of author_serial
+<example_password>: password for an author (should be friend to access friends-only entries locally) *or* password for remote node of author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author
+entry_serial (string): The UUID of an entry
+
+#### Response Body
+
+```
+{
+    "type": string,
+    "title”: string,
+    "id": string,
+    "web”: string,
+    "description": string,
+    "contentType”: string,
+    "imageUrl": string,
+    "author”: Author,
+    "published": Date,
+    "visibility”: Author,
+    "likes": List<Like>,
+    "comments”: List<Comment>,
+}
+```
+
+#### Example Response
 
 ```
 {
@@ -435,253 +632,428 @@ Represents a single entry on the Wheat Social Distribution Web App. Entry Object
 }
 ```
 
-___
-## Image Entry API - Get an entry's image directly.
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**PUT /api/authors/{author_serial}/entries/{entry_serial}**
+> curl --user <example_username>:<example_password> -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}
 
-> \<Node Address\>/api/authors/<Author Serial\>/entries/\<Entry Serial\>/image/
+**Description:** Edit an entry
 
-> \<Node Address\>/api/entries/\<Entry FQID\>/image/
+#### Auth
+<example_username>: username of an author connected to author_serial
+<example_password>: password for an author connected to author_serial
 
-___
-#### GET Request with curl
+#### Parameters
+author_serial (string): The UUID of an author
+entry_serial (string): The UUID of an entry
 
-> curl -X GET http<nolink>://127.0.0.1:8000/api/authors/a7fd7cd9-5d3a-4721-b3c7-e6aa86589ad1/entries/7ad06688-edad-404c-8640-f3c508ea54ba/image/
-
-> curl -X GET http<nolink>://127.0.0.1:8000/api/entries/http<nolink>://127.0.0.1:8000/api/authors/a7fd7cd9-5d3a-4721-b3c7-e6aa86589ad1/entries/7ad06688-edad-404c-8640-f3c508ea54ba/image/
-
-> **RETURNS base-64 encoded Image directly**
-
-Possible Error Codes: <br>400 [Occurs if user provides invalid image data], <br>403 [Occurs if user has not logged in], <br>404 [Occurs if the requested image cannot be found or is not an image entry.]
-
-___
-## Follow Requests API - Get a list of follow requests for an author
-
-___
-#### Endpoint Pattern
-
-> \<Node Address\>/api/authors/\<Author Serial\>/follow_requests
-___
-#### GET Request with curl
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/follow_requests
-
-> **RETURNS JSON Array of “Author Objects” with Code=200**
-
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to view an image they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Author Object
-
-Represents a single user on the Wheat Social Distribution Web App.
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For an author object this will always be set as “author” |
-| “serial” | String | A unique identifier that is associated with a single author on a particular node. |
-| “id” | URL | The FQID (fully qualified id) of this particular author object. |
-| “host” | URL | The url of the host node that the author exists on. |
-| “displayName” | String | The author’s display name on the Wheat social distribution platform. |
-| “github” | URL | The link to the author’s connected github account. |
-| “profileImage” | URL | A link to the author’s chosen profile picture. |
-| “web” | URL | The web link to the author’s profile page. |
-
-#### Example of Author Object
+#### Request Body
 
 ```
 {
-    "type": "author",
-    "serial": "02309c0a-b28d-457d-815c-2ce5722bad13",
-    "id": "http://127.0.0.1:8000/api/authors/02309c0a-b28d-457d-815c-2ce5722bad13",
-    "host": "http://127.0.0.1:8000/api/",
-    "displayName": "NewAccount2",
-    "github": "https://github.com/NewAccount2",
-    "profileImage": "https://placehold.co/150x150.png",
-    "web": "http://127.0.0.1:8000/authors/02309c0a-b28d-457d-815c-2ce5722bad13/"
+    "type": string,
+    "title”: string,
+    "id": string,
+    "web”: string,
+    "description": string,
+    "contentType”: string,
+    "imageUrl": string,
+    "author”: Author,
+    "published": Date,
+    "visibility”: Author,
+    "likes": List<Like>,
+    "comments”: List<Comment>,
 }
 ```
 
-___
-## Author Following API - Get the list of people an author is following
-
-___
-#### Endpoint Pattern
-
-> \<Node Address\>/api/authors/\<Author Serial\>/following
-
-___
-#### GET Request with curl
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following
-
-> **RETURNS “Following Object” with Code=200**
-
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to view following list of an author they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Following Object
-
-Represents a set of Authors who are followed by another specified author on the Wheat Social Distribution Web App. 
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a following object this will always be set as “following”. |
-| “following” | Array | JSON array of Author Objects. Each author in this array is one who is followed by the author who was associated with the request. |
-
-#### Example of Following Object
+#### Example Request
 
 ```
 {
-    "type": "following",
-    "following": [
-        {
-            "type": "author",
-            "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-            "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-            "host": "http://127.0.0.1:8000/api/",
-            "displayName": "NewAccount",
-            "github": "https://github.com/NewAccount",
-            "profileImage": "https://placehold.co/150x150.png",
-            "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+            "type": "entry",
+            "title": "Typing",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588",
+            "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/",
+            "description": "I am typing on the computer. :)",
+            "contentType": "text/markdown",
+            "content": "I am typing on the computer. :)",
+            "imageUrl": "",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "published": "2026-03-16T12:45:27.099220Z",
+            "visibility": "PUBLIC",
+            "likes": {
+                "type": "likes",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
+                "page_number": 1,
+                "size": 50,
+                "count": 0,
+                "src": []
+            }
         }
-    ]
 }
 ```
 
-___
-## Following API - Check if an author is following another author on a different node. Unfollow a remote user through the API. Make a follow request to a remote author.
+#### Status Codes
+200 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**DELETE /api/authors/{author_serial}/entries/{entry_serial}**
+> curl --user <example_username>:<example_password> -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}
 
-api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>
-> \<Node Address\>/api/authors/\<Author Serial\>/following/\<Foreign Author FQID\>
+**Description:** Delete an entry
 
-___
-#### GET Request with curl
+#### Auth
+<example_username>: username of author connected to author_serial
+<example_password>: password for author connected to author_serial
 
-> curl -X GET http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+#### Parameters
+author_serial (string): The UUID of an author
+entry_serial (string): The UUID of an entry
 
-> **RETURNS “Is Following Boolean Value” with Code=200**
+#### Status Codes
+204 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-Example of return dict: {"is_following": False}
+**GET /api/entries/{entry_fqid}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}
 
-Possible Error Codes: <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to a follow request for an author they do not have permission to], <br> 404 [Occurs if either author is not retrievable]
+**Description:** Retrieve an entry with the fqid
 
-___
-#### PUT Request with curl
+#### Auth
+<example_username>: username of an author (should be friend to access friends-only entries locally)
+<example_password>: password for an author (should be friend to access friends-only entries locally)
 
-> curl --user example_username:example_password -X PUT hhttp<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+#### Parameters
+entry_fqid (string): The FQID of an entry
 
-> **Creates follow request in database with Code=204**
+#### Response Body
 
-Creates a follow request towards an author on a remote node with the corresponding serial in the database contained in “exampleFile.json”. If successful returns Code=204
+```
+{
+    "type": string,
+    "title”: string,
+    "id": string,
+    "web”: string,
+    "description": string,
+    "contentType”: string,
+    "imageUrl": string,
+    "author”: Author,
+    "published": Date,
+    "visibility”: Author,
+    "likes": List<Like>,
+    "comments”: List<Comment>,
+}
+```
 
-Possible Error Codes:<br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to a follow request for an author they do not have permission to], <br> 404 [Occurs if either author is not retrievable]
+#### Example Response
 
-___
-#### DELETE Request with curl
+```
+{
+            "type": "entry",
+            "title": "Typing",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588",
+            "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/",
+            "description": "I am typing on the computer. :)",
+            "contentType": "text/markdown",
+            "content": "I am typing on the computer. :)",
+            "imageUrl": "",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "published": "2026-03-16T12:45:27.099220Z",
+            "visibility": "PUBLIC",
+            "likes": {
+                "type": "likes",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
+                "page_number": 1,
+                "size": 50,
+                "count": 0,
+                "src": []
+            }
+        }
+}
+```
 
-> curl -X DELETE http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-> **Unfollows foreign author with Code=204**
+**GET /api/authors/{author_serial}/entries/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/
 
-Possible Error Codes: <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to unfollow an author for an author they do not have permission to], <br> 404 [Occurs if acting author is not retrievable]
+**Description:** Retrieve a list of entries from an author
 
-___
-## Followers API - Check if an author is followed by another author on a different node. Remove a remote author as a follower through the API. Accept a follow request to a remote author.
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries)
+<example_password>: password for author (should be friend of author_serial for friends-only entries)
 
-___
-#### Endpoint Pattern
+#### Parameters
+author_serial (string): The UUID of an author.
 
-api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>
-> \<Node Address\>/api/authors/\<Author Serial\>/followers/\<Foreign Author FQID\>
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
 
-___
-#### GET Request with curl
+#### Example with Query Keywords
+GET /api/authors/{author_serial}/entries/?page={page_number}&size={size}
 
-> curl -X GET http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/followers/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+#### Response Body
 
-> **RETURNS “Is Follower Boolean Value” with Code=200**
+```
+{
+    "type": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Entry>
+}
+```
 
-Example of return dict: {"is_follower": True}
+#### Example Response
 
-Possible Error Codes: <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts check follower status for an author they do not have permission to], <br> 404 [Occurs if author is not retrievable]
+```
+{
+{
+    "type": "entries",
+    "page_number": 1,
+    "size": 5,
+    "count": 1,
+    "src": [
+        {
+            "type": "entry",
+            "title": "Typing",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588",
+            "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/",
+            "description": "I am typing on the computer. :)",
+            "contentType": "text/markdown",
+            "content": "I am typing on the computer. :)",
+            "imageUrl": "",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "published": "2026-03-16T12:45:27.099220Z",
+            "visibility": "PUBLIC",
+            "likes": {
+                "type": "likes",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/",
+                "page_number": 1,
+                "size": 50,
+                "count": 0,
+                "src": []
+            }
+        }
+    ],
+    }
+}
+```
 
-___
-#### PUT Request with curl
+#### Status Codes
+200 - Success<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-> curl --user example_username:example_password -X PUT hhttp<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+**POST /api/authors/{author_serial}/entries/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/
 
-> **Creates follow request in database with Code=204**
+**Description:** Retrieve a list of entries from an author
 
-Creates a follow request towards an author on a remote node with the corresponding serial in the database contained in “exampleFile.json”. If successful returns Code=204
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries)
+<example_password>: password for author (should be friend of author_serial for friends-only entries)
 
-Possible Error Codes:<br>400 [Occurs if request could not be properly processed], <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to accept a follow request on behalf of an author they do not have permission to], <br> 404 [Occurs if either author is not retrievable]
+#### Parameters
+author_serial (string): The UUID of an author.
 
-___
-#### DELETE Request with curl
+#### Request Body
 
-> curl -X DELETE http<nolink>://127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/following/667e4fe1-90e7-4b64-b0bf-d17d7fd0d4d3/127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/
+```
+{
+    "type": string,
+    "title”: string,
+    "id": string,
+    "web”: string,
+    "description": string,
+    "contentType”: string,
+    "imageUrl": string,
+    "author”: Author,
+    "published": Date,
+    "visibility”: Author,
+    "likes": List<Like>,
+    "comments”: List<Comment>,
+}
+```
 
-> **Unfollows foreign author with Code=204**
+#### Example Request
 
-Possible Error Codes:<br>400 [Occurs if request could not be properly processed], <br>401 [Occurs if user has not been properly authenticated], <br>403 [Occurs if user attempts to remove an author as a follower on behalf of an author they do not have permission to], <br> 404 [Occurs if author is not retrievable]
+```
+{
+            "type": "entry",
+            "title": "Entry",
+            "description": "Example.",
+            "contentType": "text/markdown",
+            "content": "This is an example entry.",
+            "imageUrl": "",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "published": "2026-03-16T12:45:27.099220Z",
+            "visibility": "PUBLIC",
+}
+```
 
-___
-## Commented API - Get a list of an author’s comments. Post a comment through the API.
+#### Status Codes
+201 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**GET /api/authors/{author_serial}/entries/{entry_serial}/image**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/image
 
-Non-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/commented/
+**Description:** Retrieve an image from an image entry
 
-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/commented/?page=\<Page Number\>&size=\<Results Per Page\>
+#### Auth
+<example_username>: username of an author (should be friend to access friends-only entries locally) *or* username of remote node of author_serial
+<example_password>: password for an author (should be friend to access friends-only entries locally) *or* password for remote node of author_serial
 
-___
-#### GET Request with curl
+#### Parameters
+author_serial (string): The UUID of an author.
+entry_serial (string): The UUID of an entry.
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/
+#### Response Body
+```
+{Image Encoded As Binary Data}
+```
 
-> **RETURNS “Comments Object” with Code=200**
+#### Example Response
+```
+{b'\xff\xd8\xff\xe0\x00\x10JFI………’}
+```
 
-Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in database]
+#### Status Codes
+200 - Success<br>
+400 - Invalid Request<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+503 - Failure to Connect to Remote Node<br>
 
-___
-#### POST Request with curl
+**GET /api//entries/{entry_fqid}/image**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api//entries/{entry_fqid}/image
 
-> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+**Description:** Retrieve an image from an image entry using fqid
 
-> **CREATES Comment in database with Code=201**
+#### Auth
+<example_username>: username of an author (should be friend to access friends-only entries locally) *or* username of remote node of author_serial
+<example_password>: password for an author (should be friend to access friends-only entries locally) *or* password for remote node of author_serial
 
-Creates a new Comment in the database under the Author with the corresponding serial according to the “Comment Object” contained in “exampleFile.json”. If successful returns Code=201
+#### Parameters
+entry_fqid (string): The FQID of an entry.
 
-Possible Error Codes: <br>400 [Occurs if syntax is incorrect for provided Comment Object], <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to post a comment for an author they do not have permission to], <br>404 [Occurs if Author Serial does not exist in database]
+#### Response Body
+```
+{Image Encoded As Binary Data}
+```
 
-___
-## Comments Object
+#### Example Response
+```
+{b'\xff\xd8\xff\xe0\x00\x10JFI………’}
+```
 
-Represents a set of Entries on the Wheat Social Distribution Web App. 
+#### Status Codes
+200 - Success<br>
+400 - Invalid Request<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+502 - Remote Node Error<br>
+503 - Failure to Connect to Remote Node<br>
 
-#### Object Fields
+## Comments API
 
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a comments object this will always be set as “comments”. |
-| “page_number” | Integer | The page number corresponding to the associated comments |
-| “size” | Integer | The number of comment objects contained within the comments object, as well as the number per page in respect to the page number. |
-| “count” | Integer | The total number of comments under the given entry. |
-| “src” | Array | JSON array of Comment Objects. |
+**GET /api/authors/{author_serial}/entries/{entry_serial}/comments**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments
 
-#### Example of Comments Object
+**Description:** Retrieve a list of comments on an entry
+
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
+<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+
+#### Parameters
+author_serial (string): The UUID of an author.
+entry_serial (string): The UUID of an entry.
+
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
+
+#### Example with Query Keywords
+GET /api/authors/{author_serial}/entries/{entry_serial}/comments?page={page_number}&size={size}
+
+#### Response Body
+
+```
+{
+    "type": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Comment>
+}
+```
+
+#### Example Response
 
 ```
 {
@@ -722,43 +1094,45 @@ Represents a set of Entries on the Wheat Social Distribution Web App.
 }
 ```
 
-___
-## Comments API - Get a list of comments made under an entry
+#### Status Codes
+200 - Success<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**GET /api/entries/{entry_fqid}/comments**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/comments
 
-Non-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/comments/
+**Description:** Retrieve a list of comments on an entry with an fqid
 
-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/comments/?page=\<Page Number\>&size=\<Results Per Page\>
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
+<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
 
-___
-#### GET Request with curl
+#### Parameters
+author_serial (string): The UUID of an author.
+entry_serial (string): The UUID of an entry.
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
 
-> **RETURNS “Comments Object” with Code=200**
+#### Example with Query Keywords
+GET /api/entries/{entry_fqid}/comments?page={page_number}&size={size}
 
-Possible Error Codes: <br>403 [Occurs if user attempts to access comments for an entry they do not have permission to access], <br>404 [Occurs if Entry Serial does not exist in database]
+#### Response Body
 
-___
-## Comments Object
+```
+{
+    "type": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Comment>
+}
+```
 
-Represents a set of Entries on the Wheat Social Distribution Web App. 
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a comments object this will always be set as “comments”. |
-| “page_number” | Integer | The page number corresponding to the associated comments |
-| “size” | Integer | The number of comment objects contained within the comments object, as well as the number per page in respect to the page number. |
-| “count” | Integer | The total number of comments under the given entry. |
-| “src” | Array | JSON array of Comment Objects. |
-
-#### Example of Comments Object
+#### Example Response
 
 ```
 {
@@ -799,44 +1173,43 @@ Represents a set of Entries on the Wheat Social Distribution Web App.
 }
 ```
 
-___
-## Comment API - Get a comment an author has made
+#### Status Codes
+200 - Success<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{remote_comment_fqid}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments
 
-> \<Node Address\>/api/authors/\<Author Serial\>/commented/\<Comment Serial\>/
+**Description:** Retrieve a list of comments on an entry
 
-___
-#### GET Request with curl
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
+<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/d379a3ed-734e-4419-b86f-3ba27af4d7d7
+#### Parameters
+author_serial (string): The UUID of an author.
+entry_serial (string): The UUID of an entry.
+remote_comment_fqid (string): the FQID of a remote comment on a local entry.
 
-> **RETURNS “Comment Object” with Code=200**
+#### Response Body
 
-Possible Error Codes: <br>403 [Occurs if user attempts to access a comment for an entry they do not have permission to access], <br>404 [Occurs if either Author or Comment Serial does not exist in database]
+```
+{
+    "type": string
+    "id": string
+    "url": string
+    "author": Author
+    "content": string
+    "contentType": string
+    "published": Date
+    "entry": string
+    "likes": List<Like>
+}
+```
 
-___
-## Comment Object
-
-Represents a single comment on the Wheat Social Distribution Web App. 
-
-#### Object Fields
-
-| Key | Value Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a comment object this will always be set as “comment” |
-| “id” | URL | The FQID (fully qualified id) of this particular comment object. |
-| “url” | URL | The API endpoint associated with this particular comment object. |
-| “author” | Author Object | An Author Object which corresponds to the Author of the given Comment. See above for more information on Author Objects. |
-| “content” | String | The content of the comment as it shows up on the web app. |
-| “contentType” | String | Denotes the type of content contained within the comment. Will always be “text/plain” |
-| “published” | Date and Time | The date and time when the given comment was published. |
-| “entry” | URL | The API endpoint associated with the entry the given comment was published under. |
-| “likes” | Likes Object |  |
-| “web” | URL | The link to the comment’s web page. |
-
-#### Example of Comment Object
+#### Example Response
 
 ```
 {
@@ -863,115 +1236,410 @@ Represents a single comment on the Wheat Social Distribution Web App.
         "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
         "page_number": 1,
         "size": 50,
-        "count": 1,
-        "src": [
-            {
-                "type": "like",
-                "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/liked/82bfe2c3-6f8a-451e-bfe4-16a644f39d52/",
-                "author": {
-                    "type": "author",
-                    "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-                    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-                    "host": "http://127.0.0.1:8000/api/",
-                    "displayName": "NewAccount",
-                    "github": "https://github.com/NewAccount",
-                    "profileImage": "https://placehold.co/150x150.png",
-                    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
-                },
-                "published": "2026-03-16T10:48:15.180115Z",
-                "object": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/"
-            }
-        ]
+        "count": 0,
+        "src": []
     },
     "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
 }
 ```
 
-___
-## Liked API - Get a list of an author’s liked entries/comments. Create new likes under entries/comments
+#### Status Codes
+200 - Success<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+## Commented API
 
-Non-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/liked/
+**GET /api/authors/{author_serial}/commented**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented
 
-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/liked/?page=\<Page Number\>&size=\<Results Per Page\>
+**Description:** Retrieve a list of comments an author has made
 
-___
-#### GET Request with curl
+#### Auth
+<example_username>: username of author corresponding to author_serial *or* username of remote node of author_fqid
+<example_password>: password for author corresponding to author_serial *or* password of remote node of author_fqid
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/
+#### Parameters
+author_serial (string): The UUID of an author.
 
-> **RETURNS “Likes Object” with Code=200**
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
 
-Possible Error Codes: <br>404 [Occurs if Author Serial does not exist in database]
+#### Example with Query Keywords
+GET /api/authors/{author_serial}/commented?page={page_number}&size={size}
 
-___
-#### POST Request with curl
-
-> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
-
-> **CREATES Like in database with Code=201**
-
-Creates a new Like in the database under the Author with the corresponding serial according to the “Like Object” contained in “exampleFile.json”. If successful, returns Code=201. If the author already has a like object for the given entry or comment, returns Code=200.
-
-Possible Error Codes: <br>400 [Occurs if syntax is incorrect for provided Like Object], <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to make another author like an entry or comment], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Like Object
-
-Represents a single like on the Wheat Social Distribution Web App.
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a like object this will always be set as “like”. |
-| “id” | URL | The FQID (fully qualified id) of this particular like object. |
-| “author” | Author Object | An Author Object which corresponds to the Author who gave out the like. See above for more information on Author Objects. |
-| “published” | Date and Time | The date and time when the like was given. |
-| “object” | URL | The id of the associated object the like was given to. Will be either an entry or comment. |
-
-#### Example of Like Object
+#### Response Body
 
 ```
 {
-    "type": "like",
-    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/liked/03c9e0d5-c3f9-4b78-9858-7a07d83dca58/",
-    "author": {
-      "type": "author",
-      "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-      "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-      "host": "http://127.0.0.1:8000/api/",
-      "displayName": "NewAccount",
-      "github": "https://github.com/NewAccount",
-      "profileImage": "https://placehold.co/150x150.png",
-      "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
-      },
-    "published": "2026-03-16T10:39:32.837116Z",
-    "object": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e"
+    "type": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Comment>
 }
 ```
 
-___
-## Likes Object
+#### Example Response
 
-Represents a set of Likes on the Wheat Social Distribution Web App. 
+```
+{
+    "type": "comments",
+    "page_number": 1,
+    "size": 5,
+    "count": 1,
+    "src": [
+        {
+            "type": "comment",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/c26d6dff-f240-40d1-9a19-60d1b464f478/",
+            "url": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/c26d6dff-f240-40d1-9a19-60d1b464f478/",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "content": "making a comment.",
+            "contentType": "text/plain",
+            "published": "2026-03-16T12:56:43.768883Z",
+            "entry": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/",
+            "likes": {
+                "type": "likes",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/c26d6dff-f240-40d1-9a19-60d1b464f478/likes/",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/c26d6dff-f240-40d1-9a19-60d1b464f478/likes/",
+                "page_number": 1,
+                "size": 50,
+                "count": 0,
+                "src": []
+            }
+        }
+    ]
+}
+```
 
-#### Object Fields
+#### Status Codes
+200 - Success<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a comments object this will always be set as “likes”. |
-| “id” | URL | The FQID (fully qualified id) of this particular likes object. |
-| “page_number” | Integer | The page number corresponding to the associated likes |
-| “size” | Integer | The number of like objects contained within the likes object, as well as the number per page in respect to the page number. |
-| “count” | Integer | The total number of likes under the given entry. |
-| “src” | Array | JSON array of Like Objects. |
+**POST /api/authors/{author_serial}/commented**
+> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented
 
-#### Example of Likes Object
+**Description:** Create a comment for an author
+
+#### Auth
+<example_username>: username of author corresponding to author_serial
+<example_password>: password for author corresponding to author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author.
+
+#### Request Body
+
+```
+{
+    "type": string
+    "id": string
+    "url": string
+    "author": Author
+    "content": string
+    "contentType": string
+    "published": Date
+    "entry": string
+    "likes": List<Like>
+}
+```
+
+#### Example Request
+
+```
+{
+    "type": "comment",
+    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "url": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "author": {
+        "type": "author",
+        "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "host": "http://127.0.0.1:8000/api/",
+        "displayName": "NewAccount",
+        "github": "https://github.com/NewAccount",
+        "profileImage": "https://placehold.co/150x150.png",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+    },
+    "content": "I am commenting on this post",
+    "contentType": "text/plain",
+    "published": "2026-03-16T10:47:57.796752Z",
+    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/",
+    "likes": {
+        "type": "likes",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "page_number": 1,
+        "size": 50,
+        "count": 0,
+        "src": []
+    },
+    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
+}
+```
+
+#### Status Codes
+201 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**GET /api/authors/{author_fqid}/commented**
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/commented
+
+**Description:** Retrieve a list of comments an author has made
+
+#### Parameters
+author_fqid (string): The FQID of an author.
+
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
+
+#### Example with Query Keywords
+GET /api/authors/{author_fqid}/commented?page={page_number}&size={size}
+
+#### Response Body
+
+```
+{
+    "type": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Comments>
+}
+```
+
+#### Example Response
+
+```
+{
+    "type": "comments",
+    "page_number": 1,
+    "size": 5,
+    "count": 1,
+    "src": [
+        {
+            "type": "comment",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/c26d6dff-f240-40d1-9a19-60d1b464f478/",
+            "url": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/commented/c26d6dff-f240-40d1-9a19-60d1b464f478/",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "content": "making a comment.",
+            "contentType": "text/plain",
+            "published": "2026-03-16T12:56:43.768883Z",
+            "entry": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/",
+            "likes": {
+                "type": "likes",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/c26d6dff-f240-40d1-9a19-60d1b464f478/likes/",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/comments/c26d6dff-f240-40d1-9a19-60d1b464f478/likes/",
+                "page_number": 1,
+                "size": 50,
+                "count": 0,
+                "src": []
+            }
+        }
+    ]
+}
+```
+
+#### Status Codes
+200 - Success<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**GET /api/authors/{author_serial}/commented/{comment_serial}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented/{comment_serial}
+
+**Description:** Retrieve a comment an author has made
+
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
+<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+
+
+#### Parameters
+author_serial (string): The UUID of an author.
+entry_serial (string): The UUID of an entry.
+comment_serial (string): The UUID of a comment.
+
+#### Response Body
+
+```
+{
+    "type": string
+    "id": string
+    "url": string
+    "author": Author
+    "content": string
+    "contentType": string
+    "published": Date
+    "entry": string
+    "likes": List<Like>
+}
+```
+
+#### Example Response
+
+```
+{
+    "type": "comment",
+    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "url": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "author": {
+        "type": "author",
+        "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "host": "http://127.0.0.1:8000/api/",
+        "displayName": "NewAccount",
+        "github": "https://github.com/NewAccount",
+        "profileImage": "https://placehold.co/150x150.png",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+    },
+    "content": "I am commenting on this post",
+    "contentType": "text/plain",
+    "published": "2026-03-16T10:47:57.796752Z",
+    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/",
+    "likes": {
+        "type": "likes",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "page_number": 1,
+        "size": 50,
+        "count": 0,
+        "src": []
+    },
+    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
+}
+```
+
+#### Status Codes
+200 - Success<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**GET /api/commented/{comment_fqid}**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/commented/{comment_fqid}
+
+**Description:** Retrieve a comment based on its fqid
+
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries)
+<example_password>: password for author (should be friend of author_serial for friends-only entries)
+
+#### Parameters
+comment_fqid (string): The FQID of a comment.
+
+#### Response Body
+
+```
+{
+    "type": string
+    "id": string
+    "url": string
+    "author": Author
+    "content": string
+    "contentType": string
+    "published": Date
+    "entry": string
+    "likes": List<Like>
+}
+```
+
+#### Example Response
+
+```
+{
+    "type": "comment",
+    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "url": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "author": {
+        "type": "author",
+        "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "host": "http://127.0.0.1:8000/api/",
+        "displayName": "NewAccount",
+        "github": "https://github.com/NewAccount",
+        "profileImage": "https://placehold.co/150x150.png",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+    },
+    "content": "I am commenting on this post",
+    "contentType": "text/plain",
+    "published": "2026-03-16T10:47:57.796752Z",
+    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/",
+    "likes": {
+        "type": "likes",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "page_number": 1,
+        "size": 50,
+        "count": 0,
+        "src": []
+    },
+    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
+}
+```
+
+#### Status Codes
+200 - Success<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+## Likes API
+
+**GET /api/authors/{author_serial}/entries/{entry_serial}/likes*
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/likes
+
+**Description:** Retrieve a list of likes on an entry
+
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
+<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+
+#### Parameters
+author_serial (string): The UUID of an author
+entry_serial (string): The UUID of an entry
+
+#### Response Body
+
+```
+{
+    "type": string
+    "id": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Like>
+}
+```
+
+
+#### Example Response
 
 ```
 {
@@ -1001,101 +1669,42 @@ Represents a set of Likes on the Wheat Social Distribution Web App.
 }
 ```
 
-___
-## Entry Likes API - Get the list of likes on an entry
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes*
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes
 
-Non-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/likes/
+**Description:** Retrieve a list of likes on a comment
 
-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/likes/?page=\<Page Number\>&size=\<Results Per Page\>
+#### Auth
+<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
+<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
 
-___
-#### GET Request with curl
+#### Parameters
+author_serial (string): The UUID of an author
+entry_serial (string): The UUID of an entry
+comment_fqid (string): The FQID of a comment
 
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588/likes/
-
-> **RETURNS “Likes Object” with Code=200**
-
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to make another author like an entry], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Comment Likes API - Get the list of likes on a comment
-
-___
-#### Endpoint Pattern
-
-Non-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/comments/\<Comment Serial\>/likes/
-
-Paginated:
-> \<Node Address\>/api/authors/\<Author Serial\>/entries/\<Entry Serial\>/comments/\<Comment Serial\>/likes/?page=\<Page Number\>&size=\<Results Per Page\>
-
-___
-#### GET Request with curl
-
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/46704e66-a196-4536-919b-a736d55c7b61/comments/0db3fdc6-06fd-4afe-a39a-ca7c42dd3d1a/likes/
-
-> **RETURNS “Likes Object” with Code=200**
-
-Possible Error Codes: <br>401 [Occurs if user has not logged in], <br>403 [Occurs if user attempts to make another author like a comment], <br>404 [Occurs if Author Serial does not exist in database]
-
-___
-## Like Object
-
-Represents a single like on the Wheat Social Distribution Web App.
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a like object this will always be set as “like”. |
-| “id” | URL | The FQID (fully qualified id) of this particular like object. |
-| “author” | Author Object | An Author Object which corresponds to the Author who gave out the like. See above for more information on Author Objects. |
-| “published” | Date and Time | The date and time when the like was given. |
-| “object” | URL | The id of the associated object the like was given to. Will be either an entry or comment. |
-
-#### Example of Like Object
+#### Response Body
 
 ```
 {
-    "type": "like",
-    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/liked/03c9e0d5-c3f9-4b78-9858-7a07d83dca58/",
-    "author": {
-      "type": "author",
-      "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-      "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-      "host": "http://127.0.0.1:8000/api/",
-      "displayName": "NewAccount",
-      "github": "https://github.com/NewAccount",
-      "profileImage": "https://placehold.co/150x150.png",
-      "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
-      },
-    "published": "2026-03-16T10:39:32.837116Z",
-    "object": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e"
+    "type": string
+    "id": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Like>
 }
 ```
 
-___
-## Likes Object
 
-Represents a set of Likes on the Wheat Social Distribution Web App. 
-
-#### Object Fields
-
-| Key | Field Type | Meaning |
-| --------------- | --------------- | --------------- |
-| “type” | String | Denotes the type of object. For a comments object this will always be set as “likes”. |
-| “id” | URL | The FQID (fully qualified id) of this particular likes object. |
-| “page_number” | Integer | The page number corresponding to the associated likes |
-| “size” | Integer | The number of like objects contained within the likes object, as well as the number per page in respect to the page number. |
-| “count” | Integer | The total number of likes under the given entry. |
-| “src” | Array | JSON array of Like Objects. |
-
-#### Example of Likes Object
+#### Example Response
 
 ```
 {
@@ -1125,48 +1734,319 @@ Represents a set of Likes on the Wheat Social Distribution Web App.
 }
 ```
 
-___
-## Inbox API - Post an Entry/Like/Comment/Follow Request to a Remote Stream. Edit an Entry/Follow Request in a remote node. Mark a remote entry as deleted.
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+403 - Forbidden<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
 
-___
-#### Endpoint Pattern
+## Liked API
 
-> \<Node Address\>/api/authors/\<Author Serial\>/inbox
+**GET /api/authors/{author_serial}/likes*
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/likes
 
-___
-#### POST Request with curl
+**Description:** Retrieve a list of all likes an author has made
 
-> curl --user example_username:example_password -X POST http<nolink>:\//127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/inbox -H "Content-Type: application/json" -d @/example/path/exampleFile.json
+#### Auth
+<example_username>: username of an author *or* username of remote node of author_fqid
+<example_password>: password for an author *or* password of remote node of author_fqid
 
-> **CREATES Entry/Comment/Like/Follow Request in database with Code=201**
+#### Parameters
+author_serial (string): The UUID of an author
 
-Checks the type of object contained in “exampleFile.json” and will create a new object in the database accordingly. If successful, returns Code=201. May return a Code=204 if both nodes do not have each other enabled in their list of remote nodes.
+#### Response Body
 
-Possible Error Codes: <br>400 [Occurs if Entry object is listed as an image when it is not one], <br>401 [Occurs if User is not authenticated], <br>403 [Occurs if user attempts to post an entry for an author they do not have permission to], 
-
-___
-#### PUT Request with curl
-
-> curl --user example_username:example_password -X PUT http<nolink>:\//127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/inbox/ -H "Content-Type: application/json" -d @/example/path/exampleFile.json
-
-> **EDITS Entry in database with Code=200**
-
-Takes in a json representation of a remote “Entry Object” through “exampleFile.json” and edits the Entry with the corresponding FQID in the database. If successful, returns Code=200. May return a Code=204 if both nodes do not have each other enabled in their list of remote nodes.
-
-Possible Error Codes: <br>400 [Occurs if Entry object is listed as an image when it is not one], <br>401 [Occurs if User is not authenticated], <br>403 [Occurs if user attempts to edit a like or comment, or an entry for an author they do not have permission to], 
-
-___
-#### DELETE Request with curl
-
-> curl -X DELETE http<nolink>:\//127.0.0.1:8002/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/inbox/
-
-> **DELETES “Entry Object” with Code=204**
-
-Takes in a json representation of a remote “Entry Object” through “exampleFile.json” and sets the Entry with the corresponding FQID to “deleted” in the database. If successful, returns Code=204. May also return a Code=204 if both nodes do not have each other enabled in their list of remote nodes.
-
-Possible Error Codes: <br>403 [Occurs if User attempts to delete a Comment, Like, or Follow]
+```
+{
+    "type": string
+    "id": string
+    "page_number": int
+    "size": int
+    "count": int
+    "src": List<Like>
+}
+```
 
 
+#### Example Response
 
-___
+```
+{
+    "type": "likes",
+    "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/",
+    "page_number": 1,
+    "size": 50,
+    "count": 1,
+    "src": [
+        {
+            "type": "like",
+            "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/liked/5433d6c1-6f2e-413c-88bc-32224da15be5/",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "published": "2026-03-16T15:30:10.768432Z",
+            "object": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/entries/07f29235-2621-4f59-89dc-70c2f2cee588"
+        }
+    ]
+}
+```
+
+#### Status Codes
+200 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+**GET /api/authors/{author_serial}/liked/{like_serial}*
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked/{like_serial}
+
+**Description:** Retrieve a like
+
+#### Auth
+<example_username>: username of an author *or* username of remote node of author_fqid
+<example_password>: password for an author *or* password of remote node of author_fqid
+
+#### Parameters
+author_serial (string): The UUID of an author
+like_serial (string): The UUID of a like
+
+#### Response Body
+
+```
+{
+    "type": string
+    "id": string
+    "author": Author
+    "published": Date
+    "object": string
+}
+```
+
+#### Example Response
+
+```
+{
+    "type": "like",
+    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/liked/03c9e0d5-c3f9-4b78-9858-7a07d83dca58/",
+    "author": {
+      "type": "author",
+      "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+      "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+      "host": "http://127.0.0.1:8000/api/",
+      "displayName": "NewAccount",
+      "github": "https://github.com/NewAccount",
+      "profileImage": "https://placehold.co/150x150.png",
+      "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+      },
+    "published": "2026-03-16T10:39:32.837116Z",
+    "object": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e"
+}
+```
+
+#### Status Codes
+200 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+403 - Forbidden Access<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
+## Inbox API
+
+**POST /api/authors/{author_serial}/inbox**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/inbox
+
+**Description:** Post an object to a remote author’s inbox
+
+#### Auth
+<example_username>: username of remote node of author_serial
+<example_password>: password for remote node of author_serial
+
+#### Parameters
+author_serial (string): The UUID of an author.
+
+#### Request Body [Entry]
+
+```
+{
+    "type": string,
+    "title”: string,
+    "id": string,
+    "web”: string,
+    "description": string,
+    "contentType”: string,
+    "imageUrl": string,
+    "author”: Author,
+    "published": Date,
+    "visibility”: Author,
+    "likes": List<Like>,
+    "comments”: List<Comment>,
+}
+```
+
+#### Example Request [Entry]
+
+```
+{
+            "type": "entry",
+            "title": "Entry",
+            "description": "Example.",
+            "contentType": "text/markdown",
+            "content": "This is an example entry.",
+            "imageUrl": "",
+            "author": {
+                "type": "author",
+                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
+                "host": "http://127.0.0.1:8000/api/",
+                "displayName": "Johnson",
+                "github": "https://github.com/Johnson",
+                "profileImage": "https://placehold.co/150x150.png",
+                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
+            },
+            "published": "2026-03-16T12:45:27.099220Z",
+            "visibility": "PUBLIC",
+}
+```
+
+#### Request Body [Follow Request]
+
+```
+{
+    "type": string,
+    "summary”: string,
+    "actor”: Author,
+    "object”: Author
+}
+```
+
+#### Example Request [Follow Request]
+
+```
+{
+        "type": "follow",
+        "summary": "NewAccount1 wants to follow NewAccount2",
+        "actor": {
+            "type": "author",
+            "serial": "a1c2ddb7-f5a1-4854-a79e-b04113c33c39",
+            "id": "http://127.0.0.1:8000/api/authors/da1638bc-2f5a-4ef9-9531-2d090c6eac16",
+            "host": "http://127.0.0.1:8000/api",
+            "displayName": "NewAccount1",
+            "github": "https://github.com/NewAccount1",
+            "profileImage": "https://placehold.co/150x150.png",
+            "web": "http://127.0.0.1:8000/authors/da1638bc-2f5a-4ef9-9531-2d090c6eac16/"
+        },
+        "object": {
+            "type": "author",
+            "serial": "1c910cfb-348c-407d-9ad5-f6859b74d308",
+            "id": "http://127.0.0.1:8002/api/authors/1c910cfb-348c-407d-9ad5-f6859b74d308",
+            "host": "http://127.0.0.1:8002/api",
+            "displayName": "NewAccount2",
+            "github": "https://github.com/NewAccount2",
+            "profileImage": "https://placehold.co/150x150.png",
+            "web": "http://127.0.0.1:8002/authors/1c910cfb-348c-407d-9ad5-f6859b74d308/"
+        }
+    }
+```
+
+#### Request Body [Like]
+
+```
+{
+    "type": string
+    "id": string
+    "author": Author
+    "published": Date
+    "object": string
+}
+```
+
+#### Example Request [Like]
+
+```
+{
+    "type": "like",
+    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/liked/03c9e0d5-c3f9-4b78-9858-7a07d83dca58/",
+    "author": {
+      "type": "author",
+      "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+      "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+      "host": "http://127.0.0.1:8000/api/",
+      "displayName": "NewAccount",
+      "github": "https://github.com/NewAccount",
+      "profileImage": "https://placehold.co/150x150.png",
+      "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+      },
+    "published": "2026-03-16T10:39:32.837116Z",
+    "object": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e"
+}
+```
+
+#### Request Body [Comment]
+
+```
+{
+    "type": string
+    "id": string
+    "url": string
+    "author": Author
+    "content": string
+    "contentType": string
+    "published": Date
+    "entry": string
+    "likes": List<Like>
+}
+```
+
+#### Example Request [Comment]
+
+```
+{
+    "type": "comment",
+    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "url": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
+    "author": {
+        "type": "author",
+        "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
+        "host": "http://127.0.0.1:8000/api/",
+        "displayName": "NewAccount",
+        "github": "https://github.com/NewAccount",
+        "profileImage": "https://placehold.co/150x150.png",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
+    },
+    "content": "I am commenting on this post",
+    "contentType": "text/plain",
+    "published": "2026-03-16T10:47:57.796752Z",
+    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/",
+    "likes": {
+        "type": "likes",
+        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
+        "page_number": 1,
+        "size": 50,
+        "count": 0,
+        "src": []
+    },
+    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
+}
+```
+
+#### Status Codes
+201 - Success<br>
+400 - Invalid Request<br>
+401 - Unauthorized<br>
+404 - Object Does Not Exist<br>
+500 - Internal Server Error<br>
+
 <br><br><br>
