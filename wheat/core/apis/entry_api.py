@@ -3,21 +3,26 @@ from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
-import base64, urllib, mimetypes, io, requests
+import base64, urllib, mimetypes, io
 from PIL import Image as PILImage
 
 from ..auth import (
     require_auth_for_view,
     is_remote_node_authenticated,
-    add_auth_headers,
 )
 from ..federation import distribute_entry_to_remote_recipients
-from ..models import Author, Entry, Image, RemoteNode
+from ..models import Author, Entry, Image
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
 )
-from ..helpers import get_pagination_params, build_entry_payload, resolve_object_by_url
+from ..helpers import (
+    build_entry_payload,
+    fetch_remote_image,
+    get_pagination_params,
+    resolve_image_proxy_target,
+    resolve_object_by_url,
+)
 from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
@@ -232,37 +237,16 @@ def get_author_image_entry(request, author_serial, entry_serial):
             author = Author.objects.get(serial=author_serial)
         except Author.DoesNotExist:
             return Response({"error": "Author and Entry not found."}, status=404)
-            
-        parsed_url = urllib.parse.urlparse(author.host)
-        if not parsed_url.netloc:
-            return Response({"error": "Invalid author FQID format"},status=400)
-        remote_host = f"{parsed_url.scheme}://{parsed_url.netloc}"
-        
-        try:
-            remote_node = RemoteNode.objects.get(base_url=remote_host, is_active=True)
 
-            headers = {'Accept': 'application/json','User-Agent': 'SocialDistribution/1.0'}
-            headers = add_auth_headers(headers, remote_node)
-            
-            base_url = author.host.rstrip('/')
-            remote_image_url = f"{base_url}/authors/{author_serial}/entries/{entry_serial}/image"
-            
-            remote_response = requests.get(
-                remote_image_url,
-                headers=headers,
-                timeout=10
-            )
-            
-            if remote_response.status_code == 200:
-                content_type = remote_response.headers.get('Content-Type', 'image/jpeg')
-                return HttpResponse(remote_response.content, content_type=content_type)
-            else:
-                return Response({"error": "Remote image fetch failed."}, status=remote_response.status_code)
-                
-        except RemoteNode.DoesNotExist:
+        base_url = author.host.rstrip('/')
+        target = resolve_image_proxy_target(f"{base_url}/authors/{author_serial}/entries/{entry_serial}/image", request)
+        if target.get("kind") != "remote":
             return Response({"error": "Image not found locally, and remote node not configured."}, status=404)
-        except requests.exceptions.RequestException:
-            return Response({"error": "Failed to connect to remote node."}, status=503)
+
+        fetched = fetch_remote_image(target["url"], target["remote_node"])
+        if fetched["status"] != 200:
+            return Response({"error": fetched["error"]}, status=fetched["status"])
+        return HttpResponse(fetched["content"], content_type=fetched["content_type"])
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
@@ -279,38 +263,14 @@ def get_fqid_image_entry(request, entry_fqid):
         entry = Entry.objects.get(url=decoded_fqid)
         return serve_image(request, entry)
     except Entry.DoesNotExist:
-        parsed_url = urllib.parse.urlparse(decoded_fqid)
-        if not parsed_url.netloc:
-            return Response({"error": "Invalid author FQID format"},status=400)
-        remote_host = f"{parsed_url.scheme}://{parsed_url.netloc}"
-
-        try:
-            remote_node = RemoteNode.objects.get(base_url=remote_host, is_active=True)
-
-            headers = {'Accept': 'application/json','User-Agent': 'SocialDistribution/1.0'}
-            headers = add_auth_headers(headers, remote_node)
-            
-            remote_image_url = f"{decoded_fqid.rstrip('/')}/image"
-            
-            remote_response = requests.get(
-                remote_image_url,
-                headers=headers,
-                timeout=10
-            )
-            
-            if remote_response.status_code == 200:
-                content_type = remote_response.headers.get('Content-Type', 'image/jpeg')
-                
-                return HttpResponse(remote_response.content, content_type=content_type)
-            elif remote_response.status_code == 404:
-                return Response({"error": "Image not found on remote node."}, status=404)
-            else:
-                return Response({"error": f"Remote node returned status {remote_response.status_code}"}, status=502)
-                
-        except RemoteNode.DoesNotExist:
+        target = resolve_image_proxy_target(f"{decoded_fqid.rstrip('/')}/image", request)
+        if target.get("kind") != "remote":
             return Response({"error": "Image not found locally, and remote node not configured."}, status=404)
-        except requests.exceptions.RequestException as e:
-            return Response({"error": f"Failed to connect to remote node: {str(e)}"}, status=503)
+
+        fetched = fetch_remote_image(target["url"], target["remote_node"])
+        if fetched["status"] != 200:
+            return Response({"error": fetched["error"]}, status=fetched["status"])
+        return HttpResponse(fetched["content"], content_type=fetched["content_type"])
 
 def serve_image(request, entry):
     """
@@ -327,19 +287,27 @@ def serve_image(request, entry):
     if not entry.content_type.startswith("image") or entry.content_type.startswith("application/"):
         return Response({"error": f"The requested entry is not an image."}, status=404)
     
-    # For standard locally stored images
     if entry.image_url:
-        image = get_object_or_404(Image, url=entry.image_url)
+        image = Image.objects.filter(url=entry.image_url).first()
+        if image is not None:
+            try:
+                with image.image.open('rb') as f:
+                    image_data = f.read()
+                
+                mime_type, _ = mimetypes.guess_type(image.image.name)
+                
+                return HttpResponse(image_data, content_type=mime_type)
+            except IOError:
+                return Response({"error": "The requested image file could not be read."}, status=404)
 
-        try:
-            with image.image.open('rb') as f:
-                image_data = f.read()
-            
-            mime_type, _ = mimetypes.guess_type(image.image.name)
-            
-            return HttpResponse(image_data, content_type=mime_type)
-        except IOError:
-            return Response({"error": "The requested image file could not be read."}, status=404)
+        target = resolve_image_proxy_target(entry.image_url, request)
+        if target.get("kind") == "remote":
+            fetched = fetch_remote_image(target["url"], target["remote_node"])
+            if fetched["status"] != 200:
+                return Response({"error": fetched["error"]}, status=fetched["status"])
+            return HttpResponse(fetched["content"], content_type=fetched["content_type"])
+
+        return Response({"error": "Image not found locally."}, status=404)
     # For base64 encoded images (as per the project page)
     else:
         content = entry.content.strip()
