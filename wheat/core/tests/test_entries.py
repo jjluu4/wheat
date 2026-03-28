@@ -2,6 +2,7 @@ from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid, urllib, base64
+from unittest.mock import Mock, patch
 from core.models import Author, Entry, Follow, RemoteNode
 
 
@@ -329,6 +330,79 @@ class EntriesApiTests(APITestCase):
         self.assertEqual(resp["Content-Type"], "image/png")
         self.assertEqual(resp.content, base64.b64decode(self.valid_base64))     
 
+    @patch("core.helpers.requests.get")
+    def test_remote_backed_image_entry_is_viewable_through_local_route(self, mock_get):
+        remote_author = Author.objects.create(
+            displayName="Remote Image Author",
+            serial=uuid.uuid4(),
+            url="https://remote.example.com/api/authors/remote-image-author",
+            host="https://remote.example.com/api/",
+            web="https://remote.example.com/authors/remote-image-author",
+        )
+        remote_entry = Entry.objects.create(
+            author=remote_author,
+            url="https://remote.example.com/api/authors/remote-image-author/entries/remote-image-entry",
+            content="",
+            content_type="image/png",
+            image_url="https://remote.example.com/media/remote-image.png",
+            visibility="PUBLIC",
+            published=timezone.now(),
+        )
+        mock_response = Mock(status_code=200, content=b"REMOTEPNG")
+        mock_response.headers = {"Content-Type": "image/png"}
+        mock_get.return_value = mock_response
+
+        resp = self.client.get(
+            f"/api/authors/{remote_author.serial}/entries/{remote_entry.serial}/image/"
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "image/png")
+        self.assertEqual(resp.content, b"REMOTEPNG")
+        self.assertEqual(
+            mock_get.call_args.kwargs["headers"]["Authorization"],
+            "Basic cmVtb3RlLXVzZXI6cmVtb3RlLXBhc3M=",
+        )
+
+    @patch("core.helpers.requests.get")
+    def test_remote_backed_friends_image_entry_respects_visibility(self, mock_get):
+        remote_author = Author.objects.create(
+            displayName="Remote Friends Image Author",
+            serial=uuid.uuid4(),
+            url="https://remote.example.com/api/authors/remote-friends-author",
+            host="https://remote.example.com/api/",
+            web="https://remote.example.com/authors/remote-friends-author",
+        )
+        remote_entry = Entry.objects.create(
+            author=remote_author,
+            url="https://remote.example.com/api/authors/remote-friends-author/entries/remote-friends-image",
+            content="",
+            content_type="image/png",
+            image_url="https://remote.example.com/media/remote-friends.png",
+            visibility="FRIENDS",
+            published=timezone.now(),
+        )
+        Follow.objects.create(actor=self.friend, target=remote_author, status="ACCEPTED")
+        Follow.objects.create(actor=remote_author, target=self.friend, status="ACCEPTED")
+        mock_response = Mock(status_code=200, content=b"FRIENDPNG")
+        mock_response.headers = {"Content-Type": "image/png"}
+        mock_get.return_value = mock_response
+
+        denied = self.client.get(
+            f"/api/authors/{remote_author.serial}/entries/{remote_entry.serial}/image/"
+        )
+        self.assertEqual(denied.status_code, 403)
+        mock_get.assert_not_called()
+
+        self.client.login(username="friend", password="pass12345")
+        allowed = self.client.get(
+            f"/api/authors/{remote_author.serial}/entries/{remote_entry.serial}/image/"
+        )
+
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(allowed["Content-Type"], "image/png")
+        self.assertEqual(allowed.content, b"FRIENDPNG")
+    
     def testImageEntryInvalidType(self):
         """Fetching the image endpoint on a text entry returns 404."""
         # Test standard route
