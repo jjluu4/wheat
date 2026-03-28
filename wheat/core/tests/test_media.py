@@ -1,5 +1,7 @@
 import uuid
+import subprocess
 from unittest.mock import Mock, patch
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
@@ -231,3 +233,52 @@ class MediaTemplateTests(TestCase):
 
         self.assertContains(resp, f'/api/authors/{self.author.serial}/profile-image/')
         self.assertNotContains(resp, "https://partner.example.com/media/avatar.png")
+
+
+class MarkdownSameOriginTests(TestCase):
+    def test_markdown_renderer_uses_local_vendor_imports(self):
+        renderer = Path("wheat/core/static/js/markdown-renderer.js").read_text()
+
+        self.assertIn('./vendor/dompurify.esm.js', renderer)
+        self.assertIn('./vendor/marked.esm.js', renderer)
+        self.assertNotIn("cdn.jsdelivr.net", renderer)
+
+    def test_markdown_rewrite_keeps_same_origin_and_proxies_allowlisted_images(self):
+        module_uri = Path("wheat/core/static/js/markdown-same-origin.js").resolve().as_uri()
+        script = f"""
+import assert from "node:assert/strict";
+import {{ rewriteRenderedMarkdownHtml }} from "{module_uri}";
+
+const options = {{
+  pageOrigin: "http://testserver",
+  allowlistedOrigins: ["https://partner.example.com"],
+}};
+
+const sameOrigin = rewriteRenderedMarkdownHtml(
+  '<p><img src="/media/local.png" alt="Local"></p>',
+  options,
+);
+assert.equal(sameOrigin, '<p><img src="/media/local.png" alt="Local"></p>');
+
+const allowlisted = rewriteRenderedMarkdownHtml(
+  '<p><img src="https://partner.example.com/media/remote.png" alt="Remote"></p>',
+  options,
+);
+assert.match(
+  allowlisted,
+  /\\/api\\/media\\/image-proxy\\/\\?url=https%3A%2F%2Fpartner\\.example\\.com%2Fmedia%2Fremote\\.png/
+);
+
+const external = rewriteRenderedMarkdownHtml(
+  '<p><img src="https://evil.example.com/media/evil.png" alt="Blocked"></p>',
+  options,
+);
+assert.ok(!external.includes("<img"));
+assert.ok(external.includes('<a href="https://evil.example.com/media/evil.png"'));
+"""
+        subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
