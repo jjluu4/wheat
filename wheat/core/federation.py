@@ -1,17 +1,9 @@
-import logging
-import json
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .helpers import (
-    fetch_remote_json,
     normalize_url,
-    parse_author_fqid,
     send_json_to_remote_author_inbox,
-    upsert_remote_author,
 )
-from .models import Author, Entry, RemoteNode
+from .models import Author, Entry
 
-logger = logging.getLogger(__name__)
-SYNC_PAGE_SIZE = 100
 
 def remote_authors_for_entry(author, visibility):
     followers = Author.objects.filter(
@@ -49,7 +41,7 @@ def distribute_payload_to_remote_recipients(author, payload, visibility, method=
         ok, error = send_to_author_inbox(recipient, payload, method=method)
         if not ok:
             failures.append({"target": recipient.url, "error": error})
-            
+
     return failures
 
 
@@ -88,94 +80,3 @@ def create_or_update_entry_from_remote_payload(entry_payload, author):
     entry.web = entry_payload.get("web") or entry.web or ""
     entry.save()
     return entry
-
-
-def build_paginated_collection_url(url, page, size):
-    parts = urlsplit(url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["page"] = str(page)
-    query["size"] = str(size)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
-
-
-def _paged_remote_collection(url, node, collection_keys):
-    page = 1
-    collected = []
-    seen_signatures = set()
-
-    while True:
-        payload = fetch_remote_json(build_paginated_collection_url(url, page, SYNC_PAGE_SIZE), node)
-        if not isinstance(payload, dict):
-            break
-
-        page_items = None
-        for key in collection_keys:
-            candidate = payload.get(key)
-            if isinstance(candidate, list):
-                page_items = candidate
-                break
-
-        if page_items is None or not page_items:
-            break
-
-        signature = json.dumps(page_items, sort_keys=True, separators=(",", ":"), default=str)
-        if signature in seen_signatures:
-            break
-        seen_signatures.add(signature)
-
-        collected.extend(page_items)
-        page += 1
-
-    return collected
-
-
-def _sync_entries_for_author(api_base, author_id, node, author):
-    remote_entries = _paged_remote_collection(
-        f"{api_base}/authors/{author_id}/entries/",
-        node,
-        ("entries", "src"),
-    )
-
-    discovered_entries = 0
-    for entry_payload in remote_entries:
-        if not isinstance(entry_payload, dict):
-            continue
-
-        if entry_payload.get("visibility") != "PUBLIC":
-            continue
-
-        if create_or_update_entry_from_remote_payload(entry_payload, author) is not None:
-            discovered_entries += 1
-
-    return discovered_entries
-
-
-def sync_remote_authors_and_public_entries():
-    discovered_authors = 0
-    discovered_entries = 0
-
-    for node in RemoteNode.objects.filter(is_active=True):
-        api_base = normalize_url(node.api_base_url or f"{node.base_url}/api")
-        authors = _paged_remote_collection(f"{api_base}/authors", node, ("authors",))
-
-        for author_payload in authors:
-            if not isinstance(author_payload, dict):
-                continue
-            author = upsert_remote_author(author_payload)
-            if author is None:
-                continue
-            discovered_authors += 1
-
-            parsed_author = parse_author_fqid(author.url)
-            author_id = parsed_author["author_id"] if parsed_author else None
-            if not author_id:
-                continue
-
-            discovered_entries += _sync_entries_for_author(
-                api_base=api_base,
-                author_id=author_id,
-                node=node,
-                author=author,
-            )
-
-    return {"authors": discovered_authors, "entries": discovered_entries}

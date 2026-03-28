@@ -15,7 +15,11 @@ urlpatterns = [
     path("staff/nodes/add/", remote_node_views.remote_node_add, name="remote_node_add"),
     path("staff/nodes/<int:pk>/edit/", remote_node_views.remote_node_edit, name="remote_node_edit"),
     path("staff/nodes/<int:pk>/toggle/", remote_node_views.remote_node_toggle, name="remote_node_toggle"),
-    path("staff/nodes/sync/", remote_node_views.remote_node_sync, name="remote_node_sync"),
+    path(
+        "staff/nodes/<int:pk>/fetch-authors/",
+        remote_node_views.fetch_remote_node_authors_page,
+        name="fetch_remote_node_authors_page",
+    ),
 
     path("authors/", author_views.author_list, name="author_list"),
 
@@ -40,6 +44,7 @@ urlpatterns = [
 
     # API endpoints
     path("api/authors/<uuid:author_serial>/", author_api.single_author, name="api_single_author"),
+    path("api/remote-nodes/<int:remote_node_pk>/authors/", author_api.remote_node_authors, name="api_remote_node_authors"),
     path("api/authors/", author_api.all_authors, name="api_all_authors"),
     path("api/authors/<uuid:author_serial>/entries/", entry_api.author_entries, name="api_author_entries"),
     path("api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", entry_api.single_entry, name="api_single_entry"),    
@@ -51,8 +56,11 @@ urlpatterns = [
     path('api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/', comment_api.author_commented_single, name='api_author_comments_single'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/', comment_api.entry_comments, name='api_entry_comments'),
     path("api/authors/<path:author_fqid>/commented/", comment_api.author_commented_fqid, name="api_author_comments_fqid"),
+    path("api/authors/<path:author_fqid>/liked/", like_api.author_liked_fqid, name="api_author_liked_fqid"),
     path("api/commented/<path:comment_fqid>/", comment_api.comment_fqid, name="api_comment_fqid"),
+    path("api/liked/<path:like_fqid>/", like_api.like_fqid, name="api_like_fqid"),
     path("api/entries/<path:entry_fqid>/comments/", comment_api.entry_comments_fqid, name="api_entry_comments_fqid"),
+    path("api/entries/<path:entry_fqid>/likes/", like_api.entry_likes_fqid, name="api_entry_likes_fqid"),
 
     path('api/authors/<uuid:author_serial>/liked/', like_api.author_liked, name='api_author_liked'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/', like_api.entry_likes, name='api_entry_likes'),

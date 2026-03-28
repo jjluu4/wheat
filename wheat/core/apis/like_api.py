@@ -19,6 +19,7 @@ from ..helpers import (
     normalize_url,
     resolve_object_by_url,
     send_json_to_remote_author_inbox,
+    decode_fqid,
 )
 from ..federation import remote_authors_for_entry, send_to_author_inbox
 
@@ -113,16 +114,8 @@ def build_mixed_likes_collection(items, collection_id, page, size):
         "src": [serialize_like_item(item) for item in page_items],
     }
 
-@api_view(["GET", "POST"])
-@authentication_classes([SessionAuthentication])
-def author_liked(request, author_serial):
-    """GET/POST likes collection for an author.
-
-    POST supports both `type=like` and `type=unlike` to create or remove likes,
-    and mirrors those changes to relevant remote inboxes.
-    """
-    author = get_object_or_404(Author, serial=author_serial)
-
+def _author_liked_for_author(request, author):
+    """Shared GET/POST likes collection logic for a resolved Author instance."""
     if request.method == "POST":
         require_auth_for_view(True)
         if not request.user.is_authenticated:
@@ -238,6 +231,29 @@ def author_liked(request, author_serial):
     collection_id = f"{build_author_api_url(author, request)}/liked/"
     return Response(build_mixed_likes_collection(items, collection_id, page, size))
 
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
+def author_liked(request, author_serial):
+    """GET/POST likes collection for an author.
+
+    POST supports both `type=like` and `type=unlike` to create or remove likes,
+    and mirrors those changes to relevant remote inboxes.
+    """
+    author = get_object_or_404(Author, serial=author_serial)
+    return _author_liked_for_author(request, author)
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
+def author_liked_fqid(request, author_fqid):
+    """Same as author_liked but author is identified by full URL (path segment)."""
+    author = resolve_object_by_url(Author, decode_fqid(author_fqid))
+    if author is None:
+        return Response({"error": "Author not found"}, status=404)
+    return _author_liked_for_author(request, author)
+
+
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
 def entry_likes(request, author_serial, entry_serial):
@@ -254,6 +270,56 @@ def entry_likes(request, author_serial, entry_serial):
     page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)
     likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
     return Response(build_likes_collection(likes_qs, EntryLikeSerializer, build_entry_likes_url(request, entry), page, size))
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def entry_likes_fqid(request, entry_fqid):
+    """List likes on an entry identified by full URL (same behavior as entry_likes)."""
+    require_auth_for_view(False)
+    entry = resolve_object_by_url(Entry, decode_fqid(entry_fqid))
+    if entry is None:
+        return Response({"error": "Entry not found"}, status=404)
+
+    requesting_author = get_requesting_author(request)
+    if not can_view_entry(entry, requesting_author, request.user):
+        if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
+            return Response({"error": "Authentication required"}, status=401)
+        return Response({"error": "You don't have permission to view likes on this entry"}, status=403)
+
+    page, size = get_pagination_params(request, default_size=LIKES_PAGE_SIZE)
+    likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
+    return Response(build_likes_collection(likes_qs, EntryLikeSerializer, build_entry_likes_url(request, entry), page, size))
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def like_fqid(request, like_fqid):
+    """Retrieve a single entry like or comment like by its canonical URL."""
+    require_auth_for_view(False)
+    decoded = decode_fqid(like_fqid)
+    entry_like = resolve_object_by_url(EntryLike, decoded)
+    if entry_like is not None:
+        requesting_author = get_requesting_author(request)
+        entry = entry_like.entry
+        if not can_view_entry(entry, requesting_author, request.user):
+            if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
+                return Response({"error": "Authentication required"}, status=401)
+            return Response({"error": "You don't have permission to view this like"}, status=403)
+        return Response(EntryLikeSerializer(entry_like).data)
+
+    comment_like = resolve_object_by_url(CommentLike, decoded)
+    if comment_like is not None:
+        requesting_author = get_requesting_author(request)
+        comment = comment_like.comment
+        entry = comment.entry
+        if not can_view_comment(comment, requesting_author, request.user):
+            if not request.user.is_authenticated and not is_remote_node_authenticated(request) and entry.visibility == "FRIENDS":
+                return Response({"error": "Authentication required"}, status=401)
+            return Response({"error": "You don't have permission to view this like"}, status=403)
+        return Response(CommentLikeSerializer(comment_like).data)
+
+    return Response({"error": "Like not found"}, status=404)
 
 
 @api_view(["GET"])

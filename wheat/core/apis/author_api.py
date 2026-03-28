@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
@@ -5,36 +6,72 @@ from django.shortcuts import get_object_or_404
 import urllib
 
 from ..auth import is_remote_node_authenticated, require_auth_for_view
-from ..models import Author
+from ..models import Author, RemoteNode
 from ..serializers import AuthorSerializer
-from ..helpers import fetch_remote_resource, get_pagination_params
+from ..helpers import fetch_remote_authors_page, fetch_remote_resource, get_pagination_params
 
 
 @api_view(['GET'])
 @authentication_classes([SessionAuthentication])
 def all_authors(request):
     """
-    Retrieves a paginated list of all authors on this node
-
-    parameters:
-        - page: Page number (default: 1)
-        - size: Number of authors per page (default: 5)
+    Paginated authors known to this node: registered users (active) plus federated
+    authors stored locally (e.g. from inbox). Remote nodes are listed separately via
+    GET /api/remote-nodes/<pk>/authors/ when a client wants that node's catalog.
     """
     require_auth_for_view(False)
     page, size = get_pagination_params(request)
     offset = (page - 1) * size
 
-    authors = (
-        Author.objects.filter(user__isnull=False, user__is_active=True)
+    authors_qs = (
+        Author.objects.filter(
+            Q(user__isnull=True) | Q(user__isnull=False, user__is_active=True)
+        )
         .order_by("displayName", "serial")
     )
-    
-    serializer = AuthorSerializer(authors[offset:offset + size], many=True)
-    
-    return Response({
-        "type": "authors", 
-        "authors": serializer.data,
-    })
+    total = authors_qs.count()
+    page_rows = authors_qs[offset : offset + size]
+
+    serializer = AuthorSerializer(page_rows, many=True, context={"request": request})
+
+    return Response(
+        {
+            "type": "authors",
+            "authors": serializer.data,
+            "page_number": page,
+            "size": size,
+            "count": total,
+        }
+    )
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def remote_node_authors(request, remote_node_pk):
+    """
+    Proxy one paginated GET to a configured remote node's /api/authors.
+    Upserts returned authors locally (entries are still inbox-only).
+    Requires a logged-in user so anonymous clients cannot abuse node credentials.
+    """
+    if not request.user.is_authenticated:
+        return Response({"error": "Authentication required"}, status=401)
+
+    node = get_object_or_404(RemoteNode, pk=remote_node_pk, is_active=True)
+    page, size = get_pagination_params(request)
+    result = fetch_remote_authors_page(node, page, size)
+    if result["error"]:
+        return Response({"error": result["error"]}, status=502)
+
+    serializer = AuthorSerializer(result["authors"], many=True, context={"request": request})
+    return Response(
+        {
+            "type": "authors",
+            "authors": serializer.data,
+            "page_number": page,
+            "size": size,
+            "has_more": result["has_more"],
+        }
+    )
 
 @api_view(['GET', 'PUT'])
 @authentication_classes([SessionAuthentication])

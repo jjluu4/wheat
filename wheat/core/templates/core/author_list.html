@@ -16,6 +16,31 @@
         <div class="container">
             <h1>Authors</h1>
 
+            {% if messages %}
+            <div class="card">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if remote_nodes_fetch %}
+            <div class="card">
+                <h2>Remote author catalogs</h2>
+                
+                {% for row in remote_nodes_fetch %}
+                <div class="remote-fetch-row">
+                    <form method="post" action="{% url 'fetch_remote_node_authors_page' row.node.pk %}">
+                        {% csrf_token %}
+                        <strong>{% if row.node.name %}{{ row.node.name }}{% else %}{{ row.node.base_url }}{% endif %}</strong>
+                        <span class="hint">(remote page {{ row.next_remote_page }})</span>
+                        <button type="submit">Fetch next 5 authors</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <div class="card">
                 {% if authors %}
                 <ul class="matrix">

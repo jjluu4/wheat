@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from urllib.parse import quote
+
 from core.models import Author, Comment, Entry, Follow
 
 
@@ -62,6 +64,9 @@ class FQIDApiTests(APITestCase):
     def like_url(self, author):
         return f"/api/authors/{author.serial}/liked/"
 
+    def fqid_segment(self, url):
+        return quote(url, safe="")
+
     def test_author_id_is_full_url(self):
         resp = self.client.get(f"/api/authors/{self.owner.serial}/")
         self.assertEqual(resp.status_code, 200)
@@ -119,3 +124,48 @@ class FQIDApiTests(APITestCase):
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["entry"], self.entry.url)
         self.assertTrue(resp.data["id"].startswith("http://"))
+
+    def test_entry_likes_fqid_matches_serial_route(self):
+        self.client.force_login(self.friend_user)
+        self.client.post(
+            self.like_url(self.friend),
+            data={"type": "like", "object": self.entry.url},
+            format="json",
+        )
+        fqid_path = self.fqid_segment(self.entry.url)
+        resp = self.client.get(f"/api/entries/{fqid_path}/likes/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["count"], 1)
+        self.assertEqual(resp.data["id"], f"{self.entry.url.rstrip('/')}/likes/")
+
+    def test_author_liked_fqid_get_and_post(self):
+        self.client.force_login(self.friend_user)
+        fqid_path = self.fqid_segment(self.friend.url)
+        post_resp = self.client.post(
+            f"/api/authors/{fqid_path}/liked/",
+            data={"type": "like", "object": self.entry.url},
+            format="json",
+        )
+        self.assertEqual(post_resp.status_code, 201)
+        get_resp = self.client.get(f"/api/authors/{fqid_path}/liked/")
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertEqual(get_resp.data["count"], 1)
+
+    def test_like_fqid_returns_entry_like(self):
+        self.client.force_login(self.friend_user)
+        post_resp = self.client.post(
+            self.like_url(self.friend),
+            data={"type": "like", "object": self.entry.url},
+            format="json",
+        )
+        self.assertEqual(post_resp.status_code, 201)
+        like_url = post_resp.data["id"]
+        fqid_path = self.fqid_segment(like_url)
+        resp = self.client.get(f"/api/liked/{fqid_path}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["object"], self.entry.url)
+
+    def test_like_fqid_unknown_returns_404(self):
+        fake = quote("http://testserver/api/authors/00000000-0000-0000-0000-000000000001/liked/00000000-0000-0000-0000-000000000099/", safe="")
+        resp = self.client.get(f"/api/liked/{fake}/")
+        self.assertEqual(resp.status_code, 404)
