@@ -24,8 +24,7 @@
             </div>
             {% endif %}
 
-            <p class="hint authors-page-hint">Each section shows up to <strong>{{ authors_list_page_size }}</strong> authors. <strong>This node</strong> lists only profiles whose home is here (not federated copies from elsewhere). Other sections query each active remote node live when you are signed in (this page does not copy remote authors into your database).</p>
-
+            
             {% for section in author_sections %}
             <div class="card author-node-section">
                 <h2 class="author-node-heading">{{ section.label }}</h2>
