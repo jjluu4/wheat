@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import Mock, patch
 
 from django.test import RequestFactory, TestCase
 
@@ -84,3 +85,84 @@ class MediaHelperTests(TestCase):
         url = "https://evil.example.com/media/avatar.png"
         self.assertFalse(is_allowlisted_media_url(url, self.request))
         self.assertIsNone(get_allowlisted_remote_node_for_media_url(url, self.request))
+
+
+class MediaProxyApiTests(TestCase):
+    def setUp(self):
+        self.author = Author.objects.create(
+            displayName="Proxy Author",
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{uuid.uuid4()}",
+            host="http://testserver/api/",
+            web=f"http://testserver/authors/{uuid.uuid4()}",
+            profileImage="https://partner.example.com/media/avatar.png",
+        )
+        self.remote_node = RemoteNode.objects.create(
+            name="Partner Node",
+            base_url="https://partner.example.com",
+            api_base_url="https://partner.example.com/api",
+            username="partner-user",
+            password="partner-pass",
+            is_active=True,
+        )
+
+    def test_image_proxy_redirects_same_node_url(self):
+        resp = self.client.get("/api/media/image-proxy/", {"url": "http://testserver/media/avatar.png"})
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "/media/avatar.png")
+
+    @patch("core.helpers.requests.get")
+    def test_image_proxy_fetches_allowlisted_remote_image_with_auth(self, mock_get):
+        mock_response = Mock(status_code=200, content=b"PNGDATA")
+        mock_response.headers = {"Content-Type": "image/png"}
+        mock_get.return_value = mock_response
+
+        resp = self.client.get("/api/media/image-proxy/", {"url": "https://partner.example.com/media/avatar.png"})
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, b"PNGDATA")
+        self.assertEqual(resp["Content-Type"], "image/png")
+        mock_get.assert_called_once()
+        self.assertEqual(
+            mock_get.call_args.kwargs["headers"]["Authorization"],
+            "Basic cGFydG5lci11c2VyOnBhcnRuZXItcGFzcw==",
+        )
+
+    def test_image_proxy_rejects_unallowlisted_host(self):
+        resp = self.client.get("/api/media/image-proxy/", {"url": "https://evil.example.com/media/avatar.png"})
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["error"], "Image URL is not allowlisted.")
+
+    @patch("core.helpers.requests.get")
+    def test_image_proxy_returns_not_found_for_missing_remote_image(self, mock_get):
+        mock_response = Mock(status_code=404)
+        mock_response.headers = {"Content-Type": "text/plain"}
+        mock_get.return_value = mock_response
+
+        resp = self.client.get("/api/media/image-proxy/", {"url": "https://partner.example.com/media/missing.png"})
+
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.json()["error"], "Image not found on remote node.")
+
+    @patch("core.helpers.requests.get")
+    def test_author_profile_image_proxies_remote_avatar(self, mock_get):
+        mock_response = Mock(status_code=200, content=b"AVATAR")
+        mock_response.headers = {"Content-Type": "image/jpeg"}
+        mock_get.return_value = mock_response
+
+        resp = self.client.get(f"/api/authors/{self.author.serial}/profile-image/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, b"AVATAR")
+        self.assertEqual(resp["Content-Type"], "image/jpeg")
+
+    def test_author_profile_image_redirects_same_node_avatar(self):
+        self.author.profileImage = "http://testserver/media/avatar.png"
+        self.author.save(update_fields=["profileImage"])
+
+        resp = self.client.get(f"/api/authors/{self.author.serial}/profile-image/")
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "/media/avatar.png")
