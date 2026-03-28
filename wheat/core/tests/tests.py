@@ -522,7 +522,7 @@ class EntryDeleteTests(TestCase):
             author=self.author,
             content="Remote",
             content_type="text/plain",
-            visibility="FRIENDS",
+            visibility="UNLISTED",
             published=timezone.now(),
         )  
 
