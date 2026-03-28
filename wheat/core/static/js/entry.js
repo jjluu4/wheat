@@ -172,12 +172,9 @@ function submitComment(event) {
     event.preventDefault();
     const form=event.target;
     const formData=new FormData(form);
+    const entryNode=form.closest('li');
 
-    //grab author and entry serials to construct the entryURL
-    const entrySerial=form.closest('li').dataset.entry;
-    const authorSerial=form.closest('li').querySelector('.profile-link').href.split('/').filter(part=>part!=='').pop();
-    
-    fetch(`/api/authors/${form.dataset.userSerial}/commented/`, {
+    fetch(`/api/authors/${entryNode.dataset.user}/commented/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
@@ -185,18 +182,18 @@ function submitComment(event) {
         },
         body: JSON.stringify({
             type: 'comment',
-            entry: `/api/authors/${authorSerial}/entries/${entrySerial}/`,
+            entry: entryNode.dataset.entryUrl,
             content: formData.get('content')
         })
 
     }).then(() => {
         form.reset();
         form.style.display='none';
-        const commentsList=document.querySelector(`li[data-entry="${entrySerial}"] .comments`);
+        const commentsList=document.querySelector(`li[data-entry="${entryNode.dataset.entry}"] .comments`);
         if(commentsList.style.display==='none')
-            toggleComments(entrySerial);
+            toggleComments(entryNode.dataset.entry);
         else
-            loadComments(entrySerial);
+            loadComments(entryNode.dataset.entry);
     });
 }
 

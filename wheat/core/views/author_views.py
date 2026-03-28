@@ -3,15 +3,29 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 import uuid
 
-from ..models import Author, Entry, Follow
+from ..helpers import remote_authors_fetch_session_key
+from ..models import Author, Entry, Follow, RemoteNode
 from ..permissions import get_requesting_author
 from ..github import fetch_public_events
 from ..github_to_entries import save_event_as_entry
 
 def author_list(request):
-    """Render a list of all authors ordered by display name."""
     authors = Author.objects.order_by("displayName")
-    return render(request, "core/author_list.html", {"authors": authors})
+    context = {"authors": authors}
+    if request.user.is_authenticated and request.user.is_staff:
+        nodes = list(RemoteNode.objects.filter(is_active=True).order_by("base_url", "name"))
+        context["remote_nodes_fetch"] = [
+            {
+                "node": n,
+                "next_remote_page": int(
+                    request.session.get(remote_authors_fetch_session_key(n.pk), 1) or 1
+                ),
+            }
+            for n in nodes
+        ]
+    else:
+        context["remote_nodes_fetch"] = []
+    return render(request, "core/author_list.html", context)
 
 
 def author_profile(request, author_serial):

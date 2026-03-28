@@ -3,6 +3,7 @@
 <li
     data-entry="{{ entry.serial }}"
     data-author="{{ entry.author.serial }}"
+    data-entry-url="{{ entry.url }}"
     {% if request.user.is_authenticated and request.user.author_profile %}
     data-user="{{ request.user.author_profile.serial }}"
     {% endif %}
