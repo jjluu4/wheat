@@ -23,6 +23,9 @@ class AuthorsApiTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["type"], "authors")
         self.assertIn("authors", resp.data)
+        self.assertIn("count", resp.data)
+        self.assertIn("page_number", resp.data)
+        self.assertIn("size", resp.data)
 
     def testSingleAuthorGet(self):
         """GET /api/authors/{id}/ returns a single author."""
@@ -31,8 +34,8 @@ class AuthorsApiTests(APITestCase):
         self.assertEqual(resp.data["type"], "author")
         self.assertEqual(resp.data["displayName"], "User1")
 
-    def test_all_authors_excludes_imported_remote_authors(self):
-        Author.objects.create(
+    def test_all_authors_includes_federated_authors_without_local_user(self):
+        remote = Author.objects.create(
             displayName="RemoteOnly",
             serial=uuid.uuid4(),
             url="http://remote-node.example.com/api/authors/remote-only",
@@ -45,7 +48,8 @@ class AuthorsApiTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         author_ids = {author["id"] for author in resp.data["authors"]}
         self.assertIn(self.author.url, author_ids)
-        self.assertNotIn("http://remote-node.example.com/api/authors/remote-only", author_ids)
+        self.assertIn(remote.url, author_ids)
+        self.assertEqual(resp.data["count"], 2)
 
     def test_all_authors_excludes_inactive_local_users(self):
         inactive_user = User.objects.create_user(username="inactive", password="pass12345", is_active=False)

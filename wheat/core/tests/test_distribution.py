@@ -61,6 +61,34 @@ class DistributionApiTests(APITestCase):
         self.assertEqual(mock_send.call_count, 1)
 
     @patch("core.federation.send_to_author_inbox")
+    def test_public_entry_fanout_to_remote_authors_without_follow(self, mock_send):
+        """PUBLIC reaches every known author on other nodes, not only followers."""
+        mock_send.return_value = (True, None)
+        Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://127.0.0.1:8001/api/authors/other-remote",
+            host="http://127.0.0.1:8001/api/",
+            displayName="Other Remote",
+            github="",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://127.0.0.1:8001/authors/other-remote",
+        )
+        self.client.login(username="local-dist", password="pass12345")
+
+        response = self.client.post(
+            self.entries_url,
+            {
+                "title": "Public fanout",
+                "content": "hello",
+                "contentType": "text/plain",
+                "visibility": "PUBLIC",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(mock_send.call_count, 2)
+
+    @patch("core.federation.send_to_author_inbox")
     def test_friends_entry_not_distributed_when_not_mutual(self, mock_send):
         mock_send.return_value = (True, None)
         self.client.login(username="local-dist", password="pass12345")

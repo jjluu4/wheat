@@ -286,6 +286,22 @@ ul.matrix {
     border-color: wheat;
 }
 
+.remote-fetch-row {
+    margin: 0.75rem 0;
+}
+
+.remote-fetch-row form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+
+.input-tiny {
+    width: 3.5rem;
+    margin-left: 0.25rem;
+}
+
 /* Auth page centering */
 .center-wrap {
     min-height: 85vh;

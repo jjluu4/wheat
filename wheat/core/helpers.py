@@ -159,6 +159,88 @@ def fetch_remote_json(url, remote_node, timeout=10):
     return payload if isinstance(payload, dict) else None
 
 
+def build_paginated_remote_authors_url(api_base, page, size):
+    """Build ``{api_base}/authors?page=&size=`` with normalized api_base."""
+    try:
+        page = int(page)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        size = 5
+    base = f"{normalize_url(api_base)}/authors"
+    parts = urllib.parse.urlsplit(base)
+    query = dict(urllib.parse.parse_qsl(parts.query, keep_blank_values=True))
+    query["page"] = str(max(1, page))
+    query["size"] = str(max(1, size))
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(query), parts.fragment)
+    )
+
+
+def _author_items_from_remote_payload(payload):
+    if not isinstance(payload, dict):
+        return []
+    for key in ("authors", "src"):
+        items = payload.get(key)
+        if isinstance(items, list):
+            return items
+    return []
+
+
+# Default chunk for "fetch next" UX (matches common API default size).
+REMOTE_AUTHORS_FETCH_CHUNK_SIZE = 5
+
+
+def remote_authors_fetch_session_key(node_pk):
+    """Session key for the next remote ``/api/authors`` page to fetch for this node."""
+    return f"remote_authors_fetch_page:{node_pk}"
+
+
+def fetch_remote_authors_page(node, page=1, page_size=None):
+    """
+    GET one page of a remote node's ``/api/authors`` and upsert each author locally.
+    Entries are not fetched (inbox only). Used when a user explicitly requests a page.
+    """
+    if page_size is None:
+        page_size = REMOTE_AUTHORS_FETCH_CHUNK_SIZE
+    api_base = normalize_url(node.api_base_url or f"{node.base_url}/api")
+    url = build_paginated_remote_authors_url(api_base, page, page_size)
+    payload = fetch_remote_json(url, node)
+    if payload is None:
+        return {
+            "upserted": 0,
+            "authors": [],
+            "has_more": False,
+            "error": "Could not fetch remote authors (network, HTTP error, or invalid JSON).",
+            "item_count": 0,
+            "page": page,
+            "page_size": page_size,
+        }
+
+    items = _author_items_from_remote_payload(payload)
+    authors_out = []
+    upserted = 0
+    for item in items:
+        if isinstance(item, dict):
+            author = upsert_remote_author(item)
+            if author is not None:
+                authors_out.append(author)
+                upserted += 1
+
+    has_more = len(items) >= page_size
+    return {
+        "upserted": upserted,
+        "authors": authors_out,
+        "has_more": has_more,
+        "error": None,
+        "item_count": len(items),
+        "page": page,
+        "page_size": page_size,
+    }
+
+
 def upsert_remote_author(author_payload, fallback_fqid=None):
     """Create or update a canonical local Author row from remote author data."""
     payload = author_payload if isinstance(author_payload, dict) else {}

@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 import uuid
 
 from ..models import Author, Entry
-from ..federation import sync_remote_authors_and_public_entries
 @login_required
 def my_stream(request):
     """Render the logged-in user's stream of entries from others."""
@@ -23,10 +22,6 @@ def my_stream(request):
             description="",
             profileImage="https://placehold.co/150x150.png",
         )
-    try:
-        sync_remote_authors_and_public_entries()
-    except Exception:
-        pass
     allEntries = Entry.get_entries(author)
     if not request.user.is_staff:
         allEntries = allEntries.exclude(visibility="DELETED")
