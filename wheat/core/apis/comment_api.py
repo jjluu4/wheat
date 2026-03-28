@@ -131,7 +131,15 @@ def author_commented(request, author_serial):
 
         forward_comment_to_remote_inbox(comment, entry)
 
-        return Response(build_comment_payload(comment, request), status=201)
+        payload=build_comment_payload(comment, request)
+        distribute_payload_to_remote_recipients(
+            author=entry.author,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
+
+        return Response(payload, status=201)
 
 @api_view(['GET'])
 @authentication_classes([SessionAuthentication])
