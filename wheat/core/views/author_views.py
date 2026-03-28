@@ -175,7 +175,7 @@ def author_profile(request, author_serial):
         entries = Entry.get_entries(requesting_author).filter(author=author)
         entries_heading = "Visible Entries"
     else:
-        entries = Entry.objects.filter(author=author, visibility__in=("PUBLIC", "UNLISTED"))
+        entries = Entry.objects.filter(author=author, visibility="PUBLIC")
         entries_heading = "Public Entries"
 
     entries = entries.order_by("-published")
