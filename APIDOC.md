@@ -39,17 +39,17 @@ Raw image bytes returned from this node, or a redirect to a same-node image URL.
 
 ## Author API
 
-**GET /api/authors**
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors
+**GET /api/authors/**
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/
 
-**Description:** Retrieve a list of all authors.
+**Description:** Retrieve a paginated list of authors native to this node.
 
 #### Queries
 page_number (int): page number of results
 size (int): # of results per page
 
 #### Example with Query Keywords
-GET /api/authors?page={page_number}&size={size}
+GET /api/authors/?page={page_number}&size={size}
 
 #### Response Body
 
@@ -187,13 +187,13 @@ author_serial (string): The UUID of an author.
 500 - Internal Server Error<br>
 
 **GET /api/authors/{author_fqid}/**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/
 
 **Description:** Retrieve one specific author.
 
 #### Auth
-<example_username>: username of remote node <author_fqid> originates from
-<example_password>: password  for remote node <author_fqid> originates from
+<example_username>: username of a logged-in local author or configured remote node
+<example_password>: password for that local author or configured remote node
 
 #### Parameters
 author_fqid (string): The FQID of an author
@@ -231,6 +231,44 @@ author_fqid (string): The FQID of an author
 #### Status Codes
 200 - Success<br>
 401 - Unauthorized<br>
+500 - Internal Server Error<br>
+
+**GET /api/remote-nodes/{remote_node_pk}/authors/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/remote-nodes/{remote_node_pk}/authors/
+
+**Description:** Fetch one page of authors from a configured active remote node and return them through this node.
+
+#### Auth
+<example_username>: username of a logged-in local author
+<example_password>: password for that local author
+
+#### Parameters
+remote_node_pk (int): The database ID of a configured remote node.
+
+#### Queries
+page_number (int): page number of results
+size (int): # of results per page
+
+#### Example with Query Keywords
+GET /api/remote-nodes/{remote_node_pk}/authors/?page={page_number}&size={size}
+
+#### Response Body
+
+```
+{
+    "type": string,
+    "authors": List<Author>,
+    "page_number": int,
+    "size": int,
+    "has_more": bool
+}
+```
+
+#### Status Codes
+200 - Success<br>
+401 - Unauthorized<br>
+404 - Remote node not found or inactive<br>
+502 - Remote node request failed<br>
 500 - Internal Server Error<br>
 
 ## Following API
@@ -544,14 +582,14 @@ author_serial (string): The UUID of an author
 
 ## Entries API
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}
+**GET /api/authors/{author_serial}/entries/{entry_serial}/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/
 
 **Description:** Retrieve an entry
 
 #### Auth
-<example_username>: username of an author (should be friend to access friends-only entries locally) *or* username of remote node of author_serial
-<example_password>: password for an author (should be friend to access friends-only entries locally) *or* password for remote node of author_serial
+Authentication is optional for PUBLIC and UNLISTED entries.
+Use local author credentials to access FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -570,7 +608,7 @@ entry_serial (string): The UUID of an entry
     "imageUrl": string,
     "author": Author,
     "published": Date,
-    "visibility": Author,
+    "visibility": string,
     "likes": List<Like>,
     "comments": List<Comment>,
 }
@@ -674,8 +712,8 @@ entry_serial (string): The UUID of an entry
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**PUT /api/authors/{author_serial}/entries/{entry_serial}**
-> curl --user <example_username>:<example_password> -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}
+**PUT /api/authors/{author_serial}/entries/{entry_serial}/**
+> curl --user <example_username>:<example_password> -X PUT http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/
 
 **Description:** Edit an entry
 
@@ -700,7 +738,7 @@ entry_serial (string): The UUID of an entry
     "imageUrl": string,
     "author": Author,
     "published": Date,
-    "visibility": Author,
+    "visibility": string,
     "likes": List<Like>,
     "comments": List<Comment>,
 }
@@ -751,8 +789,8 @@ entry_serial (string): The UUID of an entry
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**DELETE /api/authors/{author_serial}/entries/{entry_serial}**
-> curl --user <example_username>:<example_password> -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}
+**DELETE /api/authors/{author_serial}/entries/{entry_serial}/**
+> curl --user <example_username>:<example_password> -X DELETE http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/
 
 **Description:** Delete an entry
 
@@ -771,14 +809,14 @@ entry_serial (string): The UUID of an entry
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/entries/{entry_fqid}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}
+**GET /api/entries/{entry_fqid}/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/
 
 **Description:** Retrieve an entry with the fqid
 
 #### Auth
-<example_username>: username of an author (should be friend to access friends-only entries locally)
-<example_password>: password for an author (should be friend to access friends-only entries locally)
+Authentication is optional for PUBLIC and UNLISTED entries.
+Use local author credentials to access FRIENDS-only entries.
 
 #### Parameters
 entry_fqid (string): The FQID of an entry
@@ -796,7 +834,7 @@ entry_fqid (string): The FQID of an entry
     "imageUrl": string,
     "author": Author,
     "published": Date,
-    "visibility": Author,
+    "visibility": string,
     "likes": List<Like>,
     "comments": List<Comment>,
 }
@@ -852,8 +890,8 @@ entry_fqid (string): The FQID of an entry
 **Description:** Retrieve a list of entries from an author
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries)
-<example_password>: password for author (should be friend of author_serial for friends-only entries)
+Authentication is optional for PUBLIC and UNLISTED entries.
+Use local author credentials to access FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -880,7 +918,6 @@ GET /api/authors/{author_serial}/entries/?page={page_number}&size={size}
 #### Example Response
 
 ```
-{
 {
     "type": "entries",
     "page_number": 1,
@@ -918,8 +955,7 @@ GET /api/authors/{author_serial}/entries/?page={page_number}&size={size}
                 "src": []
             }
         }
-    ],
-    }
+    ]
 }
 ```
 
@@ -931,11 +967,11 @@ GET /api/authors/{author_serial}/entries/?page={page_number}&size={size}
 **POST /api/authors/{author_serial}/entries/**
 > curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/
 
-**Description:** Retrieve a list of entries from an author
+**Description:** Create a new entry for an author.
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries)
-<example_password>: password for author (should be friend of author_serial for friends-only entries)
+<example_username>: username of the local author connected to author_serial
+<example_password>: password for that local author
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -944,18 +980,11 @@ author_serial (string): The UUID of an author.
 
 ```
 {
-    "type": string,
     "title": string,
-    "id": string,
-    "web": string,
-    "description": string,
+    "content": string,
     "contentType": string,
     "imageUrl": string,
-    "author": Author,
-    "published": Date,
-    "visibility": Author,
-    "likes": List<Like>,
-    "comments": List<Comment>,
+    "visibility": string
 }
 ```
 
@@ -963,24 +992,11 @@ author_serial (string): The UUID of an author.
 
 ```
 {
-            "type": "entry",
             "title": "Entry",
-            "description": "Example.",
-            "contentType": "text/markdown",
             "content": "This is an example entry.",
+            "contentType": "text/markdown",
             "imageUrl": "",
-            "author": {
-                "type": "author",
-                "serial": "d379a3ed-734e-4419-b86f-3ba27af4d7d7",
-                "id": "http://127.0.0.1:8000/api/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7",
-                "host": "http://127.0.0.1:8000/api/",
-                "displayName": "Johnson",
-                "github": "https://github.com/Johnson",
-                "profileImage": "https://placehold.co/150x150.png",
-                "web": "http://127.0.0.1:8000/authors/d379a3ed-734e-4419-b86f-3ba27af4d7d7/"
-            },
-            "published": "2026-03-16T12:45:27.099220Z",
-            "visibility": "PUBLIC",
+            "visibility": "PUBLIC"
 }
 ```
 
@@ -992,14 +1008,14 @@ author_serial (string): The UUID of an author.
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/image**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/image
+**GET /api/authors/{author_serial}/entries/{entry_serial}/image/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/image/
 
 **Description:** Retrieve an image from an image entry
 
 #### Auth
-<example_username>: username of an author (should be friend to access friends-only entries locally) *or* username of remote node of author_serial
-<example_password>: password for an author (should be friend to access friends-only entries locally) *or* password for remote node of author_serial
+Authentication is optional for image entries backed by PUBLIC and UNLISTED entries.
+Use local author credentials to access image entries backed by FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1023,14 +1039,14 @@ entry_serial (string): The UUID of an entry.
 500 - Internal Server Error<br>
 503 - Failure to Connect to Remote Node<br>
 
-**GET /api/entries/{entry_fqid}/image**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/image
+**GET /api/entries/{entry_fqid}/image/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/image/
 
 **Description:** Retrieve an image from an image entry using fqid
 
 #### Auth
-<example_username>: username of an author (should be friend to access friends-only entries locally) *or* username of remote node of author_serial
-<example_password>: password for an author (should be friend to access friends-only entries locally) *or* password for remote node of author_serial
+Authentication is optional for image entries backed by PUBLIC and UNLISTED entries.
+Use local author credentials to access image entries backed by FRIENDS-only entries.
 
 #### Parameters
 entry_fqid (string): The FQID of an entry.
@@ -1056,14 +1072,14 @@ entry_fqid (string): The FQID of an entry.
 
 ## Comments API
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/comments**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments
+**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments/
 
 **Description:** Retrieve a list of comments on an entry
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
-<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+Authentication is optional for comments on PUBLIC and UNLISTED entries.
+Use local author credentials to access comments on FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1135,14 +1151,14 @@ GET /api/authors/{author_serial}/entries/{entry_serial}/comments?page={page_numb
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/entries/{entry_fqid}/comments**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/comments
+**GET /api/entries/{entry_fqid}/comments/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/comments/
 
 **Description:** Retrieve a list of comments on an entry with an fqid
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
-<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+Authentication is optional for comments on PUBLIC and UNLISTED entries.
+Use local author credentials to access comments on FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1214,86 +1230,16 @@ GET /api/entries/{entry_fqid}/comments?page={page_number}&size={size}
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{remote_comment_fqid}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments
-
-**Description:** Retrieve a list of comments on an entry
-
-#### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
-<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
-
-#### Parameters
-author_serial (string): The UUID of an author.
-entry_serial (string): The UUID of an entry.
-remote_comment_fqid (string): the FQID of a remote comment on a local entry.
-
-#### Response Body
-
-```
-{
-    "type": string
-    "id": string
-    "url": string
-    "author": Author
-    "content": string
-    "contentType": string
-    "published": Date
-    "entry": string
-    "likes": List<Like>
-}
-```
-
-#### Example Response
-
-```
-{
-    "type": "comment",
-    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
-    "url": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
-    "author": {
-        "type": "author",
-        "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-        "host": "http://127.0.0.1:8000/api/",
-        "displayName": "NewAccount",
-        "github": "https://github.com/NewAccount",
-        "profileImage": "https://placehold.co/150x150.png",
-        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
-    },
-    "content": "I am commenting on this post",
-    "contentType": "text/plain",
-    "published": "2026-03-16T10:47:57.796752Z",
-    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/",
-    "likes": {
-        "type": "likes",
-        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
-        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
-        "page_number": 1,
-        "size": 50,
-        "count": 0,
-        "src": []
-    },
-    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
-}
-```
-
-#### Status Codes
-200 - Success<br>
-403 - Forbidden<br>
-404 - Object Does Not Exist<br>
-500 - Internal Server Error<br>
-
 ## Commented API
 
-**GET /api/authors/{author_serial}/commented**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented
+**GET /api/authors/{author_serial}/commented/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented/
 
 **Description:** Retrieve a list of comments an author has made
 
 #### Auth
-<example_username>: username of author corresponding to author_serial *or* username of remote node of author_fqid
-<example_password>: password for author corresponding to author_serial *or* password of remote node of author_fqid
+Authentication is optional for comments on PUBLIC and UNLISTED entries.
+Use local author credentials to access comments on FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1303,7 +1249,7 @@ page_number (int): page number of results
 size (int): # of results per page
 
 #### Example with Query Keywords
-GET /api/authors/{author_serial}/commented?page={page_number}&size={size}
+GET /api/authors/{author_serial}/commented/?page={page_number}&size={size}
 
 #### Response Body
 
@@ -1363,14 +1309,14 @@ GET /api/authors/{author_serial}/commented?page={page_number}&size={size}
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**POST /api/authors/{author_serial}/commented**
-> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented
+**POST /api/authors/{author_serial}/commented/**
+> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented/
 
-**Description:** Create a comment for an author
+**Description:** Create a new comment as the author on an entry.
 
 #### Auth
-<example_username>: username of author corresponding to author_serial
-<example_password>: password for author corresponding to author_serial
+<example_username>: username of the local author connected to author_serial
+<example_password>: password for that local author
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1380,14 +1326,9 @@ author_serial (string): The UUID of an author.
 ```
 {
     "type": string
-    "id": string
-    "url": string
-    "author": Author
-    "content": string
+    "comment": string
     "contentType": string
-    "published": Date
     "entry": string
-    "likes": List<Like>
 }
 ```
 
@@ -1396,32 +1337,9 @@ author_serial (string): The UUID of an author.
 ```
 {
     "type": "comment",
-    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
-    "url": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/commented/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/",
-    "author": {
-        "type": "author",
-        "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-        "host": "http://127.0.0.1:8000/api/",
-        "displayName": "NewAccount",
-        "github": "https://github.com/NewAccount",
-        "profileImage": "https://placehold.co/150x150.png",
-        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
-    },
-    "content": "I am commenting on this post",
+    "comment": "I am commenting on this post",
     "contentType": "text/plain",
-    "published": "2026-03-16T10:47:57.796752Z",
-    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/",
-    "likes": {
-        "type": "likes",
-        "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
-        "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331/likes/",
-        "page_number": 1,
-        "size": 50,
-        "count": 0,
-        "src": []
-    },
-    "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/comments/e4fd8fea-1802-4a5d-b46b-f9db21c5d331"
+    "entry": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e/"
 }
 ```
 
@@ -1433,8 +1351,8 @@ author_serial (string): The UUID of an author.
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_fqid}/commented**
-> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/commented
+**GET /api/authors/{author_fqid}/commented/**
+> curl -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/commented/
 
 **Description:** Retrieve a list of comments an author has made
 
@@ -1446,7 +1364,7 @@ page_number (int): page number of results
 size (int): # of results per page
 
 #### Example with Query Keywords
-GET /api/authors/{author_fqid}/commented?page={page_number}&size={size}
+GET /api/authors/{author_fqid}/commented/?page={page_number}&size={size}
 
 #### Response Body
 
@@ -1456,7 +1374,7 @@ GET /api/authors/{author_fqid}/commented?page={page_number}&size={size}
     "page_number": int
     "size": int
     "count": int
-    "src": List<Comments>
+    "src": List<Comment>
 }
 ```
 
@@ -1506,19 +1424,18 @@ GET /api/authors/{author_fqid}/commented?page={page_number}&size={size}
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/commented/{comment_serial}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented/{comment_serial}
+**GET /api/authors/{author_serial}/commented/{comment_serial}/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/commented/{comment_serial}/
 
 **Description:** Retrieve a comment an author has made
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
-<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+Authentication is optional for comments on PUBLIC and UNLISTED entries.
+Use local author credentials to access comments on FRIENDS-only entries.
 
 
 #### Parameters
 author_serial (string): The UUID of an author.
-entry_serial (string): The UUID of an entry.
 comment_serial (string): The UUID of a comment.
 
 #### Response Body
@@ -1577,14 +1494,14 @@ comment_serial (string): The UUID of a comment.
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/commented/{comment_fqid}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/commented/{comment_fqid}
+**GET /api/commented/{comment_fqid}/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/commented/{comment_fqid}/
 
 **Description:** Retrieve a comment based on its fqid
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries)
-<example_password>: password for author (should be friend of author_serial for friends-only entries)
+Authentication is optional for PUBLIC and UNLISTED comments.
+Use local author credentials to access comments on FRIENDS-only entries.
 
 #### Parameters
 comment_fqid (string): The FQID of a comment.
@@ -1647,14 +1564,14 @@ comment_fqid (string): The FQID of a comment.
 
 ## Likes API
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/likes**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/likes
+**GET /api/authors/{author_serial}/entries/{entry_serial}/likes/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/likes/
 
 **Description:** Retrieve a list of likes on an entry
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
-<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+Authentication is optional for likes on PUBLIC and UNLISTED entries.
+Use local author credentials to access likes on FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -1711,15 +1628,14 @@ entry_serial (string): The UUID of an entry
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-/api/entries/{ENTRY_FQID}/likes
-**GET /api/entries/{entry_fqid}/likes**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/likes
+**GET /api/entries/{entry_fqid}/likes/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/entries/{entry_fqid}/likes/
 
 **Description:** Retrieve a list of likes on an entry with an fqid
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries)
-<example_password>: password for author (should be friend of author_serial for friends-only entries)
+Authentication is optional for likes on PUBLIC and UNLISTED entries.
+Use local author credentials to access likes on FRIENDS-only entries.
 
 #### Parameters
 entry_fqid (string): The FQID of an entry
@@ -1775,19 +1691,19 @@ entry_fqid (string): The FQID of an entry
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_fqid}/likes
+**GET /api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_serial}/likes/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/entries/{entry_serial}/comments/{comment_serial}/likes/
 
 **Description:** Retrieve a list of likes on a comment
 
 #### Auth
-<example_username>: username of author (should be friend of author_serial for friends-only entries) *or* username of remote node of author_fqid
-<example_password>: password for author (should be friend of author_serial for friends-only entries) *or* password of remote node of author_fqid
+Authentication is optional for likes on PUBLIC and UNLISTED comments.
+Use local author credentials to access likes on comments attached to FRIENDS-only entries.
 
 #### Parameters
 author_serial (string): The UUID of an author
 entry_serial (string): The UUID of an entry
-comment_fqid (string): The FQID of a comment
+comment_serial (string): The UUID of a comment
 
 #### Response Body
 
@@ -1842,14 +1758,14 @@ comment_fqid (string): The FQID of a comment
 
 ## Liked API
 
-**GET /api/authors/{author_serial}/liked**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked
+**GET /api/authors/{author_serial}/liked/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked/
 
 **Description:** Retrieve a list of all likes an author has made
 
 #### Auth
-<example_username>: username of an author *or* username of remote node of author_fqid
-<example_password>: password for an author *or* password of remote node of author_fqid
+Authentication is optional for PUBLIC and UNLISTED liked objects.
+Use local author credentials to access likes attached to FRIENDS-only content.
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -1900,20 +1816,17 @@ author_serial (string): The UUID of an author
 
 #### Status Codes
 200 - Success<br>
-400 - Invalid Request<br>
-401 - Unauthorized<br>
-403 - Forbidden Access<br>
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**POST /api/authors/{author_serial}/liked**
-> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked
+**POST /api/authors/{author_serial}/liked/**
+> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked/
 
-**Description:** Post a like to an author’s profile
+**Description:** Create or remove a like on an entry or comment as the author.
 
 #### Auth
-<example_username>: username of author connected to author_serial *or* username of remote node of author_fqid
-<example_password>: password for an author connected to author_serial *or* password of remote node of author_fqid
+<example_username>: username of the local author connected to author_serial
+<example_password>: password for that local author
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -1923,9 +1836,6 @@ author_serial (string): The UUID of an author
 ```
 {
     "type": string
-    "id": string
-    "author": Author
-    "published": Date
     "object": string
 }
 ```
@@ -1953,78 +1863,25 @@ author_serial (string): The UUID of an author
 ```
 
 #### Status Codes
-201 - Success<br>
+200 - Existing like returned or unlike succeeded<br>
+201 - New like created<br>
 400 - Invalid Request<br>
 401 - Unauthorized<br>
 403 - Forbidden Access<br>
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/authors/{author_serial}/liked/{like_serial}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_serial}/liked/{like_serial}
-
-**Description:** Retrieve a like
-
-#### Auth
-<example_username>: username of an author *or* username of remote node of author_fqid
-<example_password>: password for an author *or* password of remote node of author_fqid
-
-#### Parameters
-author_serial (string): The UUID of an author
-like_serial (string): The UUID of a like
-
-#### Response Body
-
-```
-{
-    "type": string
-    "id": string
-    "author": Author
-    "published": Date
-    "object": string
-}
-```
-
-#### Example Response
-
-```
-{
-    "type": "like",
-    "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/liked/03c9e0d5-c3f9-4b78-9858-7a07d83dca58/",
-    "author": {
-      "type": "author",
-      "serial": "27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-      "id": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb",
-      "host": "http://127.0.0.1:8000/api/",
-      "displayName": "NewAccount",
-      "github": "https://github.com/NewAccount",
-      "profileImage": "https://placehold.co/150x150.png",
-      "web": "http://127.0.0.1:8000/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/"
-      },
-    "published": "2026-03-16T10:39:32.837116Z",
-    "object": "http://127.0.0.1:8000/api/authors/27e2ab6f-93f3-4680-8686-ce5f869ed3fb/entries/3aa686db-034b-4c8b-9dc2-b54ba1b3a12e"
-}
-```
-
-#### Status Codes
-200 - Success<br>
-400 - Invalid Request<br>
-401 - Unauthorized<br>
-403 - Forbidden Access<br>
-404 - Object Does Not Exist<br>
-500 - Internal Server Error<br>
-
-**GET /api/authors/{author_fqid}/liked**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/liked
+**GET /api/authors/{author_fqid}/liked/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/liked/
 
 **Description:** Retrieve a list of all likes an author has made
 
 #### Auth
-<example_username>: username of an author *or* username of remote node of author_fqid
-<example_password>: password for an author *or* password of remote node of author_fqid
+Authentication is optional for PUBLIC and UNLISTED liked objects.
+Use local author credentials to access likes attached to FRIENDS-only content.
 
 #### Parameters
-author_serial (string): The UUID of an author
+author_fqid (string): The FQID of an author
 
 #### Response Body
 
@@ -2072,32 +1929,26 @@ author_serial (string): The UUID of an author
 
 #### Status Codes
 200 - Success<br>
-400 - Invalid Request<br>
-401 - Unauthorized<br>
-403 - Forbidden Access<br>
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**POST /api/authors/{author_fqid}/liked**
-> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/liked
+**POST /api/authors/{author_fqid}/liked/**
+> curl --user <example_username>:<example_password> -X POST http<nolink>:\//127.0.0.1:8000/api/authors/{author_fqid}/liked/
 
-**Description:** Post a like to an author’s profile with their fqid
+**Description:** Create or remove a like on an entry or comment using the author's FQID route.
 
 #### Auth
-<example_username>: username of author connected to author_serial *or* username of remote node of author_fqid
-<example_password>: password for an author connected to author_serial *or* password of remote node of author_fqid
+<example_username>: username of the local author connected to author_fqid
+<example_password>: password for that local author
 
 #### Parameters
-author_serial (string): The UUID of an author
+author_fqid (string): The FQID of an author
 
 #### Request Body
 
 ```
 {
     "type": string
-    "id": string
-    "author": Author
-    "published": Date
     "object": string
 }
 ```
@@ -2124,25 +1975,25 @@ author_serial (string): The UUID of an author
 ```
 
 #### Status Codes
-201 - Success<br>
+200 - Existing like returned or unlike succeeded<br>
+201 - New like created<br>
 400 - Invalid Request<br>
 401 - Unauthorized<br>
 403 - Forbidden Access<br>
 404 - Object Does Not Exist<br>
 500 - Internal Server Error<br>
 
-**GET /api/liked/{like_fqid}**
-> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/liked/{like_fqid}
+**GET /api/liked/{like_fqid}/**
+> curl --user <example_username>:<example_password> -X GET http<nolink>:\//127.0.0.1:8000/api/liked/{like_fqid}/
 
 **Description:** Retrieve a like with its fqid
 
 #### Auth
-<example_username>: username of an author *or* username of remote node of author_fqid
-<example_password>: password for an author *or* password of remote node of author_fqid
+Authentication is optional for PUBLIC and UNLISTED liked objects.
+Use local author credentials to access likes attached to FRIENDS-only content.
 
 #### Parameters
-author_serial (string): The UUID of an author
-like_serial (string): The UUID of a like
+like_fqid (string): The FQID of a like
 
 #### Response Body
 
@@ -2205,6 +2056,7 @@ author_serial (string): The UUID of an author.
 {
     "type": string,
     "title": string,
+    "content": string,
     "id": string,
     "web": string,
     "description": string,
@@ -2212,7 +2064,7 @@ author_serial (string): The UUID of an author.
     "imageUrl": string,
     "author": Author,
     "published": Date,
-    "visibility": Author,
+    "visibility": string,
     "likes": List<Like>,
     "comments": List<Comment>,
 }
