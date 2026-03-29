@@ -1,15 +1,32 @@
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
+import base64, urllib, mimetypes, io
+from PIL import Image as PILImage
 
-from ..models import Author, Entry
+from ..auth import (
+    require_auth_for_view,
+    is_remote_node_authenticated,
+)
+from ..federation import distribute_entry_to_remote_recipients
+from ..models import Author, Entry, Image
 from ..permissions import (
     get_requesting_author,
     can_view_entry,
 )
-from ..helpers import get_pagination_params, build_entry_payload
+from ..helpers import (
+    build_entry_payload,
+    fetch_remote_image,
+    get_pagination_params,
+    resolve_image_proxy_target,
+    resolve_object_by_url,
+)
+from ..serializers import EntrySerializer
 
 @api_view(["GET", "PUT", "DELETE"])
+@authentication_classes([SessionAuthentication])
 def single_entry(request, author_serial, entry_serial):
     """
     Handles operations on a single entry.
@@ -19,7 +36,8 @@ def single_entry(request, author_serial, entry_serial):
     requestingAuthor = get_requesting_author(request)
 
     if request.method == "GET":
-        if not can_view_entry(entry, requestingAuthor, request.user):
+        require_auth_for_view(False)
+        if not can_view_entry(entry, requestingAuthor, request.user) and not is_remote_node_authenticated(request):
             if entry.visibility == "DELETED":
                 return Response({"error": "Entry not found"}, status=404)
 
@@ -37,6 +55,7 @@ def single_entry(request, author_serial, entry_serial):
         return Response({"error": "You don't have permission to modify this entry"}, status=403)
 
     if request.method == "PUT":
+        require_auth_for_view(True)
         if "title" in request.data:
             entry.title = (request.data.get("title") or "").strip() or entry.title
         if "content" in request.data:
@@ -56,14 +75,30 @@ def single_entry(request, author_serial, entry_serial):
             return Response({"error": "imageUrl is required for image entries"}, status=400)
 
         entry.save()
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=entryAuthor,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
         return Response(build_entry_payload(entry, request), status=200)
 
     if request.method == "DELETE":
+        require_auth_for_view(True)
         entry.visibility = "DELETED"
         entry.save(update_fields=["visibility"])
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=entryAuthor,
+            payload=payload,
+            visibility="PUBLIC",
+            method="POST",
+        )
         return Response(status=204)
 
 @api_view(["GET", "POST"])
+@authentication_classes([SessionAuthentication])
 def author_entries(request, author_serial):
     """
     Handles operations on an authors entries collection
@@ -78,21 +113,28 @@ def author_entries(request, author_serial):
         requestingAuthor = request.user.author_profile
 
     if request.method == "GET":
+        require_auth_for_view(False)
         page, size = get_pagination_params(request)
         offset = (page - 1) * size
+        remote_authenticated = is_remote_node_authenticated(request)
 
-        qs = Entry.objects.filter(author=author).exclude(visibility="DELETED").order_by("-published")
+        qs = Entry.objects.filter(author=author).order_by("-published")
+        if not request.user.is_staff:
+            qs = qs.exclude(visibility="DELETED")
 
         is_owner = request.user.is_authenticated and (request.user.is_staff or requestingAuthor == author)
         is_friend = requestingAuthor is not None and author.get_friends().filter(serial=requestingAuthor.serial).exists()
         is_follower = requestingAuthor is not None and author.get_followers().filter(serial=requestingAuthor.serial).exists()
 
+        
         if is_owner or request.user.is_staff or is_friend:
-            pass  
+            pass
         elif is_follower:
             qs = qs.exclude(visibility="FRIENDS")
+        elif remote_authenticated:
+            qs = qs.filter(visibility__in=("PUBLIC", "UNLISTED"))
         else:
-            qs = qs.filter(visibility="PUBLIC")
+            qs = qs.filter(visibility__in=("PUBLIC", "UNLISTED"))
 
         total = qs.count()
         page_entries = list(qs[offset : offset + size])
@@ -110,6 +152,7 @@ def author_entries(request, author_serial):
         )
 
     elif request.method == "POST":
+        require_auth_for_view(True)
         if not request.user.is_authenticated or not requestingAuthor:
             return Response({"error": "Authentication required to create entry"}, status=401)
 
@@ -141,4 +184,159 @@ def author_entries(request, author_serial):
         entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
         entry.save(update_fields=["url"])
 
+        payload = build_entry_payload(entry, request)
+        distribute_entry_to_remote_recipients(
+            author=author,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
+
         return Response(build_entry_payload(entry, request), status=201)
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def get_entry_fqid(request, entry_fqid):
+    """
+    Handles getting an entry by fqid.
+    Friends-only posts require authentication.
+
+    GET: Retrieve the entry based on its fqid.
+    """
+    require_auth_for_view(False)
+    decoded_fqid = urllib.parse.unquote(entry_fqid)
+    entry = resolve_object_by_url(Entry, decoded_fqid)
+    if entry is None:
+        return Response({"error": "Entry not found"}, status=404)
+
+    requestingAuthor = get_requesting_author(request)
+
+    # Ensure the user has permissions to view the entry.
+    if not can_view_entry(entry, requestingAuthor, request.user):
+        if entry.visibility == "FRIENDS" and not request.user.is_authenticated and not is_remote_node_authenticated(request):
+            return Response({"error": "Authentication required"}, status=401)
+        return Response({"error": "You do not have permission to view this entry."}, status=403)
+    
+    return Response(EntrySerializer(entry).data)
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def get_author_image_entry(request, author_serial, entry_serial):
+    """
+    Handles the retrieval of an image by author and entry serials.
+
+    GET: Get an entry converted to binary as an image.
+    """
+    require_auth_for_view(False)
+
+    try:
+        entry = Entry.objects.get(serial=entry_serial, author__serial=author_serial)
+        return serve_image(request, entry)
+        
+    except Entry.DoesNotExist:
+        try:
+            author = Author.objects.get(serial=author_serial)
+        except Author.DoesNotExist:
+            return Response({"error": "Author and Entry not found."}, status=404)
+
+        base_url = author.host.rstrip('/')
+        target = resolve_image_proxy_target(f"{base_url}/authors/{author_serial}/entries/{entry_serial}/image", request)
+        if target.get("kind") != "remote":
+            return Response({"error": "Image not found locally, and remote node not configured."}, status=404)
+
+        fetched = fetch_remote_image(target["url"], target["remote_node"])
+        if fetched["status"] != 200:
+            return Response({"error": fetched["error"]}, status=fetched["status"])
+        return HttpResponse(fetched["content"], content_type=fetched["content_type"])
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+def get_fqid_image_entry(request, entry_fqid):
+    """
+    Handles the retrieval of an image by fqid.
+
+    GET: Get an entry converted to binary as an image.
+    """
+    require_auth_for_view(False)
+    decoded_fqid = urllib.parse.unquote(entry_fqid)
+
+    try:
+        entry = Entry.objects.get(url=decoded_fqid)
+        return serve_image(request, entry)
+    except Entry.DoesNotExist:
+        target = resolve_image_proxy_target(f"{decoded_fqid.rstrip('/')}/image", request)
+        if target.get("kind") != "remote":
+            return Response({"error": "Image not found locally, and remote node not configured."}, status=404)
+
+        fetched = fetch_remote_image(target["url"], target["remote_node"])
+        if fetched["status"] != 200:
+            return Response({"error": fetched["error"]}, status=fetched["status"])
+        return HttpResponse(fetched["content"], content_type=fetched["content_type"])
+
+def serve_image(request, entry):
+    """
+    Serves the image from an entry as binary, either from a locally stored image or from a base64 encoded image.
+    """
+    requestingAuthor = get_requesting_author(request)
+    isRemoteAuth = is_remote_node_authenticated(request)
+
+    # Ensure the user has permissions to view the entry.
+    if not can_view_entry(entry, requestingAuthor, request.user) and not isRemoteAuth:
+        return Response({"error": "You do not have permission to view this image entry."}, status=403)
+
+    # Ensure correct content type
+    if not entry.content_type.startswith("image") or entry.content_type.startswith("application/"):
+        return Response({"error": f"The requested entry is not an image."}, status=404)
+    
+    if entry.image_url:
+        image = Image.objects.filter(url=entry.image_url).first()
+        if image is not None:
+            try:
+                with image.image.open('rb') as f:
+                    image_data = f.read()
+                
+                mime_type, _ = mimetypes.guess_type(image.image.name)
+                
+                return HttpResponse(image_data, content_type=mime_type)
+            except IOError:
+                return Response({"error": "The requested image file could not be read."}, status=404)
+
+        target = resolve_image_proxy_target(entry.image_url, request)
+        if target.get("kind") == "remote":
+            fetched = fetch_remote_image(target["url"], target["remote_node"])
+            if fetched["status"] != 200:
+                return Response({"error": fetched["error"]}, status=fetched["status"])
+            return HttpResponse(fetched["content"], content_type=fetched["content_type"])
+
+        return Response({"error": "Image not found locally."}, status=404)
+    # For base64 encoded images (as per the project page)
+    else:
+        content = entry.content.strip()
+
+        if content.startswith("data:"):
+            try:
+                content = content.split(",", 1)[1]
+            except IndexError:
+                pass
+
+        try:
+            image_data = base64.b64decode(content)
+            mime_type = entry.content_type.replace(";base64", "").replace("; base64", "")
+
+            if mime_type == "image" or not mime_type:
+                try:
+                    # Convert the raw bytes into a stream that Pillow can read
+                    image_stream = io.BytesIO(image_data)
+                    img = PILImage.open(image_stream)
+                    
+                    # Use pillow to get the format of a base64 image if not specified.
+                    detected_format = img.format.lower()
+                    
+                    mime_type = f"image/{detected_format}"
+                    
+                except Exception as e:
+                    print(f"Pillow Image Error: {e}")
+                    return Response({"error": "The decoded data is not a valid or readable image."}, status=400)
+            return HttpResponse(image_data, content_type=mime_type)
+        except Exception:
+            return Response({"error": "Invalid image data."}, status=400)

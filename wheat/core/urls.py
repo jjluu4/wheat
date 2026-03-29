@@ -1,16 +1,31 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
-from .views import author_views, entry_views, follow_views, stream_views, authentication_views, views
-from .apis import author_api, comment_api, entry_api, follow_api, like_api
+from .views import author_views, entry_views, follow_views, stream_views, authentication_views, remote_node_views, views
+from .apis import author_api, comment_api, entry_api, follow_api, like_api, inbox_api, media_api
 
 urlpatterns = [
     path("", views.index, name="index"),
 
     path("accounts/signup/", authentication_views.signup, name="signup"),
     path("accounts/logged_out", authentication_views.logged_out, name="logged_out"),
+    path("accounts/pending_approval", authentication_views.pending_approval, name="pending_approval"),
+
+    path("staff/nodes/", remote_node_views.remote_node_list, name="remote_node_list"),
+    path("staff/nodes/add/", remote_node_views.remote_node_add, name="remote_node_add"),
+    path("staff/nodes/<int:pk>/edit/", remote_node_views.remote_node_edit, name="remote_node_edit"),
+    path("staff/nodes/<int:pk>/delete/", remote_node_views.remote_node_delete, name="remote_node_delete"),
+    path("staff/nodes/<int:pk>/toggle/", remote_node_views.remote_node_toggle, name="remote_node_toggle"),
+    path(
+        "staff/nodes/<int:pk>/fetch-authors/",
+        remote_node_views.fetch_remote_node_authors_page,
+        name="fetch_remote_node_authors_page",
+    ),
 
     path("authors/", author_views.author_list, name="author_list"),
 
     path("authors/me/", author_views.my_profile, name="my_profile"),
+    path("authors/open/", author_views.open_remote_author, name="author_open_remote"),
     
     path("stream/", stream_views.my_stream, name="my_stream"),
 
@@ -31,18 +46,35 @@ urlpatterns = [
 
     # API endpoints
     path("api/authors/<uuid:author_serial>/", author_api.single_author, name="api_single_author"),
-    path("api/authors", author_api.all_authors, name="api_all_authors"),
+    path("api/authors/<uuid:author_serial>/profile-image/", author_api.author_profile_image, name="api_author_profile_image"),
+    path("api/remote-nodes/<int:remote_node_pk>/authors/", author_api.remote_node_authors, name="api_remote_node_authors"),
+    path("api/authors/", author_api.all_authors, name="api_all_authors"),
+    path("api/media/image-proxy/", media_api.image_proxy, name="api_image_proxy"),
     path("api/authors/<uuid:author_serial>/entries/", entry_api.author_entries, name="api_author_entries"),
     path("api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", entry_api.single_entry, name="api_single_entry"),    
     path("api/authors/<uuid:author_serial>/follow_requests", follow_api.get_follow_requests_api, name="api_follow_requests"),
-    path("api/authors/<uuid:author_serial>/following", follow_api.get_following_api, name="api_get_following"),
+    path("api/authors/<uuid:author_serial>/following", follow_api.get_following_list, name="api_get_following_list"),
+    path("api/authors/<uuid:author_serial>/followers", follow_api.followers_api, name="api_followers_list"),
+
     path('api/authors/<uuid:author_serial>/commented/', comment_api.author_commented, name='api_author_comments'),
     path('api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/', comment_api.author_commented_single, name='api_author_comments_single'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/', comment_api.entry_comments, name='api_entry_comments'),
     path('api/authors/<uuid:author_serial>/liked/', like_api.author_liked, name='api_author_liked'),
+    path("api/authors/<path:author_fqid>/commented/", comment_api.author_commented_fqid, name="api_author_comments_fqid"),
+    path("api/authors/<path:author_fqid>/liked/", like_api.author_liked_fqid, name="api_author_liked_fqid"),
+    path("api/commented/<path:comment_fqid>/", comment_api.comment_fqid, name="api_comment_fqid"),
+    path("api/liked/<path:like_fqid>/", like_api.like_fqid, name="api_like_fqid"),
+    path("api/entries/<path:entry_fqid>/comments/", comment_api.entry_comments_fqid, name="api_entry_comments_fqid"),
+    path("api/entries/<path:entry_fqid>/likes/", like_api.entry_likes_fqid, name="api_entry_likes_fqid"),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/likes/', like_api.entry_likes, name='api_entry_likes'),
     path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/comments/<uuid:comment_serial>/likes/', like_api.comment_likes, name='api_comment_likes'),
-
+    path('api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/image/', entry_api.get_author_image_entry, name='get_author_image_entry'),
+    path('api/entries/<path:entry_fqid>/image/', entry_api.get_fqid_image_entry, name='get_fqid_image_entry'),
+    path("api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>", follow_api.following_api, name="api_following"),
+    path("api/authors/<uuid:author_serial>/followers/<path:foreign_author_fqid>", follow_api.follower_api, name="api_followers"),
+    path('api/authors/<uuid:author_serial>/inbox', inbox_api.inbox_item, name='api_inbox_item'),
+    path("api/entries/<path:entry_fqid>/", entry_api.get_entry_fqid, name="api_entry_fqid"),
+    path("api/authors/<path:author_fqid>/", author_api.single_author_fqid, name="api_author_fqid"),
 
     # Canonical stable routes use entry serial (UUID), not DB pk
     path("authors/<uuid:author_serial>/entries/<uuid:entry_serial>/edit/", entry_views.edit_entry, name="entry_edit"),
@@ -52,4 +84,5 @@ urlpatterns = [
     # Backward-compatible legacy routes
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/edit/", entry_views.edit_entry_legacy, name="entry_edit_legacy"),
     path("authors/<uuid:author_serial>/entries/<int:entry_id>/delete/", entry_views.delete_entry_legacy, name="entry_delete_legacy"),
-]
+
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

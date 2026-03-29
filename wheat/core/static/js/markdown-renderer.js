@@ -1,26 +1,46 @@
-(function() {
-    function decodeHtml(html) {
-        var el = document.createElement("div");
-        el.innerHTML = html;
-        return el.textContent;
-    }
-    function run() {
-        if (typeof marked === "undefined") return;
-        var list = document.getElementsByClassName("content");
-        for (var i = 0; i < list.length; i++) {
-            var div = list[i];
-            if (!div.classList.contains("markdown-source")) continue;
-            var raw = decodeHtml(div.innerHTML);
-            var html = typeof marked.parse === "function" ? marked.parse(raw) : marked(raw);
-            div.classList.remove("markdown-source");
-            div.innerHTML = html;
-        }
-    }
-    window.renderMarkdownContent = run;
+import DOMPurify from "./vendor/dompurify.esm.js";
+import { marked } from "./vendor/marked.esm.js";
+import { rewriteRenderedMarkdownHtml } from "./markdown-same-origin.js";
 
-    if (document.readyState === "loading") {
-        window.addEventListener("load", run);
-    } else {
-        run();
+function decodeHtml(html) {
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    return el.textContent;
+}
+
+function getAllowlistedOrigins() {
+    const node = document.getElementById("media-origin-config");
+    if (!node) return [];
+
+    try {
+        const parsed = JSON.parse(node.textContent || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
     }
-})();
+}
+
+function run() {
+    const list = document.getElementsByClassName("content");
+    const allowlistedOrigins = getAllowlistedOrigins();
+    for (let i = 0; i < list.length; i++) {
+        const div = list[i];
+        if (!div.classList.contains("markdown-source")) continue;
+        const raw = decodeHtml(div.innerHTML);
+        const html = marked.parse(raw);
+        const sanitized = DOMPurify.sanitize(html);
+        div.classList.remove("markdown-source");
+        div.innerHTML = rewriteRenderedMarkdownHtml(sanitized, {
+            pageOrigin: window.location.origin,
+            allowlistedOrigins,
+        });
+    }
+}
+
+window.renderMarkdownContent = run;
+
+if (document.readyState === "loading") {
+    window.addEventListener("load", run);
+} else {
+    run();
+}

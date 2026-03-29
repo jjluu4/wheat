@@ -1,4 +1,4 @@
-{% load static %}
+{% load static core_media %}
 <!doctype html>
 <html>
 
@@ -6,53 +6,69 @@
     <meta charset="utf-8" />
     <title>{{ author.displayName }}</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <script src="{% static 'js/entry.js' %}?v=likes-ui-1"></script>
+    <script src="{% static 'js/entry.js' %}?v=likes-ui-4"></script>
 </head>
 
 <body>
     <div class="page">
         {% include '../navs/main.html' %}
+        {% author_avatar_url author request as author_avatar_src %}
 
         <div class="container">
-            <h1>{{ author.displayName }}</h1>
+            {% if messages %}
+                <div class="card">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <h1 style="display: flex; align-items: center; justify-content: center; gap: 5px; margin: 5px 0 10px;flex-wrap: wrap;">
+                <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ author.displayName }} avatar">
+                {{ author.displayName }} 
+            </h1>
+            {% if author.description %}
+                <p style="text-align: center; margin: 0 0 10px;">{{ author.description }}</p>
+                {% endif %}
+
             {% if not request.user.is_authenticated %}
             {% elif author.serial == request.user.author_profile.serial %}
             {% else %}
-            <p>
+            <p style="display: flex; align-items: center; justify-content: center;">
                 {% if followStatus == 'ACCEPTED' %}
                     <a class="button-link" href="{% url 'unfollow_author' author.serial %}">
                         Unfollow
                     </a>
                 {% elif followStatus == 'REQUESTED' %}
-                    <a class="button-link" disabled>Requested</a>
+                    <a class="button-link" href="{% url 'unfollow_author' author.serial %}">Cancel request</a>
                 {% else %}
-                    <a class="button-link" href="{% url 'follow_author' author.serial %}"">
+                    <a class="button-link" href="{% url 'follow_author' author.serial %}">
                         Follow
                     </a>
                 {% endif %}
             </p>
 
             {% endif %}
-            <div class="card">
-                {% if author.user_id == request.user.id or request.user.is_staff %}
-                <div class="flex-row">
-                    <a class="button-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
+
+            {% if author.user_id == request.user.id or request.user.is_staff %}
+            <div style="display: flex; align-items: center; justify-content: center; padding: 10px 0; gap: 10px;">
+                <a class="button-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
+                <a class="button-link" href="{{ author.github }}">GitHub</a>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; padding: 10px 0; gap: 10px; ">
                     <a class="button-link" href="{% url 'follow_requests' author.serial %}">View Follow Requests</a>
                     <a class="button-link" href="{% url 'followers_list' author.serial %}">View Followers</a>
                     <a class="button-link" href="{% url 'following_list' author.serial %}">View Following</a>
-                    <a class="button-link" href="{{ author.github }}">GitHub</a>
-                </div>
-                {% endif %}
-                <p>{{ author.description }}</p>
-
+                    
+                
                
             </div>
+            {% endif %}
 
-            <h2>{% if is_owner %}Your Entries{% else %}Public Entries{% endif %}</h2>
+            <h2>{{ entries_heading }}</h2>
 
-            {% if author.user_id == request.user.id or request.user.is_staff %}
+            {% if author.user_id == request.user.id%}
             <p>
-                <a class="button-link" href="{% url 'entry_create' author.serial %}">New entry</a>
+                <a class="button-link" href="{% url 'entry_create' author.serial %}">+ New entry</a>
             </p>
             {% endif %}
 
@@ -64,15 +80,14 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p>{% if is_owner %}No entries yet.{% else %}No public entries yet.{% endif %}</p>
+                <p>{% if is_owner %}No entries yet.{% elif entries_heading == "Visible Entries" %}No visible entries yet.{% else %}No public entries yet.{% endif %}</p>
                 {% endif %}
             </div>
         </div>
 
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="{% static 'js/markdown-renderer.js' %}?v=comments-md-1"></script>
+    <script type="module" src="{% static 'js/markdown-renderer.js' %}?v=comments-md-3"></script>
 </body>
 
 </html>

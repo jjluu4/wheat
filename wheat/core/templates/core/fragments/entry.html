@@ -1,12 +1,15 @@
-{% load static %}
+{% load static core_media %}
 
 <li
     data-entry="{{ entry.serial }}"
     data-author="{{ entry.author.serial }}"
+    data-entry-url="{{ entry.url }}"
     {% if request.user.is_authenticated and request.user.author_profile %}
     data-user="{{ request.user.author_profile.serial }}"
     {% endif %}
 >
+    {% author_avatar_url entry.author request as author_avatar_src %}
+    {% entry_image_url entry request as entry_image_src %}
     <div class="space-between">
         <div class="small"><strong>{{ entry.published }}</strong></div>
         <div class="small"><strong>{{ entry.visibility }}</strong></div>
@@ -14,10 +17,14 @@
     
     <div class="space-between" style="align-items: center; margin-top: 4px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-            {% if entry.author.profileImage %}
-                <img class="avatar avatar-small" src="{{ entry.author.profileImage }}" alt="{{ entry.author.displayName }} avatar">
-            {% endif %}
+            <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ entry.author.displayName }} avatar">
             <a class="profile-link" href="{% url 'author_profile' entry.author.serial %}">{{ entry.author.displayName }}</a>
+            {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
+            <div style="margin-left: auto; display: flex; gap: 5px;">
+                <a class="button-edit" href="{% url 'entry_edit' entry.author.serial entry.serial %}">Edit</a>
+                <a class="button-delete" href="{% url 'entry_delete' entry.author.serial entry.serial %}">Delete</a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -29,9 +36,9 @@
 
     {% if entry.content_type == "text/markdown" %}
         <div class="content entry-content markdown-source">{{ entry.content|escape }}</div>
-    {% elif entry.content_type == "image" and entry.image_url %}
+    {% elif entry.content_type|slice:":5" == "image" %}
         <div class="entry-image">
-            <img src="{{ entry.image_url }}" alt="Image entry">
+            <img src="{{ entry_image_src }}" alt="Image entry">
             {% if entry.content %}
             <div class="caption">{{ entry.content }}</div>
             {% endif %}
@@ -41,29 +48,30 @@
     {% endif %}
     
     <div class="space-between">
-        <div class="small edit">
-            {% if request.user.is_authenticated and entry.author.serial == request.user.author_profile.serial or request.user.is_staff %}
-            <a href="{% url 'entry_edit' author.serial entry.serial %}">Edit</a>
-            <a href="{% url 'entry_delete' author.serial entry.serial %}">Delete</a>
-            <br><br>
+        <div class="small edit" style="display: flex; align-items: center; gap: 10px;">
+
+            {% if request.user.is_authenticated %}
+            
+            <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
+           
+            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
             {% endif %}
             <button type="button" onclick="toggleComments('{{ entry.serial }}')">All Comments</button>
-            {% if request.user.is_authenticated %}
-            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">New Comment</button>
-            <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
-            {% endif %}
-            <span class="like-count">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</span>
+
         </div>
+        <p class="like-count" style="color: wheat; font-weight: 500; align-self: center;">{{ entry.likes.count }} like{{ entry.likes.count|pluralize }}</p>
     </div>
 
     <div class="new-comment"> <!--toggled by entry.js-->
         {% if request.user.is_authenticated %}
         <form onsubmit="submitComment(event)" style="display: none;" data-user-serial="{{ request.user.author_profile.serial }}">
             {% csrf_token %}
-            <textarea name="content" placeholder="Comment..." required></textarea>
-            
-            <button type="submit">Post Comment</button>
-            <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
+            <div class="form-row">
+                <textarea name="content" placeholder="Comment..."></textarea>
+                <button type="submit">Post Comment</button>
+                <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Cancel</button>
+            </div>
+        
         </form>
         {% endif %}
     </div>

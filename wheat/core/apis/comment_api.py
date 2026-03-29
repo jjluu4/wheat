@@ -1,9 +1,12 @@
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import uuid
 import re
 
+from ..auth import require_auth_for_view
+from ..auth import is_remote_node_authenticated
 from ..models import Author, Entry, Comment
 
 from ..permissions import (
@@ -13,9 +16,39 @@ from ..permissions import (
     filter_comments_for_viewer,
 )
 
-from ..helpers import get_pagination_params, build_likes_collection, build_comment_likes_url, build_comment_payload
+from ..helpers import (
+    get_pagination_params,
+    build_comment_payload,
+    build_author_api_url,
+    build_author_commented_collection_id,
+    build_author_commented_collection_web,
+    build_entry_comments_collection_id,
+    build_entry_web_url,
+    resolve_object_by_url,
+    normalize_url,
+    send_json_to_remote_author_inbox,
+    get_or_fetch_remote_entry,
+    decode_fqid
+)
+from ..federation import distribute_payload_to_remote_recipients
+
+
+def forward_comment_to_remote_inbox(comment, entry):
+    """Forward a newly created comment to the remote inbox of the entry author if the entry is remote"""
+    entry_author = entry.author
+
+    if getattr(entry_author, "user_id", None) is None: # only send if the entry author is remote (has no local user)
+        entry_fqid = normalize_url(getattr(entry_author, "url", ""))
+        if not entry_fqid:
+            return
+
+        payload = build_comment_payload(comment, None)
+        payload.setdefault("type", "comment")
+        payload["entry"] = (entry.url or "").strip()
+        send_json_to_remote_author_inbox(entry_fqid, payload, timeout=5)
 
 @api_view(['GET', 'POST'])
+@authentication_classes([SessionAuthentication])
 def author_commented(request, author_serial):
     """
     Handles operations on an authors comments
@@ -26,6 +59,7 @@ def author_commented(request, author_serial):
     author=get_object_or_404(Author, serial=author_serial)
 
     if request.method=='GET':
+        require_auth_for_view(False)
         page, size = get_pagination_params(request)
         offset=(page - 1) * size
         requestingAuthor = get_requesting_author(request)
@@ -42,6 +76,8 @@ def author_commented(request, author_serial):
 
         return Response({ 
             "type": "comments",
+            "id": build_author_commented_collection_id(author, request),
+            "web": build_author_commented_collection_web(author, request),
             "page_number": page,
             "size": size,
             "count": total,
@@ -49,6 +85,8 @@ def author_commented(request, author_serial):
         })
 
     elif request.method=='POST':
+        require_auth_for_view(True)
+
         if not request.user.is_authenticated:
             return Response({"error": "Authentication required"}, status=401)
 
@@ -72,21 +110,18 @@ def author_commented(request, author_serial):
         if not entry_url:
             return Response({"error": "Entry URL is required"}, status=400)
 
-        try:
-            match=re.search(r'/authors/([^/]+)/entries/([^/]+)', entry_url)
-            if not match:
-                return Response({"error": "Invalid entry URL format"}, status=400)
-
-            entry=get_object_or_404(Entry, serial=match.groups()[1], author__serial=match.groups()[0])
-        except Exception:
-            return Response({"error": f"Invalid entry URL"}, status=400)
+        entry = resolve_object_by_url(Entry, entry_url)
+        if entry is None:
+            entry = get_or_fetch_remote_entry(entry_url, request)
+            if entry is None:
+                return Response({"error": "Entry not found and could not be fetched from remote node"}, status=400)
 
         if not can_view_entry(entry, requestingAuthor, request.user):
             return Response({"error": "You don't have permission to comment on this entry"}, status=403)
 
         comment_serial=uuid.uuid4()
         comment=Comment.objects.create(
-            url=f"{request.build_absolute_uri('/')}api/authors/{author_serial}/commented/{comment_serial}/",
+            url=f"{build_author_api_url(author, request)}/commented/{comment_serial}/",
             serial=comment_serial,
             author=author,
             entry=entry,
@@ -94,17 +129,28 @@ def author_commented(request, author_serial):
             content=comment_text
         )
 
-        # TODO: forwarding
+        forward_comment_to_remote_inbox(comment, entry)
 
-        return Response(build_comment_payload(comment, request), status=201)
+        payload=build_comment_payload(comment, request)
+        distribute_payload_to_remote_recipients(
+            author=entry.author,
+            payload=payload,
+            visibility=entry.visibility,
+            method="POST",
+        )
+
+        return Response(payload, status=201)
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def author_commented_single(request, author_serial, comment_serial):
     """
     Retrieves a specific comment made by an author
 
     Depends on post visibility (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
     """
+    require_auth_for_view(False) #handles manually
+
     author=get_object_or_404(Author, serial=author_serial)
     comment=get_object_or_404(Comment, serial=comment_serial, author=author)
 
@@ -113,20 +159,23 @@ def author_commented_single(request, author_serial, comment_serial):
     requesting_author = get_requesting_author(request)
 
     if not can_view_comment(comment, requesting_author, request.user):
+        # Keep historical API behavior: unauthenticated non-remote requests get 403 here.
+        if comment.entry.visibility == "FRIENDS" and not request.user.is_authenticated and not is_remote_node_authenticated(request):
+            return Response({"error": "You don't have permission to view this comment"}, status=403)
         return Response({"error": "You don't have permission to view this comment"}, status=403)
 
-    comment_data = build_comment_payload(comment, request)
-    comment_data['web']=f"{request.build_absolute_uri('/').rstrip('/')}/authors/{author.serial}/comments/{comment.serial}"
-
-    return Response(comment_data)
+    return Response(build_comment_payload(comment, request))
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 def entry_comments(request, author_serial, entry_serial):
     """
     Retrieves paginated comments for a specific entry
 
     Depends on post visibility (PUBLIC/UNLISTED viewable by anyone, FRIENDS viewable by friends, otherwise requires authentication as author)
     """
+    require_auth_for_view(False) #handles manually
+
     entry=get_object_or_404(Entry, serial=entry_serial, author__serial=author_serial)
     entry_author=entry.author
 
@@ -139,6 +188,9 @@ def entry_comments(request, author_serial, entry_serial):
     )
 
     if not can_view_entry(entry, requesting_author, request.user) and not visible_comments.exists():
+        # Keep historical API behavior for unauthenticated local callers.
+        if entry.visibility == "FRIENDS" and not request.user.is_authenticated and not is_remote_node_authenticated(request):
+            return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
         return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
 
     page, size = get_pagination_params(request)
@@ -151,6 +203,102 @@ def entry_comments(request, author_serial, entry_serial):
 
     return Response({
         "type": "comments",
+        "id": build_entry_comments_collection_id(entry, request),
+        "web": build_entry_web_url(entry, request),
+        "page_number": page,
+        "size": size,
+        "count": visible_comments.count(),
+        "src": data,
+    })
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+def author_commented_fqid(request, author_fqid):
+    """
+    Retrieve paginated list of comments made by the author identified by full URL.
+    Identical to author_commented but uses author_fqid (URL-encoded) instead of serial.
+    """
+    author_fqid_decoded = decode_fqid(author_fqid)
+    author = resolve_object_by_url(Author, author_fqid_decoded)
+    if author is None:
+        return Response({"error": "Author not found"}, status=404)
+
+    require_auth_for_view(False)
+    page, size = get_pagination_params(request)
+    offset = (page - 1) * size
+    requesting_author = get_requesting_author(request)
+
+    comments = [
+        comment for comment in Comment.objects.filter(author=author).select_related('author', 'entry', 'entry__author').order_by('-published') if can_view_comment(comment, requesting_author, request.user)
+    ]
+
+    total = len(comments)
+    page_comments = comments[offset:offset+size]
+    data = [build_comment_payload(comment, request) for comment in page_comments]
+
+    return Response({
+        "type": "comments",
+        "id": build_author_commented_collection_id(author, request),
+        "web": build_author_commented_collection_web(author, request),
+        "page_number": page,
+        "size": size,
+        "count": total,
+        "src": data,
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+def comment_fqid(request, comment_fqid):
+    """
+    Retrieve a specific comment by its full URL.
+    """
+    comment_fqid_decoded = decode_fqid(comment_fqid)
+    comment = resolve_object_by_url(Comment, comment_fqid_decoded)
+    if comment is None:
+        return Response({"error": "Comment not found"}, status=404)
+
+    require_auth_for_view(False)
+    requesting_author = get_requesting_author(request)
+
+    if not can_view_comment(comment, requesting_author, request.user):
+        return Response({"error": "You don't have permission to view this comment"}, status=403)
+
+    return Response(build_comment_payload(comment, request))
+
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+def entry_comments_fqid(request, entry_fqid):
+    """
+    Retrieve paginated comments for an entry identified by full URL.
+    """
+    entry_fqid_decoded = decode_fqid(entry_fqid)
+    entry = resolve_object_by_url(Entry, entry_fqid_decoded)
+    if entry is None:
+        return Response({"error": "Entry not found"}, status=404)
+
+    require_auth_for_view(False)
+    requesting_author = get_requesting_author(request)
+    visible_comments = filter_comments_for_viewer(
+        Comment.objects.filter(entry=entry).select_related('author', 'entry__author').order_by('-published'),
+        entry,
+        requesting_author,
+        request.user,
+    )
+
+    if not can_view_entry(entry, requesting_author, request.user) and not visible_comments.exists():
+        return Response({"error": "You don't have permission to view comments on this entry"}, status=403)
+
+    page, size = get_pagination_params(request)
+    offset = (page - 1) * size
+    comments = list(visible_comments[offset:offset+size])
+    data = [build_comment_payload(comment, request) for comment in comments]
+
+    return Response({
+        "type": "comments",
+        "id": build_entry_comments_collection_id(entry, request),
+        "web": build_entry_web_url(entry, request),
         "page_number": page,
         "size": size,
         "count": visible_comments.count(),

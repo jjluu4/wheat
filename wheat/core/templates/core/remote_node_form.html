@@ -1,0 +1,78 @@
+{% load static %}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>{% if is_edit %}Edit Remote Node{% else %}Add Remote Node{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+
+<body>
+    <div class="page">
+
+        {% include '../navs/main.html' %}
+
+        <div class="container">
+            <h1>{% if is_edit %}Edit Remote Node{% else %}Add Remote Node{% endif %}</h1>
+
+            <div class="card">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {{ form.non_field_errors }}
+
+                    <div class="field">
+                        <label for="{{ form.name.id_for_label }}">Label</label>
+                        {{ form.name }}
+                        {% if form.name.help_text %}<p class="hint">{{ form.name.help_text }}</p>{% endif %}
+                        {{ form.name.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.base_url.id_for_label }}">Remote URL</label>
+                        {{ form.base_url }}
+                        {{ form.base_url.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.api_base_url.id_for_label }}">API URL</label>
+                        {{ form.api_base_url }}
+                        {% if form.api_base_url.help_text %}<p class="hint">{{ form.api_base_url.help_text }}</p>{% endif %}
+                        {{ form.api_base_url.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.username.id_for_label }}">Username</label>
+                        {{ form.username }}
+                        {{ form.username.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.password.id_for_label }}">Password</label>
+                        {{ form.password }}
+                        {% if form.password.help_text %}<p class="hint">{{ form.password.help_text }}</p>{% endif %}
+                        {{ form.password.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.is_active.id_for_label }}">Active</label>
+                        {{ form.is_active }}
+                        {{ form.is_active.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.notes.id_for_label }}">Notes</label>
+                        {{ form.notes }}
+                        {{ form.notes.errors }}
+                    </div>
+
+                    <button type="submit">{% if is_edit %}Save Changes{% else %}Add Node{% endif %}</button>
+                    <a class="button-link" href="{% url 'remote_node_list' %}">Back</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

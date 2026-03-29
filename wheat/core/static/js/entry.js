@@ -20,7 +20,19 @@ function updateEntryLikeCount(entryNode, count) {
     likeCount.textContent = `${count} like${count === 1 ? '' : 's'}`;
 }
 
-function postLike(userSerial, objectUrl, csrfToken) {
+function postUnlike(userSerial, objectUrl, csrfToken) {
+    const localObjectUrl = toSameNodeApiPath(objectUrl);
+    const str = objectUrl != null ? String(objectUrl) : '';
+    const objectForBody =
+        localObjectUrl != null
+            ? localObjectUrl
+            : /^https?:\/\//i.test(str)
+              ? str
+              : null;
+    if (!objectForBody) {
+        return Promise.reject(new Error('Rejected cross-node or non-api unlike target'));
+    }
+
     return fetch(`/api/authors/${userSerial}/liked/`, {
         method: 'POST',
         headers: {
@@ -28,8 +40,8 @@ function postLike(userSerial, objectUrl, csrfToken) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            type: 'like',
-            object: objectUrl,
+            type: 'unlike',
+            object: objectForBody,
         }),
     }).then(async (response) => {
         let data = {};
@@ -40,6 +52,55 @@ function postLike(userSerial, objectUrl, csrfToken) {
         }
         return { response, data };
     });
+}
+
+function postLike(userSerial, objectUrl, csrfToken) {
+    const localObjectUrl = toSameNodeApiPath(objectUrl);
+    const str = objectUrl != null ? String(objectUrl) : '';
+    const objectForBody =
+        localObjectUrl != null
+            ? localObjectUrl
+            : /^https?:\/\//i.test(str)
+              ? str
+              : null;
+    if (!objectForBody) {
+        return Promise.reject(new Error('Rejected cross-node or non-api like target'));
+    }
+
+    return fetch(`/api/authors/${userSerial}/liked/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            type: 'like',
+            object: objectForBody,
+        }),
+    }).then(async (response) => {
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = {};
+        }
+        return { response, data };
+    });
+}
+
+function toSameNodeApiPath(value) {
+    if (!value) return value;
+    const str = String(value);
+    if (str.startsWith("/api/")) return str;
+
+    try {
+        const url = new URL(str, window.location.origin);
+        if (url.origin !== window.location.origin) return null;
+        if (!url.pathname.startsWith('/api/')) return null;
+        return `${url.pathname}${url.search}${url.hash}`;
+    } catch (_) {
+        return null;
+    }
 }
 
 function refreshEntryLikeCount(entrySerial) {
@@ -64,21 +125,30 @@ function toggleLike(entrySerial) {
     const userSerial = getCurrentUserSerial(entryNode);
     if (!userSerial) return;
 
-    const objectUrl = `${window.location.origin}/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
-    postLike(userSerial, objectUrl, getCsrfToken(entryNode))
-        .then(({ response, data }) => {
+    const button = entryNode.querySelector('.entry-like-button');
+    const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
+    const csrf = getCsrfToken(entryNode);
+    const liked = button && button.dataset.liked === '1';
+
+    const req = liked ? postUnlike(userSerial, objectUrl, csrf) : postLike(userSerial, objectUrl, csrf);
+    req.then(({ response, data }) => {
             if (response.ok) {
-                const button = entryNode.querySelector('.entry-like-button');
                 if (button) {
-                    button.textContent = 'Liked';
+                    if (liked) {
+                        button.textContent = 'Like';
+                        button.dataset.liked = '0';
+                    } else {
+                        button.textContent = 'Liked';
+                        button.dataset.liked = '1';
+                    }
                 }
                 refreshEntryLikeCount(entrySerial);
                 return;
             }
-            console.error('Entry like failed', response.status, data);
+            console.error('Entry like/unlike failed', response.status, data);
         })
         .catch((error) => {
-            console.error('Entry like failed', error);
+            console.error('Entry like/unlike failed', error);
         });
 }
 
@@ -102,12 +172,9 @@ function submitComment(event) {
     event.preventDefault();
     const form=event.target;
     const formData=new FormData(form);
+    const entryNode=form.closest('li');
 
-    //grab author and entry serials to construct the entryURL
-    const entrySerial=form.closest('li').dataset.entry;
-    const authorSerial=form.closest('li').querySelector('.profile-link').href.split('/').filter(part=>part!=='').pop();
-    
-    fetch(`/api/authors/${form.dataset.userSerial}/commented/`, {
+    fetch(`/api/authors/${entryNode.dataset.user}/commented/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
@@ -115,18 +182,18 @@ function submitComment(event) {
         },
         body: JSON.stringify({
             type: 'comment',
-            entry: `${window.location.origin}/api/authors/${authorSerial}/entries/${entrySerial}/`,
+            entry: entryNode.dataset.entryUrl,
             content: formData.get('content')
         })
 
     }).then(() => {
         form.reset();
         form.style.display='none';
-        const commentsList=document.querySelector(`li[data-entry="${entrySerial}"] .comments`);
+        const commentsList=document.querySelector(`li[data-entry="${entryNode.dataset.entry}"] .comments`);
         if(commentsList.style.display==='none')
-            toggleComments(entrySerial);
+            toggleComments(entryNode.dataset.entry);
         else
-            loadComments(entrySerial);
+            loadComments(entryNode.dataset.entry);
     });
 }
 
@@ -184,10 +251,16 @@ function loadComments(entrySerial, page=1) {
                     const likeButton = document.createElement('button');
                     likeButton.type = 'button';
                     likeButton.textContent = 'Like';
+                    likeButton.dataset.liked = '0';
+                    const commentObjectUrl = comment.id || comment.url;
                     likeButton.onclick = () => {
-                        postLike(currentUserSerial, comment.id || comment.url, getCsrfToken(entryNode))
+                        const liked = likeButton.dataset.liked === '1';
+                        const fn = liked ? postUnlike : postLike;
+                        fn(currentUserSerial, commentObjectUrl, getCsrfToken(entryNode))
                             .then(({ response, data }) => {
                                 if (response.ok) {
+                                    likeButton.dataset.liked = liked ? '0' : '1';
+                                    likeButton.textContent = liked ? 'Like' : 'Liked';
                                     loadComments(entrySerial, page);
                                     return;
                                 }
