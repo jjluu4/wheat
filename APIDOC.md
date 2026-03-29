@@ -45,8 +45,8 @@ Raw image bytes returned from this node, or a redirect to a same-node image URL.
 **Description:** Retrieve a paginated list of authors native to this node.
 
 #### Queries
-page_number (int): page number of results
-size (int): # of results per page
+page_number (int): page number of results <br>
+size (int): # of results per page <br>
 
 #### Example with Query Keywords
 GET /api/authors/?page={page_number}&size={size}
@@ -143,8 +143,8 @@ author_serial (string): The UUID of an author.
 **Description:** Edit a specific author.
 
 #### Auth
-<example_username>: username of author connected to <author_serial>
-<example_password>: password for author connected to <author_serial>
+<example_username>: username of author connected to <author_serial> <br>
+<example_password>: password for author connected to <author_serial> <br>
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -192,8 +192,8 @@ author_serial (string): The UUID of an author.
 **Description:** Retrieve one specific author.
 
 #### Auth
-<example_username>: username of a logged-in local author or configured remote node
-<example_password>: password for that local author or configured remote node
+<example_username>: username of a logged-in local author or configured remote node <br>
+<example_password>: password for that local author or configured remote node <br>
 
 #### Parameters
 author_fqid (string): The FQID of an author
@@ -239,15 +239,15 @@ author_fqid (string): The FQID of an author
 **Description:** Fetch one page of authors from a configured active remote node and return them through this node.
 
 #### Auth
-<example_username>: username of a logged-in local author
-<example_password>: password for that local author
+<example_username>: username of a logged-in local author <br>
+<example_password>: password for that local author <br>
 
 #### Parameters
 remote_node_pk (int): The database ID of a configured remote node.
 
 #### Queries
-page_number (int): page number of results
-size (int): # of results per page
+page_number (int): page number of results <br>
+size (int): # of results per page <br>
 
 #### Example with Query Keywords
 GET /api/remote-nodes/{remote_node_pk}/authors/?page={page_number}&size={size}
@@ -279,8 +279,8 @@ GET /api/remote-nodes/{remote_node_pk}/authors/?page={page_number}&size={size}
 **Description:** Retrieve a list of authors that an author is following
 
 #### Auth
-<example_username>: username of author
-<example_password>: password for author
+<example_username>: username of author <br>
+<example_password>: password for author <br>
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -327,12 +327,12 @@ author_serial (string): The UUID of an author
 **Description:** Check if a local author is following a remote author.
 
 #### Auth
-<example_username>: username of author connected with author_serial
-<example_password>: password for author connected with author_serial
+<example_username>: username of author connected with author_serial <br>
+<example_password>: password for author connected with author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-foreign_author_fqid (string): The FQID of a remote author
+author_serial (string): The UUID of an author <br>
+foreign_author_fqid (string): The FQID of a remote author <br>
 
 #### Response Body
 
@@ -360,12 +360,12 @@ foreign_author_fqid (string): The FQID of a remote author
 **Description:** Generates a follow request by a local author for a remote author.
 
 #### Auth
-<example_username>: username of author connected with author_serial
-<example_password>: password for author connected with author_serial
+<example_username>: username of author connected with author_serial <br>
+<example_password>: password for author connected with author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-foreign_author_fqid (string): The FQID of a remote author
+author_serial (string): The UUID of an author <br>
+foreign_author_fqid (string): The FQID of a remote author <br>
 
 #### Status Codes
 204 - Success<br>
@@ -382,12 +382,12 @@ foreign_author_fqid (string): The FQID of a remote author
 **Description:** Unfollows local author from remote author.
 
 #### Auth
-<example_username>: username of author connected with author_serial
-<example_password>: password for author connected with author_serial
+<example_username>: username of author connected with author_serial <br>
+<example_password>: password for author connected with author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-foreign_author_fqid (string): The FQID of a remote author
+author_serial (string): The UUID of an author <br>
+foreign_author_fqid (string): The FQID of a remote author <br>
 
 #### Status Codes
 204 - Success<br>
@@ -403,8 +403,8 @@ foreign_author_fqid (string): The FQID of a remote author
 **Description:** Retrieve a list of authors who are followers of an author
 
 #### Auth
-<example_username>: username of author
-<example_password>: password for author
+<example_username>: username of author <br>
+<example_password>: password for author <br>
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -451,12 +451,12 @@ author_serial (string): The UUID of an author
 **Description:** Check if a remote author follows a local author.
 
 #### Auth
-<example_username>: username of author connected with author_serial *or* username of remote node of author_fqid
-<example_password>: password for author connected with author_serial *or* password for remote node of author_fqid
+<example_username>: username of author connected with author_serial *or* username of remote node of author_fqid <br>
+<example_password>: password for author connected with author_serial *or* password for remote node of author_fqid <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-foreign_author_fqid (string): The FQID of a remote author
+author_serial (string): The UUID of an author <br>
+foreign_author_fqid (string): The FQID of a remote author <br>
 
 #### Response Body
 
@@ -482,12 +482,12 @@ foreign_author_fqid (string): The FQID of a remote author
 **Description:** Accept a follow request from a remote author
 
 #### Auth
-<example_username>: username of author connected with author_serial
-<example_password>: password for author connected with author_serial
+<example_username>: username of author connected with author_serial <br>
+<example_password>: password for author connected with author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-foreign_author_fqid (string): The FQID of a remote author
+author_serial (string): The UUID of an author <br>
+foreign_author_fqid (string): The FQID of a remote author <br>
 
 #### Status Codes
 204 - Success<br>
@@ -503,12 +503,12 @@ foreign_author_fqid (string): The FQID of a remote author
 **Description:** Remove a remote author as a follower of a local author.
 
 #### Auth
-<example_username>: username of author connected with author_serial
-<example_password>: password for author connected with author_serial
+<example_username>: username of author connected with author_serial <br>
+<example_password>: password for author connected with author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-foreign_author_fqid (string): The FQID of a remote author
+author_serial (string): The UUID of an author <br>
+foreign_author_fqid (string): The FQID of a remote author <br>
 
 #### Status Codes
 204 - Success<br>
@@ -525,8 +525,8 @@ foreign_author_fqid (string): The FQID of a remote author
 **Description:** Retrieve a list of authors that have made follow requests to an author.
 
 #### Auth
-<example_username>: username of author
-<example_password>: password for author
+<example_username>: username of author <br>
+<example_password>: password for author <br>
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -588,12 +588,12 @@ author_serial (string): The UUID of an author
 **Description:** Retrieve an entry
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED entries.
-Use local author credentials to access FRIENDS-only entries.
+Authentication is optional for PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access FRIENDS-only entries. <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-entry_serial (string): The UUID of an entry
+author_serial (string): The UUID of an author <br>
+entry_serial (string): The UUID of an entry <br>
 
 #### Response Body
 
@@ -718,12 +718,12 @@ entry_serial (string): The UUID of an entry
 **Description:** Edit an entry
 
 #### Auth
-<example_username>: username of an author connected to author_serial
-<example_password>: password for an author connected to author_serial
+<example_username>: username of an author connected to author_serial <br>
+<example_password>: password for an author connected to author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-entry_serial (string): The UUID of an entry
+author_serial (string): The UUID of an author <br>
+entry_serial (string): The UUID of an entry <br>
 
 #### Request Body
 
@@ -795,12 +795,12 @@ entry_serial (string): The UUID of an entry
 **Description:** Delete an entry
 
 #### Auth
-<example_username>: username of author connected to author_serial
-<example_password>: password for author connected to author_serial
+<example_username>: username of author connected to author_serial <br>
+<example_password>: password for author connected to author_serial <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-entry_serial (string): The UUID of an entry
+author_serial (string): The UUID of an author <br>
+entry_serial (string): The UUID of an entry <br>
 
 #### Status Codes
 204 - Success<br>
@@ -815,8 +815,8 @@ entry_serial (string): The UUID of an entry
 **Description:** Retrieve an entry with the fqid
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED entries.
-Use local author credentials to access FRIENDS-only entries.
+Authentication is optional for PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access FRIENDS-only entries. <br>
 
 #### Parameters
 entry_fqid (string): The FQID of an entry
@@ -890,8 +890,8 @@ entry_fqid (string): The FQID of an entry
 **Description:** Retrieve a list of entries from an author
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED entries.
-Use local author credentials to access FRIENDS-only entries.
+Authentication is optional for PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access FRIENDS-only entries. <br>
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -970,8 +970,8 @@ GET /api/authors/{author_serial}/entries/?page={page_number}&size={size}
 **Description:** Create a new entry for an author.
 
 #### Auth
-<example_username>: username of the local author connected to author_serial
-<example_password>: password for that local author
+<example_username>: username of the local author connected to author_serial <br>
+<example_password>: password for that local author <br>
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1014,12 +1014,12 @@ author_serial (string): The UUID of an author.
 **Description:** Retrieve an image from an image entry
 
 #### Auth
-Authentication is optional for image entries backed by PUBLIC and UNLISTED entries.
-Use local author credentials to access image entries backed by FRIENDS-only entries.
+Authentication is optional for image entries backed by PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access image entries backed by FRIENDS-only entries. <br>
 
 #### Parameters
-author_serial (string): The UUID of an author.
-entry_serial (string): The UUID of an entry.
+author_serial (string): The UUID of an author. <br>
+entry_serial (string): The UUID of an entry. <br>
 
 #### Response Body
 ```
@@ -1045,8 +1045,8 @@ entry_serial (string): The UUID of an entry.
 **Description:** Retrieve an image from an image entry using fqid
 
 #### Auth
-Authentication is optional for image entries backed by PUBLIC and UNLISTED entries.
-Use local author credentials to access image entries backed by FRIENDS-only entries.
+Authentication is optional for image entries backed by PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access image entries backed by FRIENDS-only entries. <br>
 
 #### Parameters
 entry_fqid (string): The FQID of an entry.
@@ -1078,16 +1078,16 @@ entry_fqid (string): The FQID of an entry.
 **Description:** Retrieve a list of comments on an entry
 
 #### Auth
-Authentication is optional for comments on PUBLIC and UNLISTED entries.
-Use local author credentials to access comments on FRIENDS-only entries.
+Authentication is optional for comments on PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access comments on FRIENDS-only entries. <br>
 
 #### Parameters
-author_serial (string): The UUID of an author.
-entry_serial (string): The UUID of an entry.
+author_serial (string): The UUID of an author. <br>
+entry_serial (string): The UUID of an entry. <br>
 
 #### Queries
-page_number (int): page number of results
-size (int): # of results per page
+page_number (int): page number of results <br>
+size (int): # of results per page <br>
 
 #### Example with Query Keywords
 GET /api/authors/{author_serial}/entries/{entry_serial}/comments?page={page_number}&size={size}
@@ -1157,16 +1157,16 @@ GET /api/authors/{author_serial}/entries/{entry_serial}/comments?page={page_numb
 **Description:** Retrieve a list of comments on an entry with an fqid
 
 #### Auth
-Authentication is optional for comments on PUBLIC and UNLISTED entries.
-Use local author credentials to access comments on FRIENDS-only entries.
+Authentication is optional for comments on PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access comments on FRIENDS-only entries. <br>
 
 #### Parameters
-author_serial (string): The UUID of an author.
-entry_serial (string): The UUID of an entry.
+author_serial (string): The UUID of an author. <br>
+entry_serial (string): The UUID of an entry. <br>
 
 #### Queries
-page_number (int): page number of results
-size (int): # of results per page
+page_number (int): page number of results <br>
+size (int): # of results per page <br>
 
 #### Example with Query Keywords
 GET /api/entries/{entry_fqid}/comments?page={page_number}&size={size}
@@ -1238,15 +1238,15 @@ GET /api/entries/{entry_fqid}/comments?page={page_number}&size={size}
 **Description:** Retrieve a list of comments an author has made
 
 #### Auth
-Authentication is optional for comments on PUBLIC and UNLISTED entries.
-Use local author credentials to access comments on FRIENDS-only entries.
+Authentication is optional for comments on PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access comments on FRIENDS-only entries. <br>
 
 #### Parameters
 author_serial (string): The UUID of an author.
 
 #### Queries
-page_number (int): page number of results
-size (int): # of results per page
+page_number (int): page number of results <br>
+size (int): # of results per page <br>
 
 #### Example with Query Keywords
 GET /api/authors/{author_serial}/commented/?page={page_number}&size={size}
@@ -1315,8 +1315,8 @@ GET /api/authors/{author_serial}/commented/?page={page_number}&size={size}
 **Description:** Create a new comment as the author on an entry.
 
 #### Auth
-<example_username>: username of the local author connected to author_serial
-<example_password>: password for that local author
+<example_username>: username of the local author connected to author_serial <br>
+<example_password>: password for that local author <br>
 
 #### Parameters
 author_serial (string): The UUID of an author.
@@ -1360,8 +1360,8 @@ author_serial (string): The UUID of an author.
 author_fqid (string): The FQID of an author.
 
 #### Queries
-page_number (int): page number of results
-size (int): # of results per page
+page_number (int): page number of results <br>
+size (int): # of results per page <br>
 
 #### Example with Query Keywords
 GET /api/authors/{author_fqid}/commented/?page={page_number}&size={size}
@@ -1430,13 +1430,13 @@ GET /api/authors/{author_fqid}/commented/?page={page_number}&size={size}
 **Description:** Retrieve a comment an author has made
 
 #### Auth
-Authentication is optional for comments on PUBLIC and UNLISTED entries.
-Use local author credentials to access comments on FRIENDS-only entries.
+Authentication is optional for comments on PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access comments on FRIENDS-only entries. <br>
 
 
 #### Parameters
-author_serial (string): The UUID of an author.
-comment_serial (string): The UUID of a comment.
+author_serial (string): The UUID of an author. <br>
+comment_serial (string): The UUID of a comment. <br>
 
 #### Response Body
 
@@ -1500,8 +1500,8 @@ comment_serial (string): The UUID of a comment.
 **Description:** Retrieve a comment based on its fqid
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED comments.
-Use local author credentials to access comments on FRIENDS-only entries.
+Authentication is optional for PUBLIC and UNLISTED comments. <br>
+Use local author credentials to access comments on FRIENDS-only entries. <br>
 
 #### Parameters
 comment_fqid (string): The FQID of a comment.
@@ -1570,12 +1570,12 @@ comment_fqid (string): The FQID of a comment.
 **Description:** Retrieve a list of likes on an entry
 
 #### Auth
-Authentication is optional for likes on PUBLIC and UNLISTED entries.
-Use local author credentials to access likes on FRIENDS-only entries.
+Authentication is optional for likes on PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access likes on FRIENDS-only entries. <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-entry_serial (string): The UUID of an entry
+author_serial (string): The UUID of an author <br>
+entry_serial (string): The UUID of an entry <br>
 
 #### Response Body
 
@@ -1634,8 +1634,8 @@ entry_serial (string): The UUID of an entry
 **Description:** Retrieve a list of likes on an entry with an fqid
 
 #### Auth
-Authentication is optional for likes on PUBLIC and UNLISTED entries.
-Use local author credentials to access likes on FRIENDS-only entries.
+Authentication is optional for likes on PUBLIC and UNLISTED entries. <br>
+Use local author credentials to access likes on FRIENDS-only entries. <br>
 
 #### Parameters
 entry_fqid (string): The FQID of an entry
@@ -1697,13 +1697,13 @@ entry_fqid (string): The FQID of an entry
 **Description:** Retrieve a list of likes on a comment
 
 #### Auth
-Authentication is optional for likes on PUBLIC and UNLISTED comments.
-Use local author credentials to access likes on comments attached to FRIENDS-only entries.
+Authentication is optional for likes on PUBLIC and UNLISTED comments. <br>
+Use local author credentials to access likes on comments attached to FRIENDS-only entries. <br>
 
 #### Parameters
-author_serial (string): The UUID of an author
-entry_serial (string): The UUID of an entry
-comment_serial (string): The UUID of a comment
+author_serial (string): The UUID of an author <br>
+entry_serial (string): The UUID of an entry <br>
+comment_serial (string): The UUID of a comment <br>
 
 #### Response Body
 
@@ -1764,8 +1764,8 @@ comment_serial (string): The UUID of a comment
 **Description:** Retrieve a list of all likes an author has made
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED liked objects.
-Use local author credentials to access likes attached to FRIENDS-only content.
+Authentication is optional for PUBLIC and UNLISTED liked objects. <br>
+Use local author credentials to access likes attached to FRIENDS-only content. <br>
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -1825,8 +1825,8 @@ author_serial (string): The UUID of an author
 **Description:** Create or remove a like on an entry or comment as the author.
 
 #### Auth
-<example_username>: username of the local author connected to author_serial
-<example_password>: password for that local author
+<example_username>: username of the local author connected to author_serial <br>
+<example_password>: password for that local author <br>
 
 #### Parameters
 author_serial (string): The UUID of an author
@@ -1877,8 +1877,8 @@ author_serial (string): The UUID of an author
 **Description:** Retrieve a list of all likes an author has made
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED liked objects.
-Use local author credentials to access likes attached to FRIENDS-only content.
+Authentication is optional for PUBLIC and UNLISTED liked objects. <br>
+Use local author credentials to access likes attached to FRIENDS-only content. <br>
 
 #### Parameters
 author_fqid (string): The FQID of an author
@@ -1938,8 +1938,8 @@ author_fqid (string): The FQID of an author
 **Description:** Create or remove a like on an entry or comment using the author's FQID route.
 
 #### Auth
-<example_username>: username of the local author connected to author_fqid
-<example_password>: password for that local author
+<example_username>: username of the local author connected to author_fqid <br>
+<example_password>: password for that local author <br>
 
 #### Parameters
 author_fqid (string): The FQID of an author
@@ -1989,8 +1989,8 @@ author_fqid (string): The FQID of an author
 **Description:** Retrieve a like with its fqid
 
 #### Auth
-Authentication is optional for PUBLIC and UNLISTED liked objects.
-Use local author credentials to access likes attached to FRIENDS-only content.
+Authentication is optional for PUBLIC and UNLISTED liked objects. <br>
+Use local author credentials to access likes attached to FRIENDS-only content. <br>
 
 #### Parameters
 like_fqid (string): The FQID of a like
@@ -2044,8 +2044,8 @@ like_fqid (string): The FQID of a like
 **Description:** Post an object to a remote author’s inbox
 
 #### Headers
-Authorization (string): Basic &lt;base64(username:password)&gt; for an active remote node configured on the receiving server.
-Content-Type (string): application/json
+Authorization (string): Basic &lt;base64(username:password)&gt; for an active remote node configured on the receiving server. <br>
+Content-Type (string): application/json <br>
 
 #### Parameters
 author_serial (string): The UUID of an author.
