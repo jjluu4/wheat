@@ -56,6 +56,21 @@ def resolve_like_target(object_url):
 
     return None, None
 
+
+def choose_object_reference(requested_object_url, target):
+    requested_raw = (requested_object_url or "").strip()
+    canonical_raw = (getattr(target, "url", "") or "").strip()
+    if not requested_raw:
+        return canonical_raw
+    if not canonical_raw:
+        return requested_raw
+
+    requested_normalized = normalize_url(requested_raw)
+    canonical_normalized = normalize_url(canonical_raw)
+    if requested_normalized == canonical_normalized:
+        return canonical_raw
+    return requested_raw
+
 def build_like_url(request, author, like_serial):
     """Build a canonical API URL for a like object."""
     return f"{build_author_api_url(author, request)}/liked/{like_serial}/"
@@ -134,6 +149,7 @@ def _author_liked_for_author(request, author):
             target_type, target = resolve_like_target(object_url)
             if not target_type:
                 return Response({"error": "Invalid object URL"}, status=400)
+            object_reference = choose_object_reference(object_url, target)
             if target_type == "entry":
                 if not can_view_entry(target, requesting_author, request.user):
                     return Response({"error": "You don't have permission to unlike this entry"}, status=403)
@@ -152,7 +168,7 @@ def _author_liked_for_author(request, author):
                 "type": "unlike",
                 "id": unlike_id,
                 "author": AuthorSerializer(author).data,
-                "object": object_url,
+                "object": object_reference,
             }
             if target_type == "entry":
                 post_json_to_remote_inbox(unlike_payload, target.author)
@@ -162,7 +178,7 @@ def _author_liked_for_author(request, author):
                 distribute_activity_to_remote_followers(
                     unlike_payload, target.entry.author, target.entry.visibility
                 )
-            return Response({"type": "unlike", "object": object_url}, status=200)
+            return Response({"type": "unlike", "object": object_reference}, status=200)
 
         target_type, target = resolve_like_target(object_url)
         if not target_type:
@@ -172,9 +188,13 @@ def _author_liked_for_author(request, author):
             if not can_view_entry(target, requesting_author, request.user):
                 return Response({"error": "You don't have permission to like this entry"}, status=403)
 
+            object_reference = choose_object_reference(object_url, target)
+
             existing_like = EntryLike.objects.filter(author=author, entry=target).select_related("author", "entry").first()
             if existing_like:
-                return Response(EntryLikeSerializer(existing_like).data, status=200)
+                existing_data = EntryLikeSerializer(existing_like).data
+                existing_data["object"] = object_reference
+                return Response(existing_data, status=200)
 
             like = EntryLike.objects.create(
                 author=author,
@@ -185,6 +205,7 @@ def _author_liked_for_author(request, author):
             like.save(update_fields=["url"])
             response_data = EntryLikeSerializer(like).data
             response_data.setdefault("type", "like")
+            response_data["object"] = object_reference
             post_json_to_remote_inbox(response_data, target.author)
             distribute_activity_to_remote_followers(
                 response_data, target.author, target.visibility
@@ -194,9 +215,13 @@ def _author_liked_for_author(request, author):
         if not can_view_comment(target, requesting_author, request.user):
             return Response({"error": "You don't have permission to like this comment"}, status=403)
 
+        object_reference = choose_object_reference(object_url, target)
+
         existing_like = CommentLike.objects.filter(author=author, comment=target).select_related("author", "comment").first()
         if existing_like:
-            return Response(CommentLikeSerializer(existing_like).data, status=200)
+            existing_data = CommentLikeSerializer(existing_like).data
+            existing_data["object"] = object_reference
+            return Response(existing_data, status=200)
 
         like = CommentLike.objects.create(
             author=author,
@@ -207,6 +232,7 @@ def _author_liked_for_author(request, author):
         like.save(update_fields=["url"])
         response_data = CommentLikeSerializer(like).data
         response_data.setdefault("type", "like")
+        response_data["object"] = object_reference
         forward_comment_like_to_entry_and_comment_authors(response_data, target)
         distribute_activity_to_remote_followers(
             response_data, target.entry.author, target.entry.visibility
