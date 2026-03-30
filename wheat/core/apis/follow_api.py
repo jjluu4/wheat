@@ -61,21 +61,23 @@ def ensure_follow_requested(actor, target):
     Returns (follow, state_changed, previous_status). state_changed is true only
     when this call actually created or transitioned the relationship.
     """
+    status = "ACCEPTED" if author_requires_remote_inbox(target) else "REQUESTED"
+    
     with transaction.atomic():
         follow = Follow.objects.select_for_update().filter(actor=actor, target=target).first()
 
         if follow is None:
             try:
-                follow = Follow.objects.create(actor=actor, target=target, status="REQUESTED")
+                follow = Follow.objects.create(actor=actor, target=target, status=status)
                 return follow, True, None
             except IntegrityError:
                 follow = Follow.objects.select_for_update().get(actor=actor, target=target)
 
-        if follow.status in {"REQUESTED", "ACCEPTED"}:
+        if follow.status == "ACCEPTED" or (follow.status == "REQUESTED" and status == "REQUESTED"):
             return follow, False, follow.status
 
         previous_status = follow.status
-        follow.status = "REQUESTED"
+        follow.status = status
         follow.save(update_fields=["status"])
         return follow, True, previous_status
 
@@ -91,7 +93,7 @@ def revert_follow_requested_transition(follow, previous_status):
             locked_follow.delete()
             return
 
-        if locked_follow.status == "REQUESTED":
+        if locked_follow.status in {"REQUESTED", "ACCEPTED"}:
             locked_follow.status = previous_status
             locked_follow.save(update_fields=["status"])
 
