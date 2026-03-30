@@ -658,10 +658,7 @@ def build_entry_payload(entry, request):
     payload = EntrySerializer(entry).data
     payload["author"] = AuthorSerializer(entry.author).data
     payload["web"] = build_entry_web_url(entry, request)
-    content_text = (entry.content or "").strip()
-    payload["description"] = ""
-    if content_text:
-        payload["description"] = (content_text[:197] + "...") if len(content_text) > 200 else content_text
+    payload["description"] = "An entry containing an image." if "image" in entry.content_type else "An entry containing text content."
     
     if entry.content_type == "image":
         payload["imageUrl"] = f"{normalize_url(build_entry_api_url(entry, request))}/image/"
