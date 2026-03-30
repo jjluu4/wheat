@@ -1,4 +1,4 @@
-{% load static %}
+{% load static core_media %}
 <!doctype html>
 <html>
 
@@ -22,19 +22,18 @@
                 <ul>
                     {% for req in requests %}
                     <li class="follow-item">
-                        {% if req.actor.profileImage %}
-                            <img class="avatar avatar-small" src="{{ req.actor.profileImage }}" alt="{{ req.actor.displayName }} avatar">
-                        {% endif %}
+                        {% author_avatar_url req.actor request as actor_avatar_src %}
+                        <img class="avatar avatar-small" src="{{ actor_avatar_src }}" alt="{{ req.actor.displayName }} avatar">
                         <a class="profile-link" href="{% url 'author_profile' req.actor.serial %}">
                             {{ req.actor.displayName }}
                         </a>
                         wants to follow you.
                         <div class="small accept">
-                            <form action="{% url 'accept_follow' req.actor.serial %}" method="POST">
+                            <form action="{% url 'accept_follow' req.actor.serial %}" method="POST" data-pending-form>
                                 {% csrf_token %}
                                 <button type="submit">Accept</button>
                             </form>
-                            <form action="{% url 'reject_follow' req.actor.serial %}" method="POST">
+                            <form action="{% url 'reject_follow' req.actor.serial %}" method="POST" data-pending-form>
                                 {% csrf_token %}
                                 <button type="submit">Reject</button>
                             </form>

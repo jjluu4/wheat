@@ -1,4 +1,4 @@
-{% load static %}
+{% load static core_media %}
 <!doctype html>
 <html>
 
@@ -22,9 +22,8 @@
                 <ul>
                     {% for author in authors %}
                     <li class="follow-item">
-                        {% if author.profileImage %}
-                            <img class="avatar avatar-small" src="{{ author.profileImage }}" alt="{{ author.displayName }} avatar">
-                        {% endif %}
+                        {% author_avatar_url author request as author_avatar_src %}
+                        <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ author.displayName }} avatar">
                         <a class="profile-link" href="{% url 'author_profile' author.serial %}">
                             {{ author.displayName }}
                         </a>

@@ -219,6 +219,25 @@ class AuthorListPageTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Skar")
 
+    def test_author_list_page_wraps_long_names_with_author_card_class(self):
+        long_name = "DanielFromWheatOnTealNodeWithVeryLongDisplayName"
+        Author.objects.create(
+            url="http://testserver/api/authors/long-author",
+            host="http://testserver/api/",
+            displayName=long_name,
+            github="https://github.com/example",
+            description="Long author",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/long-author",
+        )
+
+        resp = self.client.get(reverse("author_list"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, long_name)
+        self.assertContains(resp, 'class="profile-link author-card-name"')
+        self.assertContains(resp, 'class="pager-meta author-node-meta"')
+
     def test_open_remote_author_requires_fqid(self):
         resp = self.client.get(reverse("author_open_remote"))
         self.assertEqual(resp.status_code, 400)
@@ -532,6 +551,18 @@ class EntryDeleteTests(TestCase):
         url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
         resp = self.client.post(url)
         self.assertEqual(resp.status_code, 302)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.visibility, "DELETED")
+
+    def test_repeated_delete_submit_is_safe_no_op_for_owner(self):
+        self.client.force_login(self.user)
+        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
+
+        first_response = self.client.post(url)
+        second_response = self.client.post(url)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
         self.entry.refresh_from_db()
         self.assertEqual(self.entry.visibility, "DELETED")
 

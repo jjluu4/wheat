@@ -1,4 +1,4 @@
-{% load static %}
+{% load static core_media %}
 <!doctype html>
 <html>
 
@@ -12,6 +12,7 @@
 <body>
     <div class="page">
         {% include '../navs/main.html' %}
+        {% author_avatar_url author request as author_avatar_src %}
 
         <div class="container">
             {% if messages %}
@@ -22,9 +23,7 @@
                 </div>
             {% endif %}
             <h1 style="display: flex; align-items: center; justify-content: center; gap: 5px; margin: 5px 0 10px;flex-wrap: wrap;">
-                {% if author.profileImage %}
-                    <img class="avatar avatar-small" src="{{ author.profileImage }}" alt="{{ author.displayName }} avatar">
-                {% endif %}
+                <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ author.displayName }} avatar">
                 {{ author.displayName }} 
             </h1>
             {% if author.description %}
@@ -36,15 +35,20 @@
             {% else %}
             <p style="display: flex; align-items: center; justify-content: center;">
                 {% if followStatus == 'ACCEPTED' %}
-                    <a class="button-link" href="{% url 'unfollow_author' author.serial %}">
-                        Unfollow
-                    </a>
+                    <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
+                        {% csrf_token %}
+                        <button type="submit">Unfollow</button>
+                    </form>
                 {% elif followStatus == 'REQUESTED' %}
-                    <a class="button-link" href="{% url 'unfollow_author' author.serial %}">Cancel request</a>
+                    <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
+                        {% csrf_token %}
+                        <button type="submit">Cancel request</button>
+                    </form>
                 {% else %}
-                    <a class="button-link" href="{% url 'follow_author' author.serial %}">
-                        Follow
-                    </a>
+                    <form method="post" action="{% url 'follow_author' author.serial %}" data-pending-form>
+                        {% csrf_token %}
+                        <button type="submit">Follow</button>
+                    </form>
                 {% endif %}
             </p>
 

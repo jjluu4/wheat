@@ -1,6 +1,7 @@
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 import uuid
 import re
@@ -196,11 +197,15 @@ def _author_liked_for_author(request, author):
                 existing_data["object"] = object_reference
                 return Response(existing_data, status=200)
 
-            like = EntryLike.objects.create(
-                author=author,
-                entry=target,
-                url=build_like_url(request, author, uuid.uuid4()),
-            )
+            try:
+                like = EntryLike.objects.create(
+                    author=author,
+                    entry=target,
+                    url=build_like_url(request, author, uuid.uuid4()),
+                )
+            except IntegrityError:
+                existing_like = EntryLike.objects.select_related("author", "entry").get(author=author, entry=target)
+                return Response(EntryLikeSerializer(existing_like).data, status=200)
             like.url = build_like_url(request, author, like.serial)
             like.save(update_fields=["url"])
             response_data = EntryLikeSerializer(like).data
@@ -215,6 +220,9 @@ def _author_liked_for_author(request, author):
         if not can_view_comment(target, requesting_author, request.user):
             return Response({"error": "You don't have permission to like this comment"}, status=403)
 
+        if target.author_id == author.id:
+            return Response({"error": "You cannot like your own comment"}, status=403)
+
         object_reference = choose_object_reference(object_url, target)
 
         existing_like = CommentLike.objects.filter(author=author, comment=target).select_related("author", "comment").first()
@@ -223,11 +231,15 @@ def _author_liked_for_author(request, author):
             existing_data["object"] = object_reference
             return Response(existing_data, status=200)
 
-        like = CommentLike.objects.create(
-            author=author,
-            comment=target,
-            url=build_like_url(request, author, uuid.uuid4()),
-        )
+        try:
+            like = CommentLike.objects.create(
+                author=author,
+                comment=target,
+                url=build_like_url(request, author, uuid.uuid4()),
+            )
+        except IntegrityError:
+            existing_like = CommentLike.objects.select_related("author", "comment").get(author=author, comment=target)
+            return Response(CommentLikeSerializer(existing_like).data, status=200)
         like.url = build_like_url(request, author, like.serial)
         like.save(update_fields=["url"])
         response_data = CommentLikeSerializer(like).data

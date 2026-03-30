@@ -2,7 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 from .views import author_views, entry_views, follow_views, stream_views, authentication_views, remote_node_views, views
-from .apis import author_api, comment_api, entry_api, follow_api, like_api, inbox_api
+from .apis import author_api, comment_api, entry_api, follow_api, like_api, inbox_api, media_api
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -46,8 +46,10 @@ urlpatterns = [
 
     # API endpoints
     path("api/authors/<uuid:author_serial>/", author_api.single_author, name="api_single_author"),
+    path("api/authors/<uuid:author_serial>/profile-image/", author_api.author_profile_image, name="api_author_profile_image"),
     path("api/remote-nodes/<int:remote_node_pk>/authors/", author_api.remote_node_authors, name="api_remote_node_authors"),
     path("api/authors/", author_api.all_authors, name="api_all_authors"),
+    path("api/media/image-proxy/", media_api.image_proxy, name="api_image_proxy"),
     path("api/authors/<uuid:author_serial>/entries/", entry_api.author_entries, name="api_author_entries"),
     path("api/authors/<uuid:author_serial>/entries/<uuid:entry_serial>/", entry_api.single_entry, name="api_single_entry"),    
     path("api/authors/<uuid:author_serial>/follow_requests", follow_api.get_follow_requests_api, name="api_follow_requests"),
@@ -71,6 +73,7 @@ urlpatterns = [
     path("api/authors/<uuid:author_serial>/following/<path:foreign_author_fqid>", follow_api.following_api, name="api_following"),
     path("api/authors/<uuid:author_serial>/followers/<path:foreign_author_fqid>", follow_api.follower_api, name="api_followers"),
     path('api/authors/<uuid:author_serial>/inbox', inbox_api.inbox_item, name='api_inbox_item'),
+    path('api/authors/<uuid:author_serial>/inbox/', inbox_api.inbox_item, name='api_inbox_item'),
     path("api/entries/<path:entry_fqid>/", entry_api.get_entry_fqid, name="api_entry_fqid"),
     path("api/authors/<path:author_fqid>/", author_api.single_author_fqid, name="api_author_fqid"),
 

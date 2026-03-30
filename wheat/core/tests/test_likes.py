@@ -2,10 +2,11 @@ import uuid
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from core.models import Author, Comment, Entry, Follow
+from core.models import Author, Comment, CommentLike, Entry, EntryLike, Follow
 
 
 class LikesAndCommentVisibilityTests(APITestCase):
@@ -140,6 +141,26 @@ class LikesAndCommentVisibilityTests(APITestCase):
         likes_resp = self.client.get(self.entry_likes_url(self.public_entry))
         self.assertEqual(likes_resp.data["count"], 1)
 
+    @patch("core.apis.like_api.EntryLike.objects.create")
+    def test_entry_like_recovers_from_uniqueness_race(self, mock_create):
+        self.client.force_login(self.stranger_user)
+
+        def create_then_raise(*args, **kwargs):
+            like = EntryLike(**kwargs)
+            like.save(force_insert=True)
+            raise IntegrityError("duplicate key value violates unique constraint")
+
+        mock_create.side_effect = create_then_raise
+        response = self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_entry.url},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        likes_resp = self.client.get(self.entry_likes_url(self.public_entry))
+        self.assertEqual(likes_resp.data["count"], 1)
+
     def test_like_public_comment(self):
         """Stranger can like a public comment and comment likes collection reflects it."""
         self.client.force_login(self.stranger_user)
@@ -206,19 +227,19 @@ class LikesAndCommentVisibilityTests(APITestCase):
 
     def test_author_liked_returns_entry_and_comment_likes(self):
         """GET /liked/ for an author returns both entry and comment likes."""
-        self.client.force_login(self.friend_user)
+        self.client.force_login(self.stranger_user)
         self.client.post(
-            self.like_url(self.friend),
+            self.like_url(self.stranger),
             data={"type": "like", "object": self.public_entry.url},
             format="json",
         )
         self.client.post(
-            self.like_url(self.friend),
+            self.like_url(self.stranger),
             data={"type": "like", "object": self.public_comment.url},
             format="json",
         )
 
-        resp = self.client.get(self.like_url(self.friend))
+        resp = self.client.get(self.like_url(self.stranger))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["count"], 2)
         objects = [item["object"] for item in resp.data["src"]]
@@ -233,12 +254,28 @@ class LikesAndCommentVisibilityTests(APITestCase):
             data={"type": "like", "object": self.public_entry.url},
             format="json",
         )
-        self.client.logout()
 
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("likes", resp.data)
         self.assertEqual(resp.data["likes"]["count"], 1)
+        self.assertTrue(resp.data["likes"]["viewer_has_liked"])
+
+    def test_author_profile_renders_liked_entry_button_state(self):
+        """Author profile renders the entry like button with the viewer's current like state."""
+        self.client.force_login(self.stranger_user)
+        self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_entry.url},
+            format="json",
+        )
+
+        resp = self.client.get(f"/authors/{self.owner.serial}/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'class="entry-like-button"')
+        self.assertContains(resp, 'data-liked="1"')
+        self.assertContains(resp, ">Liked</button>", html=False)
 
     def test_author_entries_embed_likes_collection(self):
         """Author entries API embeds likes collection for each entry."""
@@ -457,12 +494,33 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(likes_resp.status_code, 200)
         self.assertEqual(likes_resp.data["count"], 1)
 
+    @patch("core.apis.like_api.CommentLike.objects.create")
+    def test_comment_like_recovers_from_uniqueness_race(self, mock_create):
+        self.client.force_login(self.stranger_user)
+
+        def create_then_raise(*args, **kwargs):
+            like = CommentLike(**kwargs)
+            like.save(force_insert=True)
+            raise IntegrityError("duplicate key value violates unique constraint")
+
+        mock_create.side_effect = create_then_raise
+        response = self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_comment.url},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        likes_resp = self.client.get(self.comment_likes_url(self.public_comment))
+        self.assertEqual(likes_resp.status_code, 200)
+        self.assertEqual(likes_resp.data["count"], 1)
+
     def test_friend_can_like_comment_on_friends_only_entry(self):
         """Friend can like a comment on a friends-only entry."""
-        self.client.force_login(self.friend_user)
+        self.client.force_login(self.owner_user)
 
         resp = self.client.post(
-            self.like_url(self.friend),
+            self.like_url(self.owner),
             data={"type": "like", "object": self.friend_comment.url},
             format="json",
         )
@@ -470,8 +528,8 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["object"], self.friend_comment.url)
 
-    def test_comment_author_can_like_own_hidden_comment(self):
-        """Comment author can like their own hidden comment."""
+    def test_comment_author_cannot_like_own_hidden_comment(self):
+        """Comment author cannot like their own hidden comment."""
         self.client.force_login(self.former_user)
 
         resp = self.client.post(
@@ -480,8 +538,12 @@ class LikesAndCommentVisibilityTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(resp.status_code, 201)
-        self.assertEqual(resp.data["object"], self.former_comment.url)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.data["error"], "You cannot like your own comment")
+
+        likes_resp = self.client.get(self.comment_likes_url(self.former_comment))
+        self.assertEqual(likes_resp.status_code, 200)
+        self.assertEqual(likes_resp.data["count"], 0)
 
     def test_unauthenticated_user_cannot_like_comment(self):
         """Unauthenticated user cannot like a comment."""
@@ -506,8 +568,8 @@ class LikesAndCommentVisibilityTests(APITestCase):
 
         self.assertEqual(resp.status_code, 404)
 
-    def test_single_comment_payload_embeds_like_count(self):
-        """Single comment API payload embeds like count information."""
+    def test_single_comment_payload_embeds_like_count_and_viewer_state(self):
+        """Single comment API payload embeds like count and viewer liked state."""
         self.client.force_login(self.stranger_user)
         self.client.post(
             self.like_url(self.stranger),
@@ -519,6 +581,25 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("likes", resp.data)
         self.assertEqual(resp.data["likes"]["count"], 1)
+        self.assertTrue(resp.data["likes"]["viewer_has_liked"])
+
+    def test_comments_collection_marks_other_viewer_like_state_false(self):
+        """Comments collection reports viewer_has_liked=false for a different viewer."""
+        self.client.force_login(self.stranger_user)
+        self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_comment.url},
+            format="json",
+        )
+
+        self.client.force_login(self.owner_user)
+        resp = self.client.get(
+            f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/comments/"
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["src"][0]["likes"]["count"], 1)
+        self.assertFalse(resp.data["src"][0]["likes"]["viewer_has_liked"])
 
     def test_unauthenticated_user_can_see_likes_on_public_entry(self):
         """Unauthenticated user can view likes on a public entry."""

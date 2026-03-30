@@ -8,6 +8,7 @@ from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden
 from ..helpers import (
     REMOTE_AUTHORS_FETCH_CHUNK_SIZE,
     authors_native_to_this_node_qs,
+    build_local_avatar_placeholder_url,
     fetch_remote_authors_catalog_page,
     normalize_url,
     resolved_remote_api_base,
@@ -241,7 +242,7 @@ def my_profile(request):
             displayName=request.user.username,
             github=f"https://github.com/{request.user.username}",
             description="",
-            profileImage="https://placehold.co/150x150.png",
+            profileImage=build_local_avatar_placeholder_url(request),
         )
 
     return redirect("author_profile", author_serial=author.serial)

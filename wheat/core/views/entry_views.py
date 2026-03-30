@@ -117,6 +117,8 @@ def delete_entry(request, author_serial, entry_serial):
     author = get_object_or_404(Author, serial=author_serial)
     entry = get_object_or_404(Entry, serial=entry_serial, author=author)
     if entry.visibility == "DELETED":
+        if request.method == "POST" and author_owns_profile(request, author):
+            return redirect("author_profile", author_serial=author.serial)
         return HttpResponseForbidden("This entry is already deleted.")
 
     if not author_owns_profile(request, author):

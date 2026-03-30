@@ -1,4 +1,4 @@
-{% load static %}
+{% load static core_media %}
 <!doctype html>
 <html>
 
@@ -20,7 +20,8 @@
             {% if request.user.is_authenticated and request.user.author_profile %}
             <div class="card">
                 <div class="flex-row" style="align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <img class="avatar avatar-small" src="{{ request.user.author_profile.profileImage }}" alt="{{ request.user.author_profile.displayName }} avatar">
+                    {% author_avatar_url request.user.author_profile request as author_avatar_src %}
+                    <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ request.user.author_profile.displayName }} avatar">
                     <h2 style="color: wheat; margin: 0;">{{ request.user.author_profile.displayName }}</h2>
                 </div>
                 <h2>What's new?</h2>

@@ -1,9 +1,11 @@
 from django.db.models import Q
+from django.http import QueryDict
+from django.templatetags.static import static
 
-from .models import Author, EntryLike, CommentLike, Comment
+from .models import Author, EntryLike, CommentLike, Comment, Image
 from .serializers import EntrySerializer, AuthorSerializer, EntryLikeSerializer, CommentSerializer, CommentLikeSerializer
 from rest_framework.response import Response
-import urllib
+import urllib, base64, mimetypes
 import requests
 
 from .auth import add_auth_headers
@@ -89,6 +91,25 @@ def resolve_object_by_url(model, object_url):
     return model.objects.filter(url__in=variants).first()
 
 
+def author_requires_remote_inbox(author):
+    """
+    Return True only for authors whose canonical inbox lives on another node.
+
+    Local authors have a linked Django user and should never trigger outbound
+    node-to-node inbox delivery, even when their URLs point at the deployed host.
+    """
+    if author is None:
+        return False
+    if getattr(author, "user_id", None) is not None:
+        return False
+
+    author_url = normalize_url(getattr(author, "url", ""))
+    author_host = normalize_url(getattr(author, "host", ""))
+    if (not author_url and not author_host) or "testserver" in author_url or "testserver" in author_host:
+        return False
+    return True
+
+
 def decode_fqid(value):
     """Decode a percent-encoded FQID without changing its identity."""
     return urllib.parse.unquote((value or "").strip())
@@ -150,6 +171,10 @@ def send_json_to_remote_author_inbox(author_fqid, payload, method="POST", timeou
     """Send JSON to a remote author's inbox using configured node credentials."""
     normalized_fqid = normalize_url(author_fqid)
     if not normalized_fqid or "testserver" in normalized_fqid:
+        return True, None
+
+    local_author = resolve_object_by_url(Author, normalized_fqid)
+    if local_author is not None and getattr(local_author, "user_id", None) is not None:
         return True, None
 
     remote_node = find_remote_node_for_author_fqid(normalized_fqid)
@@ -425,6 +450,20 @@ def build_author_web_url(author, request=None):
     return stored
 
 
+def build_author_profile_image_url(author, request=None):
+    path = f"/api/authors/{author.serial}/profile-image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def build_local_avatar_placeholder_url(request=None):
+    path = static("images/avatar-placeholder.svg")
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def build_entry_api_url(entry, request=None):
     stored = (getattr(entry, "url", "") or "").strip()
     if stored.startswith("http://") or stored.startswith("https://"):
@@ -439,6 +478,22 @@ def build_entry_web_url(entry, request=None):
     return f"{build_author_web_url(entry.author, request)}/entries/{entry.serial}/"
 
 
+def build_browser_entry_image_url(entry, request=None):
+    path = f"/api/authors/{entry.author.serial}/entries/{entry.serial}/image/"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def build_media_proxy_url(media_url, request=None):
+    query = QueryDict(mutable=True)
+    query["url"] = media_url
+    path = f"/api/media/image-proxy/?{query.urlencode()}"
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
 def build_comment_api_url(comment, request=None):
     stored = (getattr(comment, "url", "") or "").strip()
     if stored.startswith("http://") or stored.startswith("https://"):
@@ -448,6 +503,104 @@ def build_comment_api_url(comment, request=None):
 
 def build_comment_web_url(comment, request=None):
     return f"{build_author_web_url(comment.author, request)}/comments/{comment.serial}"
+
+
+def get_request_origin(request):
+    if request is None:
+        return ""
+    parsed = urllib.parse.urlparse(request.build_absolute_uri("/"))
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return normalize_url(f"{parsed.scheme}://{parsed.netloc}")
+
+
+def is_same_node_media_url(url, request=None):
+    raw = (url or "").strip()
+    if not raw:
+        return False
+    if raw.startswith("/"):
+        return True
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return False
+
+    request_origin = get_request_origin(request)
+    if not request_origin:
+        return False
+
+    return normalize_url(f"{parsed.scheme}://{parsed.netloc}") == request_origin
+
+
+def get_allowlisted_remote_node_for_media_url(url, request=None):
+    raw = decode_fqid(url)
+    if not raw or is_same_node_media_url(raw, request):
+        return None
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+
+    return find_remote_node_by_url(raw)
+
+
+def is_allowlisted_media_url(url, request=None):
+    return is_same_node_media_url(url, request) or get_allowlisted_remote_node_for_media_url(url, request) is not None
+
+
+def resolve_image_proxy_target(url, request=None):
+    raw = decode_fqid(url)
+    if not raw:
+        return {"error": "Image URL is required.", "status": 400}
+
+    if is_same_node_media_url(raw, request):
+        if raw.startswith("/"):
+            path = raw
+        else:
+            parsed = urllib.parse.urlparse(raw)
+            path = urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
+        return {"kind": "local", "path": path}
+
+    remote_node = get_allowlisted_remote_node_for_media_url(raw, request)
+    if remote_node is None:
+        return {"error": "Image URL is not allowlisted.", "status": 400}
+
+    return {"kind": "remote", "url": raw, "remote_node": remote_node}
+
+
+def fetch_remote_image(url, remote_node, timeout=10):
+    headers = {
+        "Accept": "image/*",
+        "User-Agent": "SocialDistribution/1.0",
+    }
+    headers = add_auth_headers(headers, remote_node)
+
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout)
+    except requests.RequestException as exc:
+        return {
+            "error": f"Failed to connect to remote node: {exc}",
+            "status": 503,
+        }
+
+    if response.status_code == 404:
+        return {"error": "Image not found on remote node.", "status": 404}
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return {
+            "error": f"Remote node returned status {response.status_code}",
+            "status": 502,
+        }
+
+    content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip()
+    if not content_type.startswith("image/"):
+        return {"error": "Remote resource is not an image.", "status": 502}
+
+    return {
+        "content": response.content,
+        "content_type": content_type,
+        "status": 200,
+    }
 
 
 def build_author_commented_collection_id(author, request=None):
@@ -505,19 +658,42 @@ def build_entry_payload(entry, request):
     payload = EntrySerializer(entry).data
     payload["author"] = AuthorSerializer(entry.author).data
     payload["web"] = build_entry_web_url(entry, request)
-    if entry.content_type == "image":
-        payload["imageUrl"] = f"{normalize_url(build_entry_api_url(entry, request))}/image/"
     content_text = (entry.content or "").strip()
     payload["description"] = ""
     if content_text:
         payload["description"] = (content_text[:197] + "...") if len(content_text) > 200 else content_text
+    
+    if entry.content_type == "image":
+        payload["imageUrl"] = f"{normalize_url(build_entry_api_url(entry, request))}/image/"
+        
+        if entry.image_url:
+            image = Image.objects.filter(url=entry.image_url).first()
+            if image and image.image:
+                try:
+                    with image.image.open('rb') as f:
+                        image_data = f.read()
+                    
+                    encoded_string = base64.b64encode(image_data).decode('utf-8')
+                    payload["content"] = encoded_string
+                    
+                    mime_type, _ = mimetypes.guess_type(image.image.name)
+                    if mime_type:
+                        payload["contentType"] = f"{mime_type};base64"
+                        
+                except Exception as e:
+                    print(f"Failed to encode image in base64: {e}")
 
     likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
-    payload["likes"] = build_likes_collection(
+    viewer_author = get_requesting_author(request) if request is not None else None
+    likes_data = build_likes_collection(
         likes_qs,
         EntryLikeSerializer,
         build_entry_likes_url(request, entry),
     )
+    likes_data["viewer_has_liked"] = (
+        likes_qs.filter(author=viewer_author).exists() if viewer_author is not None else False
+    )
+    payload["likes"] = likes_data
 
     # Embed a first page of comments when the viewer is allowed to see them
     requesting_author = get_requesting_author(request)
@@ -551,11 +727,16 @@ def build_comment_payload(comment, request):
     comment_data["entry"] = build_entry_api_url(comment.entry, request)
     comment_data["web"] = build_comment_web_url(comment, request)
     likes_qs = CommentLike.objects.filter(comment=comment).select_related("author").order_by("-published")
-    comment_data["likes"] = build_likes_collection(
+    viewer_author = get_requesting_author(request) if request is not None else None
+    likes_data = build_likes_collection(
         likes_qs,
         CommentLikeSerializer,
         build_comment_likes_url(request, comment),
     )
+    likes_data["viewer_has_liked"] = (
+        likes_qs.filter(author=viewer_author).exists() if viewer_author is not None else False
+    )
+    comment_data["likes"] = likes_data
     return comment_data
 
 def fetch_remote_resource(fqid):
