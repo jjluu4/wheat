@@ -510,8 +510,8 @@ class LikesAndCommentVisibilityTests(APITestCase):
 
         self.assertEqual(resp.status_code, 404)
 
-    def test_single_comment_payload_embeds_like_count(self):
-        """Single comment API payload embeds like count information."""
+    def test_single_comment_payload_embeds_like_count_and_viewer_state(self):
+        """Single comment API payload embeds like count and viewer liked state."""
         self.client.force_login(self.stranger_user)
         self.client.post(
             self.like_url(self.stranger),
@@ -523,6 +523,25 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("likes", resp.data)
         self.assertEqual(resp.data["likes"]["count"], 1)
+        self.assertTrue(resp.data["likes"]["viewer_has_liked"])
+
+    def test_comments_collection_marks_other_viewer_like_state_false(self):
+        """Comments collection reports viewer_has_liked=false for a different viewer."""
+        self.client.force_login(self.stranger_user)
+        self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_comment.url},
+            format="json",
+        )
+
+        self.client.force_login(self.owner_user)
+        resp = self.client.get(
+            f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/comments/"
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["src"][0]["likes"]["count"], 1)
+        self.assertFalse(resp.data["src"][0]["likes"]["viewer_has_liked"])
 
     def test_unauthenticated_user_can_see_likes_on_public_entry(self):
         """Unauthenticated user can view likes on a public entry."""

@@ -704,11 +704,16 @@ def build_comment_payload(comment, request):
     comment_data["entry"] = build_entry_api_url(comment.entry, request)
     comment_data["web"] = build_comment_web_url(comment, request)
     likes_qs = CommentLike.objects.filter(comment=comment).select_related("author").order_by("-published")
-    comment_data["likes"] = build_likes_collection(
+    viewer_author = get_requesting_author(request) if request is not None else None
+    likes_data = build_likes_collection(
         likes_qs,
         CommentLikeSerializer,
         build_comment_likes_url(request, comment),
     )
+    likes_data["viewer_has_liked"] = (
+        likes_qs.filter(author=viewer_author).exists() if viewer_author is not None else False
+    )
+    comment_data["likes"] = likes_data
     return comment_data
 
 def fetch_remote_resource(fqid):
