@@ -91,6 +91,25 @@ def resolve_object_by_url(model, object_url):
     return model.objects.filter(url__in=variants).first()
 
 
+def author_requires_remote_inbox(author):
+    """
+    Return True only for authors whose canonical inbox lives on another node.
+
+    Local authors have a linked Django user and should never trigger outbound
+    node-to-node inbox delivery, even when their URLs point at the deployed host.
+    """
+    if author is None:
+        return False
+    if getattr(author, "user_id", None) is not None:
+        return False
+
+    author_url = normalize_url(getattr(author, "url", ""))
+    author_host = normalize_url(getattr(author, "host", ""))
+    if (not author_url and not author_host) or "testserver" in author_url or "testserver" in author_host:
+        return False
+    return True
+
+
 def decode_fqid(value):
     """Decode a percent-encoded FQID without changing its identity."""
     return urllib.parse.unquote((value or "").strip())
@@ -152,6 +171,10 @@ def send_json_to_remote_author_inbox(author_fqid, payload, method="POST", timeou
     """Send JSON to a remote author's inbox using configured node credentials."""
     normalized_fqid = normalize_url(author_fqid)
     if not normalized_fqid or "testserver" in normalized_fqid:
+        return True, None
+
+    local_author = resolve_object_by_url(Author, normalized_fqid)
+    if local_author is not None and getattr(local_author, "user_id", None) is not None:
         return True, None
 
     remote_node = find_remote_node_for_author_fqid(normalized_fqid)

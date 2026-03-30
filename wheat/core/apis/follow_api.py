@@ -12,6 +12,7 @@ from ..auth import (
     require_auth_for_view,
 )
 from ..helpers import (
+    author_requires_remote_inbox,
     decode_fqid,
     get_pagination_params,
     normalize_url,
@@ -66,10 +67,9 @@ def notify_remote_follow_event(
     """
     helper for handling follow related events
     """
-    recipient_fqid = normalize_url(getattr(remote_recipient, "url", ""))
-    recipient_host = normalize_url(getattr(remote_recipient, "host", ""))
-    if (not recipient_fqid and not recipient_host) or "testserver" in recipient_fqid or "testserver" in recipient_host:
+    if not author_requires_remote_inbox(remote_recipient):
         return True, None
+    recipient_fqid = normalize_url(getattr(remote_recipient, "url", ""))
 
     payload = {
         "type": event_type,
@@ -309,7 +309,7 @@ def following_api(request, author_serial, foreign_author_fqid):
         if follow and follow.status == "ACCEPTED":
             return Response(status=204)
 
-        if foreign_author.host and "testserver" not in foreign_author.host:
+        if author_requires_remote_inbox(foreign_author):
             delivered, delivery_error = forward_follow_request_to_remote_inbox(author, foreign_author)
             if not delivered:
                 return Response({"error": delivery_error}, status=502)
@@ -399,7 +399,7 @@ def follower_api(request, author_serial, foreign_author_fqid):
 
             follow.status = "ACCEPTED"
             follow.save(update_fields=["status"])
-            if getattr(foreign_author, "host", "") and "testserver" not in getattr(foreign_author, "host", ""):
+            if author_requires_remote_inbox(foreign_author):
                 delivered, delivery_error = notify_remote_follow_acceptance(foreign_author, author)
                 if not delivered:
                     return Response({"error": delivery_error}, status=502)

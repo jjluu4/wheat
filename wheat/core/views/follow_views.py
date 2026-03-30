@@ -10,6 +10,7 @@ from ..apis.follow_api import (
     notify_remote_follow_rejection,
     notify_remote_unfollow,
 )
+from ..helpers import author_requires_remote_inbox
 from ..models import Author, Follow
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def follow_author(request, author_serial):
     follow = Follow.objects.filter(actor=actor, target=target).first()
 
     if follow is None or follow.status != "ACCEPTED":
-        # For remote targets this delivers to their inbox; for local/testserver it no-ops safely.
+        # Remote follows deliver to another node's inbox; same-node follows stay local.
         delivered, delivery_error = forward_follow_request_to_remote_inbox(actor, target)
         if not delivered:
             
@@ -53,7 +54,7 @@ def accept_follow(request, author_serial):
 
         follow.status = "ACCEPTED"
         follow.save()
-        if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
+        if author_requires_remote_inbox(actor):
             delivered, delivery_error = notify_remote_follow_acceptance(actor, target)
             
 
@@ -78,7 +79,7 @@ def reject_follow(request, author_serial):
         follow.status = "REJECTED"
         follow.save()
 
-        if getattr(actor, "host", "") and "testserver" not in getattr(actor, "host", ""):
+        if author_requires_remote_inbox(actor):
             delivered, err = notify_remote_follow_rejection(actor, target)
 
         return redirect("author_profile", author_serial=target.serial)
@@ -141,6 +142,6 @@ def unfollow(request, author_serial):
         return HttpResponseNotFound("Follow request cannot be found.")
 
     follow.delete()
-    if getattr(target, "host", "") and "testserver" not in getattr(target, "host", ""):
+    if author_requires_remote_inbox(target):
         delivered, err = notify_remote_unfollow(actor, target)
     return redirect("author_profile", author_serial=target.serial)
