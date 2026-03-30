@@ -40,9 +40,6 @@
     {% elif entry.content_type|slice:":5" == "image" %}
         <div class="entry-image">
             <img src="{{ entry_image_src }}" alt="Image entry">
-            {% if entry.content %}
-            <div class="caption">{{ entry.content }}</div>
-            {% endif %}
         </div>
     {% else %}
         <div class="entry-content plain-text">{{ entry.content|linebreaksbr }}</div>

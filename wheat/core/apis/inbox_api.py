@@ -103,8 +103,6 @@ def create_or_update_entry(payload, request):
     entry.url = entry_id
     entry.title = (payload.get("title") or "").strip() or "Untitled"
     entry.content = payload.get("content") or ""
-    entry.content_type = payload.get("contentType", payload.get("content_type", "text/plain"))
-    entry.image_url = payload.get("imageUrl", payload.get("image_url", "")) or ""
     entry.visibility = payload.get("visibility") if payload.get("visibility") in ("PUBLIC", "UNLISTED", "FRIENDS", "DELETED") else "PUBLIC"
     published = parse_remote_published(payload)
     if published is not None:
@@ -115,6 +113,36 @@ def create_or_update_entry(payload, request):
     elif not getattr(entry, "web", ""):
         base = normalize_url(request.build_absolute_uri("/"))
         entry.web = f"{base}/authors/{author.serial}/entries/{entry.serial}"
+    
+    payload_content_type = payload.get("contentType") or ""
+    image_types = ["image/png;base64", "image/jpg;base64", "applicated/base64"]
+    if payload_content_type in image_types:
+        
+        encoded_image = entry.content.encode('utf-8') 
+        decoded_binary_image = base64.b64decode(encoded_image)
+        
+        newImage = Image.objects.create(
+                    author=author,
+                    newImage=decoded_binary_image
+                )
+        
+        entry.image_url = image.url
+        entry.content_type = "image"
+        
+    else:
+        entry.content_type = payload_content_type
+        if entry.content_type == "image":
+            
+            encoded_image = entry.content.encode('utf-8') 
+            decoded_binary_image = base64.b64decode(encoded_image)
+            
+            newImage = Image.objects.create(
+                        author=author,
+                        newImage=decoded_binary_image
+                    )
+            
+            entry.image_url = image.url  
+            
     entry.save()
     return entry, None, created
 
