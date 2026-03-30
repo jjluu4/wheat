@@ -1,4 +1,5 @@
 import json, base64
+import re
 import uuid
 
 from django.shortcuts import get_object_or_404
@@ -12,6 +13,41 @@ from rest_framework.response import Response
 from ..auth import require_remote_node_auth
 from ..helpers import build_comment_payload, build_entry_payload, normalize_url, resolve_object_by_url
 from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem, Image
+
+
+ENTRY_OBJECT_RE = re.compile(r"/(?:api/)?authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
+COMMENT_OBJECT_RE = re.compile(r"/(?:api/)?authors/(?P<author>[0-9a-f-]+)/(?:commented|comments)/(?P<comment>[0-9a-f-]+)/?$")
+
+
+def resolve_like_object_for_inbox(object_url):
+    """Resolve like targets by exact URL first, then by UUIDs embedded in canonical API paths."""
+    entry = resolve_object_by_url(Entry, object_url)
+    if entry is not None:
+        return "entry", entry
+
+    comment = resolve_object_by_url(Comment, object_url)
+    if comment is not None:
+        return "comment", comment
+
+    entry_match = ENTRY_OBJECT_RE.search((object_url or "").strip())
+    if entry_match:
+        entry = Entry.objects.filter(
+            serial=entry_match.group("entry"),
+            author__serial=entry_match.group("author"),
+        ).first()
+        if entry is not None:
+            return "entry", entry
+
+    comment_match = COMMENT_OBJECT_RE.search((object_url or "").strip())
+    if comment_match:
+        comment = Comment.objects.filter(
+            serial=comment_match.group("comment"),
+            author__serial=comment_match.group("author"),
+        ).first()
+        if comment is not None:
+            return "comment", comment
+
+    return None, None
 
 
 def normalize_remote_base_url(value):
@@ -229,12 +265,12 @@ def create_or_update_like(payload, request):
     if not object_url:
         return None, "Like object is required"
 
-    entry = resolve_object_by_url(Entry, object_url)
-    if entry is not None:
+    target_type, target = resolve_like_object_for_inbox(object_url)
+    if target_type == "entry":
         published = parse_remote_published(payload)
         like, _ = EntryLike.objects.get_or_create(
             author=author,
-            entry=entry,
+            entry=target,
             defaults={
                 "url": payload.get("id") or f"{normalize_url(author.url)}/liked/{uuid.uuid4()}",
                 "published": published or timezone.now(),
@@ -247,12 +283,11 @@ def create_or_update_like(payload, request):
         like.save(update_fields=["url", "published"] if published is not None else ["url"])
         return like, None
 
-    comment = resolve_object_by_url(Comment, object_url)
-    if comment is not None:
+    if target_type == "comment":
         published = parse_remote_published(payload)
         like, _ = CommentLike.objects.get_or_create(
             author=author,
-            comment=comment,
+            comment=target,
             defaults={
                 "url": payload.get("id") or f"{normalize_url(author.url)}/liked/{uuid.uuid4()}",
                 "published": published or timezone.now(),
@@ -278,14 +313,13 @@ def delete_like_from_inbox(payload, request):
     if not object_url:
         return None, "Like object is required"
 
-    entry = resolve_object_by_url(Entry, object_url)
-    if entry is not None:
-        EntryLike.objects.filter(author=author, entry=entry).delete()
+    target_type, target = resolve_like_object_for_inbox(object_url)
+    if target_type == "entry":
+        EntryLike.objects.filter(author=author, entry=target).delete()
         return None, None
 
-    comment = resolve_object_by_url(Comment, object_url)
-    if comment is not None:
-        CommentLike.objects.filter(author=author, comment=comment).delete()
+    if target_type == "comment":
+        CommentLike.objects.filter(author=author, comment=target).delete()
         return None, None
 
     return None, "Like object target not found"

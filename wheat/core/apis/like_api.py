@@ -151,6 +151,9 @@ def _author_liked_for_author(request, author):
             if not target_type:
                 return Response({"error": "Invalid object URL"}, status=400)
             object_reference = choose_object_reference(object_url, target)
+            # Federation inbox resolution is much more reliable when we send the
+            # canonical target URL, not whatever the client posted.
+            object_reference = getattr(target, "url", object_reference)
             if target_type == "entry":
                 if not can_view_entry(target, requesting_author, request.user):
                     return Response({"error": "You don't have permission to unlike this entry"}, status=403)
@@ -190,11 +193,18 @@ def _author_liked_for_author(request, author):
                 return Response({"error": "You don't have permission to like this entry"}, status=403)
 
             object_reference = choose_object_reference(object_url, target)
+            object_reference = getattr(target, "url", object_reference)
 
             existing_like = EntryLike.objects.filter(author=author, entry=target).select_related("author", "entry").first()
             if existing_like:
                 existing_data = EntryLikeSerializer(existing_like).data
                 existing_data["object"] = object_reference
+                # Even if this like already exists locally, the client might have
+                # arrived after a prior federation failure, so re-deliver idempotently.
+                post_json_to_remote_inbox(existing_data, target.author)
+                distribute_activity_to_remote_followers(
+                    existing_data, target.author, target.visibility
+                )
                 return Response(existing_data, status=200)
 
             try:
@@ -205,7 +215,13 @@ def _author_liked_for_author(request, author):
                 )
             except IntegrityError:
                 existing_like = EntryLike.objects.select_related("author", "entry").get(author=author, entry=target)
-                return Response(EntryLikeSerializer(existing_like).data, status=200)
+                existing_data = EntryLikeSerializer(existing_like).data
+                existing_data["object"] = object_reference
+                post_json_to_remote_inbox(existing_data, target.author)
+                distribute_activity_to_remote_followers(
+                    existing_data, target.author, target.visibility
+                )
+                return Response(existing_data, status=200)
             like.url = build_like_url(request, author, like.serial)
             like.save(update_fields=["url"])
             response_data = EntryLikeSerializer(like).data
@@ -223,11 +239,17 @@ def _author_liked_for_author(request, author):
         
 
         object_reference = choose_object_reference(object_url, target)
+        object_reference = getattr(target, "url", object_reference)
 
         existing_like = CommentLike.objects.filter(author=author, comment=target).select_related("author", "comment").first()
         if existing_like:
             existing_data = CommentLikeSerializer(existing_like).data
             existing_data["object"] = object_reference
+            # Re-deliver idempotently in case the federated inbox is behind.
+            forward_comment_like_to_entry_and_comment_authors(existing_data, target)
+            distribute_activity_to_remote_followers(
+                existing_data, target.entry.author, target.entry.visibility
+            )
             return Response(existing_data, status=200)
 
         try:
@@ -238,7 +260,13 @@ def _author_liked_for_author(request, author):
             )
         except IntegrityError:
             existing_like = CommentLike.objects.select_related("author", "comment").get(author=author, comment=target)
-            return Response(CommentLikeSerializer(existing_like).data, status=200)
+            existing_data = CommentLikeSerializer(existing_like).data
+            existing_data["object"] = object_reference
+            forward_comment_like_to_entry_and_comment_authors(existing_data, target)
+            distribute_activity_to_remote_followers(
+                existing_data, target.entry.author, target.entry.visibility
+            )
+            return Response(existing_data, status=200)
         like.url = build_like_url(request, author, like.serial)
         like.save(update_fields=["url"])
         response_data = CommentLikeSerializer(like).data
