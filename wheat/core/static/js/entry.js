@@ -126,7 +126,9 @@ function toggleLike(entrySerial) {
     if (!userSerial) return;
 
     const button = entryNode.querySelector('.entry-like-button');
-    const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
+    const objectUrl =
+        entryNode.dataset.entryUrl ||
+        `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
     const csrf = getCsrfToken(entryNode);
     const liked = button && button.dataset.liked === '1';
     const pending = button && button.dataset.pending === '1';
@@ -290,8 +292,7 @@ function loadComments(entrySerial, page=1) {
                 likeCount.textContent = `${count} like${count === 1 ? '' : 's'}`;
                 actions.appendChild(likeCount);
 
-                const isOwnComment = currentUserSerial && comment.author?.serial === currentUserSerial;
-                if (currentUserSerial && !isOwnComment && (comment.id || comment.url)) {
+                if (currentUserSerial && (comment.id || comment.url)) {
                     const likeButton = document.createElement('button');
                     likeButton.type = 'button';
                     const viewerHasLiked = comment.likes?.viewer_has_liked === true;

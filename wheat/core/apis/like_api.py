@@ -220,8 +220,7 @@ def _author_liked_for_author(request, author):
         if not can_view_comment(target, requesting_author, request.user):
             return Response({"error": "You don't have permission to like this comment"}, status=403)
 
-        if target.author_id == author.id:
-            return Response({"error": "You cannot like your own comment"}, status=403)
+        
 
         object_reference = choose_object_reference(object_url, target)
 
