@@ -10,6 +10,7 @@
 >
     {% author_avatar_url entry.author request as author_avatar_src %}
     {% entry_image_url entry request as entry_image_src %}
+    {% entry_viewer_has_liked entry request as viewer_has_liked_entry %}
     <div class="space-between">
         <div class="small"><strong>{{ entry.published }}</strong></div>
         <div class="small"><strong>{{ entry.visibility }}</strong></div>
@@ -52,7 +53,13 @@
 
             {% if request.user.is_authenticated %}
             
-            <button type="button" class="entry-like-button" onclick="toggleLike('{{ entry.serial }}')">Like</button>
+            <button
+                type="button"
+                class="entry-like-button"
+                data-liked="{% if viewer_has_liked_entry %}1{% else %}0{% endif %}"
+                data-pending="0"
+                onclick="toggleLike('{{ entry.serial }}')"
+            >{% if viewer_has_liked_entry %}Liked{% else %}Like{% endif %}</button>
            
             <button type="button" onclick="toggleCommentForm('{{ entry.serial }}')">Comment</button>
             {% endif %}

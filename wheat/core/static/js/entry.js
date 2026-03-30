@@ -129,18 +129,22 @@ function toggleLike(entrySerial) {
     const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
     const csrf = getCsrfToken(entryNode);
     const liked = button && button.dataset.liked === '1';
+    const pending = button && button.dataset.pending === '1';
+
+    if (!button || pending) return;
+
+    button.dataset.pending = '1';
+    button.disabled = true;
 
     const req = liked ? postUnlike(userSerial, objectUrl, csrf) : postLike(userSerial, objectUrl, csrf);
     req.then(({ response, data }) => {
             if (response.ok) {
-                if (button) {
-                    if (liked) {
-                        button.textContent = 'Like';
-                        button.dataset.liked = '0';
-                    } else {
-                        button.textContent = 'Liked';
-                        button.dataset.liked = '1';
-                    }
+                if (liked) {
+                    button.textContent = 'Like';
+                    button.dataset.liked = '0';
+                } else {
+                    button.textContent = 'Liked';
+                    button.dataset.liked = '1';
                 }
                 refreshEntryLikeCount(entrySerial);
                 return;
@@ -149,6 +153,10 @@ function toggleLike(entrySerial) {
         })
         .catch((error) => {
             console.error('Entry like/unlike failed', error);
+        })
+        .finally(() => {
+            button.dataset.pending = '0';
+            button.disabled = false;
         });
 }
 

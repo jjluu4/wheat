@@ -666,11 +666,16 @@ def build_entry_payload(entry, request):
         payload["description"] = (content_text[:197] + "...") if len(content_text) > 200 else content_text
 
     likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
-    payload["likes"] = build_likes_collection(
+    viewer_author = get_requesting_author(request) if request is not None else None
+    likes_data = build_likes_collection(
         likes_qs,
         EntryLikeSerializer,
         build_entry_likes_url(request, entry),
     )
+    likes_data["viewer_has_liked"] = (
+        likes_qs.filter(author=viewer_author).exists() if viewer_author is not None else False
+    )
+    payload["likes"] = likes_data
 
     # Embed a first page of comments when the viewer is allowed to see them
     requesting_author = get_requesting_author(request)

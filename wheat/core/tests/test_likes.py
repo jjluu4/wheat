@@ -233,12 +233,28 @@ class LikesAndCommentVisibilityTests(APITestCase):
             data={"type": "like", "object": self.public_entry.url},
             format="json",
         )
-        self.client.logout()
 
         resp = self.client.get(f"/api/authors/{self.owner.serial}/entries/{self.public_entry.serial}/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("likes", resp.data)
         self.assertEqual(resp.data["likes"]["count"], 1)
+        self.assertTrue(resp.data["likes"]["viewer_has_liked"])
+
+    def test_author_profile_renders_liked_entry_button_state(self):
+        """Author profile renders the entry like button with the viewer's current like state."""
+        self.client.force_login(self.stranger_user)
+        self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_entry.url},
+            format="json",
+        )
+
+        resp = self.client.get(f"/authors/{self.owner.serial}/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'class="entry-like-button"')
+        self.assertContains(resp, 'data-liked="1"')
+        self.assertContains(resp, ">Liked</button>", html=False)
 
     def test_author_entries_embed_likes_collection(self):
         """Author entries API embeds likes collection for each entry."""
