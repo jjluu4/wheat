@@ -12,7 +12,7 @@ from ..helpers import (
     is_same_node_media_url,
     normalize_url,
 )
-from ..models import RemoteNode
+from ..models import EntryLike, RemoteNode
 
 
 register = template.Library()
@@ -53,3 +53,14 @@ def allowlisted_media_origins_json():
             if origin not in origins:
                 origins.append(origin)
     return json.dumps(origins)
+
+
+@register.simple_tag
+def entry_viewer_has_liked(entry, request=None):
+    if request is None or not getattr(request, "user", None) or not request.user.is_authenticated:
+        return False
+    try:
+        author = request.user.author_profile
+    except Exception:
+        return False
+    return EntryLike.objects.filter(entry=entry, author=author).exists()

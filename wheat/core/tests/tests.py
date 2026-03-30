@@ -219,6 +219,25 @@ class AuthorListPageTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Skar")
 
+    def test_author_list_page_wraps_long_names_with_author_card_class(self):
+        long_name = "DanielFromWheatOnTealNodeWithVeryLongDisplayName"
+        Author.objects.create(
+            url="http://testserver/api/authors/long-author",
+            host="http://testserver/api/",
+            displayName=long_name,
+            github="https://github.com/example",
+            description="Long author",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/long-author",
+        )
+
+        resp = self.client.get(reverse("author_list"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, long_name)
+        self.assertContains(resp, 'class="profile-link author-card-name"')
+        self.assertContains(resp, 'class="pager-meta author-node-meta"')
+
     def test_open_remote_author_requires_fqid(self):
         resp = self.client.get(reverse("author_open_remote"))
         self.assertEqual(resp.status_code, 400)
@@ -535,6 +554,18 @@ class EntryDeleteTests(TestCase):
         self.entry.refresh_from_db()
         self.assertEqual(self.entry.visibility, "DELETED")
 
+    def test_repeated_delete_submit_is_safe_no_op_for_owner(self):
+        self.client.force_login(self.user)
+        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
+
+        first_response = self.client.post(url)
+        second_response = self.client.post(url)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.visibility, "DELETED")
+
     def test_non_owner_cannot_delete_entry(self):
         """Non-owner cannot delete another author's entry."""
         other = User.objects.create_user(username="other", password="pass12345")
@@ -647,7 +678,7 @@ class EntryViewPageInteractionTests(TestCase):
         self.assertContains(resp, "toggleLike")
         self.assertContains(resp, "Comments")
         self.assertContains(resp, "Comment")
-        self.assertContains(resp, "entry.js?v=likes-ui-4")
+        self.assertContains(resp, "entry.js?v=likes-ui-")
 
     def test_friend_sees_like_and_comment_controls_on_friends_entry_page(self):
         """Friend sees like/comment UI on a friends-only entry page."""

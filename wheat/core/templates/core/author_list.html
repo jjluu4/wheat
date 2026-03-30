@@ -36,10 +36,10 @@
                     <li>
                         {% author_avatar_url a request as author_avatar_src %}
                         <a href="{% url 'author_profile' a.serial %}" class="author-card">
-                            <div>
+                            <div class="author-card-avatar">
                                 <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ a.displayName }} avatar">
                             </div>
-                            <h3 class="profile-link">{{ a.displayName }}</h3>
+                            <h3 class="profile-link author-card-name">{{ a.displayName }}</h3>
                         </a>
                     </li>
                     {% endfor %}
@@ -87,11 +87,11 @@
                         {% endif %}
                             {% if item.profileImage %}
                                 {% browser_media_url item.profileImage request as remote_avatar_src %}
-                                <div>
+                                <div class="author-card-avatar">
                                     <img class="avatar avatar-small" src="{{ remote_avatar_src }}" alt="{{ item.displayName }} avatar">
                                 </div>
                             {% endif %}
-                            <h3 class="profile-link">{{ item.displayName|default:"(no name)" }}</h3>
+                            <h3 class="profile-link author-card-name">{{ item.displayName|default:"(no name)" }}</h3>
                         {% if item.id or item.url or item.web %}
                         </a>
                         {% else %}

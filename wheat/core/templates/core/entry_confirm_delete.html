@@ -27,7 +27,7 @@
                 <p><strong>Image URL:</strong> {{ entry.image_url }}</p>
                 {% endif %}
 
-                <form method="post">
+                <form method="post" data-pending-form>
                     {% csrf_token %}
                     <button type="submit">Yes, delete</button>
                     <a href="{% url 'author_profile' author.serial %}" class="button-link">Cancel</a>
@@ -38,4 +38,3 @@
 </body>
 
 </html>
-

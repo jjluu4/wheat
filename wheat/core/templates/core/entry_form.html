@@ -19,7 +19,7 @@
             </h1>
 
             <div class="card">
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" data-pending-form>
                     {% csrf_token %}
 
                     {{ form.non_field_errors }}
@@ -36,7 +36,7 @@
                         {{ form.content_type.errors }}
                     </div>
 
-                    <div class="form-row">
+                    <div class="form-row" id="text-content-field">
                         <label for="{{ form.content.id_for_label }}">Text content</label>
                         {{ form.content }}
                         <p class="hint">
@@ -58,16 +58,36 @@
                         {{ form.visibility }}
                         {{ form.visibility.errors }}
                     </div>
+
                     <div style="display: flex; gap: 10px;margin-bottom: 10px;">
                         <button type="submit">{% if is_edit %}Save changes{% else %}Create entry{% endif %}</button>   
                         <a class="button-link" href="{% url 'index' %}">Cancel</a>
-                    </div>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const contentTypeSelect = document.getElementById('{{ form.content_type.id_for_label }}');
+            const textContentField = document.getElementById('text-content-field');
+            const imageUploadField = document.getElementById('image-upload-field');
+
+            function toggleFields() {
+                if (contentTypeSelect.value === 'image') {
+                    textContentField.style.display = 'none';
+                    imageUploadField.style.display = 'block';
+                } else {
+                    textContentField.style.display = 'block';
+                    imageUploadField.style.display = 'none';
+                }
+            }
+
+            toggleFields();
+
+            contentTypeSelect.addEventListener('change', toggleFields);
+        });
+    </script>
 </body>
 
 </html>
-

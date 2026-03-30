@@ -1,6 +1,7 @@
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 import urllib
 import uuid
@@ -51,6 +52,48 @@ def _contextualize_remote_inbox_error(error, action_name):
             1,
         )
     return error
+
+
+def ensure_follow_requested(actor, target):
+    """
+    Ensure Follow(actor, target) exists in REQUESTED state.
+
+    Returns (follow, state_changed, previous_status). state_changed is true only
+    when this call actually created or transitioned the relationship.
+    """
+    with transaction.atomic():
+        follow = Follow.objects.select_for_update().filter(actor=actor, target=target).first()
+
+        if follow is None:
+            try:
+                follow = Follow.objects.create(actor=actor, target=target, status="REQUESTED")
+                return follow, True, None
+            except IntegrityError:
+                follow = Follow.objects.select_for_update().get(actor=actor, target=target)
+
+        if follow.status in {"REQUESTED", "ACCEPTED"}:
+            return follow, False, follow.status
+
+        previous_status = follow.status
+        follow.status = "REQUESTED"
+        follow.save(update_fields=["status"])
+        return follow, True, previous_status
+
+
+def revert_follow_requested_transition(follow, previous_status):
+    """Undo a newly-created or newly-requested follow after remote delivery failure."""
+    with transaction.atomic():
+        locked_follow = Follow.objects.select_for_update().filter(pk=follow.pk).first()
+        if locked_follow is None:
+            return
+
+        if previous_status is None:
+            locked_follow.delete()
+            return
+
+        if locked_follow.status == "REQUESTED":
+            locked_follow.status = previous_status
+            locked_follow.save(update_fields=["status"])
 
 
 def notify_remote_follow_event(
@@ -293,9 +336,10 @@ def following_api(request, author_serial, foreign_author_fqid):
 
     elif request.method == "DELETE":
         if foreign_author:
-            Follow.objects.filter(actor=author, target=foreign_author).delete()
-            delivered, err = notify_remote_unfollow(author, foreign_author)
-            
+            follow = Follow.objects.filter(actor=author, target=foreign_author).first()
+            if follow is not None:
+                follow.delete()
+                notify_remote_unfollow(author, foreign_author)
         return Response(status=204)
 
     elif request.method == "PUT":
@@ -305,20 +349,15 @@ def following_api(request, author_serial, foreign_author_fqid):
         if foreign_author.pk == author.pk or normalize_url(decoded_fqid) == normalize_url(author.url):
             return Response({"error": "Authors cannot follow themselves."}, status=400)
 
-        follow = Follow.objects.filter(actor=author, target=foreign_author).first()
-        if follow and follow.status == "ACCEPTED":
+        follow, state_changed, previous_status = ensure_follow_requested(author, foreign_author)
+        if not state_changed:
             return Response(status=204)
 
         if author_requires_remote_inbox(foreign_author):
             delivered, delivery_error = forward_follow_request_to_remote_inbox(author, foreign_author)
             if not delivered:
+                revert_follow_requested_transition(follow, previous_status)
                 return Response({"error": delivery_error}, status=502)
-
-        if follow is None:
-            Follow.objects.create(actor=author, target=foreign_author, status="REQUESTED")
-        elif follow.status != "REQUESTED":
-            follow.status = "REQUESTED"
-            follow.save(update_fields=["status"])
 
         return Response(status=204)
 

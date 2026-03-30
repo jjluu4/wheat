@@ -129,18 +129,22 @@ function toggleLike(entrySerial) {
     const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
     const csrf = getCsrfToken(entryNode);
     const liked = button && button.dataset.liked === '1';
+    const pending = button && button.dataset.pending === '1';
+
+    if (!button || pending) return;
+
+    button.dataset.pending = '1';
+    button.disabled = true;
 
     const req = liked ? postUnlike(userSerial, objectUrl, csrf) : postLike(userSerial, objectUrl, csrf);
     req.then(({ response, data }) => {
             if (response.ok) {
-                if (button) {
-                    if (liked) {
-                        button.textContent = 'Like';
-                        button.dataset.liked = '0';
-                    } else {
-                        button.textContent = 'Liked';
-                        button.dataset.liked = '1';
-                    }
+                if (liked) {
+                    button.textContent = 'Like';
+                    button.dataset.liked = '0';
+                } else {
+                    button.textContent = 'Liked';
+                    button.dataset.liked = '1';
                 }
                 refreshEntryLikeCount(entrySerial);
                 return;
@@ -149,6 +153,10 @@ function toggleLike(entrySerial) {
         })
         .catch((error) => {
             console.error('Entry like/unlike failed', error);
+        })
+        .finally(() => {
+            button.dataset.pending = '0';
+            button.disabled = false;
         });
 }
 
@@ -170,9 +178,17 @@ function toggleComments(entrySerial) {
 
 function submitComment(event) {
     event.preventDefault();
-    const form=event.target;
-    const formData=new FormData(form);
-    const entryNode=form.closest('li');
+    const form = event.target;
+    const formData = new FormData(form);
+    const entryNode = form.closest('li');
+    const auxiliaryButtons = Array.from(form.querySelectorAll('button[type="button"]'));
+
+    if (window.beginPendingForm && !window.beginPendingForm(form)) return;
+    auxiliaryButtons.forEach((button) => {
+        if (button.disabled) return;
+        button.dataset.pendingDisabledByComment = '1';
+        button.disabled = true;
+    });
 
     fetch(`/api/authors/${entryNode.dataset.user}/commented/`, {
         method: 'POST',
@@ -185,16 +201,43 @@ function submitComment(event) {
             entry: entryNode.dataset.entryUrl,
             content: formData.get('content')
         })
+    })
+        .then(async (response) => {
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (_) {
+                data = {};
+            }
+            return { response, data };
+        })
+        .then(({ response, data }) => {
+            if (!response.ok) {
+                console.error('Comment submit failed', response.status, data);
+                return;
+            }
 
-    }).then(() => {
-        form.reset();
-        form.style.display='none';
-        const commentsList=document.querySelector(`li[data-entry="${entryNode.dataset.entry}"] .comments`);
-        if(commentsList.style.display==='none')
-            toggleComments(entryNode.dataset.entry);
-        else
-            loadComments(entryNode.dataset.entry);
-    });
+            form.reset();
+            form.style.display = 'none';
+            const commentsList = document.querySelector(`li[data-entry="${entryNode.dataset.entry}"] .comments`);
+            if (commentsList.style.display === 'none') {
+                toggleComments(entryNode.dataset.entry);
+            } else {
+                loadComments(entryNode.dataset.entry);
+            }
+        })
+        .catch((error) => {
+            console.error('Comment submit failed', error);
+        })
+        .finally(() => {
+            auxiliaryButtons.forEach((button) => {
+                if (button.dataset.pendingDisabledByComment === '1') {
+                    button.disabled = false;
+                    delete button.dataset.pendingDisabledByComment;
+                }
+            });
+            if (window.endPendingForm) window.endPendingForm(form);
+        });
 }
 
 function loadComments(entrySerial, page=1) {
@@ -247,24 +290,37 @@ function loadComments(entrySerial, page=1) {
                 likeCount.textContent = `${count} like${count === 1 ? '' : 's'}`;
                 actions.appendChild(likeCount);
 
-                if (currentUserSerial && (comment.id || comment.url)) {
+                const isOwnComment = currentUserSerial && comment.author?.serial === currentUserSerial;
+                if (currentUserSerial && !isOwnComment && (comment.id || comment.url)) {
                     const likeButton = document.createElement('button');
                     likeButton.type = 'button';
-                    likeButton.textContent = 'Like';
-                    likeButton.dataset.liked = '0';
+                    const viewerHasLiked = comment.likes?.viewer_has_liked === true;
+                    likeButton.textContent = viewerHasLiked ? 'Liked' : 'Like';
+                    likeButton.dataset.liked = viewerHasLiked ? '1' : '0';
+                    likeButton.dataset.pending = '0';
                     const commentObjectUrl = comment.id || comment.url;
                     likeButton.onclick = () => {
+                        if (likeButton.dataset.pending === '1') return;
+
                         const liked = likeButton.dataset.liked === '1';
                         const fn = liked ? postUnlike : postLike;
+                        likeButton.dataset.pending = '1';
+                        likeButton.disabled = true;
+
                         fn(currentUserSerial, commentObjectUrl, getCsrfToken(entryNode))
                             .then(({ response, data }) => {
                                 if (response.ok) {
-                                    likeButton.dataset.liked = liked ? '0' : '1';
-                                    likeButton.textContent = liked ? 'Like' : 'Liked';
                                     loadComments(entrySerial, page);
                                     return;
                                 }
                                 console.error('Comment like failed', response.status, data);
+                            })
+                            .catch((error) => {
+                                console.error('Comment like failed', error);
+                            })
+                            .finally(() => {
+                                likeButton.dataset.pending = '0';
+                                likeButton.disabled = false;
                             });
                     };
                     actions.appendChild(document.createTextNode(' '));

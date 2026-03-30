@@ -52,8 +52,9 @@
                             <td>
                                 <a class="button-link" href="{% url 'remote_node_edit' node.pk %}">Edit</a>
                                 <a class="button-link" href="{% url 'remote_node_delete' node.pk %}">Delete</a>
-                                <form method="post" action="{% url 'remote_node_toggle' node.pk %}" style="display:inline;">
+                                <form method="post" action="{% url 'remote_node_toggle' node.pk %}" style="display:inline;" data-pending-form>
                                     {% csrf_token %}
+                                    <input type="hidden" name="target_state" value="{% if node.is_active %}disable{% else %}enable{% endif %}">
                                     <button type="submit">{% if node.is_active %}Disable{% else %}Enable{% endif %}</button>
                                 </form>
                             </td>

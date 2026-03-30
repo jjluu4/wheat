@@ -1,16 +1,17 @@
-import json
+import json, base64
 import uuid
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.core.files.base import ContentFile
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 
 from ..auth import require_remote_node_auth
 from ..helpers import build_comment_payload, build_entry_payload, normalize_url, resolve_object_by_url
-from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem
+from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem, Image
 
 
 def normalize_remote_base_url(value):
@@ -102,9 +103,6 @@ def create_or_update_entry(payload, request):
     entry.author = author
     entry.url = entry_id
     entry.title = (payload.get("title") or "").strip() or "Untitled"
-    entry.content = payload.get("content") or ""
-    entry.content_type = payload.get("contentType", payload.get("content_type", "text/plain"))
-    entry.image_url = payload.get("imageUrl", payload.get("image_url", "")) or ""
     entry.visibility = payload.get("visibility") if payload.get("visibility") in ("PUBLIC", "UNLISTED", "FRIENDS", "DELETED") else "PUBLIC"
     published = parse_remote_published(payload)
     if published is not None:
@@ -115,6 +113,36 @@ def create_or_update_entry(payload, request):
     elif not getattr(entry, "web", ""):
         base = normalize_url(request.build_absolute_uri("/"))
         entry.web = f"{base}/authors/{author.serial}/entries/{entry.serial}"
+    
+    content = payload.get("content") or ""
+    content_type = payload.get("contentType", payload.get("content_type", "text/plain"))
+    image_url = payload.get("imageUrl", payload.get("image_url", "")) or ""
+    entry.content_type = content_type
+        
+    if "image" in content_type and "base64" in content_type and content:
+        if content.startswith("data:"):
+            try:
+                content = content.split(",", 1)[1]
+            except IndexError:
+                pass
+        
+        try:
+            image_data = base64.b64decode(content)
+            ext = "png" if "png" in content_type.lower() else "jpg"
+            
+            newImage = Image(author=author)
+            newImage.image.save(f"remote_{entry.serial}.{ext}", ContentFile(image_data), save=False)
+            newImage.save()
+            
+            entry.image_url = newImage.url
+            entry.content = "" 
+        except Exception as e:
+            print(f"Failed to decode remote base64 image: {e}")
+            entry.content = content
+            entry.image_url = image_url
+    else:
+        entry.content = content
+        entry.image_url = image_url
     entry.save()
     return entry, None, created
 

@@ -1,5 +1,6 @@
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 import requests
 from core.apis.follow_api import (
     forward_follow_request_to_remote_inbox,
@@ -418,6 +419,24 @@ class FollowAPITest(APITestCase):
             "Authors cannot follow themselves.",
         )
 
+    def test_following_put_recovers_from_uniqueness_race(self):
+        self.client.login(username="user1", password="password1")
+        real_create = Follow.objects.create
+
+        def create_then_raise(*args, **kwargs):
+            real_create(*args, **kwargs)
+            raise IntegrityError("duplicate key value violates unique constraint")
+
+        with patch("core.apis.follow_api.Follow.objects.create", side_effect=create_then_raise):
+            response = self.client.put(
+                f"/api/authors/{self.author1.serial}/following/{self.encoded_a2_fqid}"
+            )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(Follow.objects.filter(actor=self.author1, target=self.author2).count(), 1)
+        follow = Follow.objects.get(actor=self.author1, target=self.author2)
+        self.assertEqual(follow.status, "REQUESTED")
+
     def test_html_following_list_includes_requested_and_accepted(self):
         self.client.login(username="user1", password="password1")
         response = self.client.get(f"/authors/{self.author1.serial}/following/")
@@ -457,7 +476,7 @@ class FollowAPITest(APITestCase):
         follow = Follow.objects.create(actor=self.author1, target=self.author2, status="REJECTED")
 
         self.client.login(username="user1", password="password1")
-        response = self.client.get(f"/authors/{self.author2.serial}/follow/")
+        response = self.client.post(f"/authors/{self.author2.serial}/follow/")
 
         self.assertEqual(response.status_code, 302)
         follow.refresh_from_db()
@@ -474,7 +493,7 @@ class FollowAPITest(APITestCase):
         )
 
         self.client.login(username="user1", password="password1")
-        response = self.client.get(
+        response = self.client.post(
             f"/authors/{remote_author.serial}/follow/",
             follow=True,
         )
@@ -484,6 +503,48 @@ class FollowAPITest(APITestCase):
         self.assertFalse(
             Follow.objects.filter(actor=self.author1, target=remote_author).exists()
         )
+
+    def test_html_follow_route_rejects_get(self):
+        self.client.login(username="user1", password="password1")
+
+        response = self.client.get(f"/authors/{self.author2.serial}/follow/")
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_html_accept_follow_is_idempotent_after_first_accept(self):
+        self.client.login(username="user1", password="password1")
+
+        first_response = self.client.post(f"/authors/{self.author2.serial}/accept/")
+        second_response = self.client.post(f"/authors/{self.author2.serial}/accept/", follow=True)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 200)
+        follow = Follow.objects.get(actor=self.author2, target=self.author1)
+        self.assertEqual(follow.status, "ACCEPTED")
+        self.assertContains(second_response, "already accepted")
+
+    def test_html_reject_follow_is_idempotent_after_first_reject(self):
+        self.client.login(username="user1", password="password1")
+
+        first_response = self.client.post(f"/authors/{self.author2.serial}/reject/")
+        second_response = self.client.post(f"/authors/{self.author2.serial}/reject/", follow=True)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 200)
+        follow = Follow.objects.get(actor=self.author2, target=self.author1)
+        self.assertEqual(follow.status, "REJECTED")
+        self.assertContains(second_response, "already rejected")
+
+    def test_html_unfollow_is_idempotent_when_relationship_is_absent(self):
+        self.client.login(username="user1", password="password1")
+
+        first_response = self.client.post(f"/authors/{self.author3.serial}/unfollow/")
+        second_response = self.client.post(f"/authors/{self.author3.serial}/unfollow/", follow=True)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertFalse(Follow.objects.filter(actor=self.author1, target=self.author3).exists())
+        self.assertContains(second_response, "cannot be found")
 
     @patch("core.helpers.requests.get")
     def test_resolve_remote_author_fetches_uncached_author_profile(self, mock_get):
@@ -763,7 +824,7 @@ class FollowAPITest(APITestCase):
         )
 
         self.client.login(username="same-node-view-actor", password="password5")
-        response = self.client.get(f"/authors/{target.serial}/follow/")
+        response = self.client.post(f"/authors/{target.serial}/follow/")
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Follow.objects.filter(actor=actor, target=target, status="REQUESTED").exists())

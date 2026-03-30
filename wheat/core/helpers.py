@@ -2,10 +2,10 @@ from django.db.models import Q
 from django.http import QueryDict
 from django.templatetags.static import static
 
-from .models import Author, EntryLike, CommentLike, Comment
+from .models import Author, EntryLike, CommentLike, Comment, Image
 from .serializers import EntrySerializer, AuthorSerializer, EntryLikeSerializer, CommentSerializer, CommentLikeSerializer
 from rest_framework.response import Response
-import urllib
+import urllib, base64, mimetypes
 import requests
 
 from .auth import add_auth_headers
@@ -658,19 +658,39 @@ def build_entry_payload(entry, request):
     payload = EntrySerializer(entry).data
     payload["author"] = AuthorSerializer(entry.author).data
     payload["web"] = build_entry_web_url(entry, request)
+    payload["description"] = "An entry containing an image." if "image" in entry.content_type else "An entry containing text content."
+    
     if entry.content_type == "image":
         payload["imageUrl"] = f"{normalize_url(build_entry_api_url(entry, request))}/image/"
-    content_text = (entry.content or "").strip()
-    payload["description"] = ""
-    if content_text:
-        payload["description"] = (content_text[:197] + "...") if len(content_text) > 200 else content_text
+        
+        if entry.image_url:
+            image = Image.objects.filter(url=entry.image_url).first()
+            if image and image.image:
+                try:
+                    with image.image.open('rb') as f:
+                        image_data = f.read()
+                    
+                    encoded_string = base64.b64encode(image_data).decode('utf-8')
+                    payload["content"] = encoded_string
+                    
+                    mime_type, _ = mimetypes.guess_type(image.image.name)
+                    if mime_type:
+                        payload["contentType"] = f"{mime_type};base64"
+                        
+                except Exception as e:
+                    print(f"Failed to encode image in base64: {e}")
 
     likes_qs = EntryLike.objects.filter(entry=entry).select_related("author").order_by("-published")
-    payload["likes"] = build_likes_collection(
+    viewer_author = get_requesting_author(request) if request is not None else None
+    likes_data = build_likes_collection(
         likes_qs,
         EntryLikeSerializer,
         build_entry_likes_url(request, entry),
     )
+    likes_data["viewer_has_liked"] = (
+        likes_qs.filter(author=viewer_author).exists() if viewer_author is not None else False
+    )
+    payload["likes"] = likes_data
 
     # Embed a first page of comments when the viewer is allowed to see them
     requesting_author = get_requesting_author(request)
@@ -704,11 +724,16 @@ def build_comment_payload(comment, request):
     comment_data["entry"] = build_entry_api_url(comment.entry, request)
     comment_data["web"] = build_comment_web_url(comment, request)
     likes_qs = CommentLike.objects.filter(comment=comment).select_related("author").order_by("-published")
-    comment_data["likes"] = build_likes_collection(
+    viewer_author = get_requesting_author(request) if request is not None else None
+    likes_data = build_likes_collection(
         likes_qs,
         CommentLikeSerializer,
         build_comment_likes_url(request, comment),
     )
+    likes_data["viewer_has_liked"] = (
+        likes_qs.filter(author=viewer_author).exists() if viewer_author is not None else False
+    )
+    comment_data["likes"] = likes_data
     return comment_data
 
 def fetch_remote_resource(fqid):
