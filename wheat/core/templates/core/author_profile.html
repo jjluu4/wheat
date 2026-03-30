@@ -35,15 +35,20 @@
             {% else %}
             <p style="display: flex; align-items: center; justify-content: center;">
                 {% if followStatus == 'ACCEPTED' %}
-                    <a class="button-link" href="{% url 'unfollow_author' author.serial %}">
-                        Unfollow
-                    </a>
+                    <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
+                        {% csrf_token %}
+                        <button type="submit">Unfollow</button>
+                    </form>
                 {% elif followStatus == 'REQUESTED' %}
-                    <a class="button-link" href="{% url 'unfollow_author' author.serial %}">Cancel request</a>
+                    <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
+                        {% csrf_token %}
+                        <button type="submit">Cancel request</button>
+                    </form>
                 {% else %}
-                    <a class="button-link" href="{% url 'follow_author' author.serial %}">
-                        Follow
-                    </a>
+                    <form method="post" action="{% url 'follow_author' author.serial %}" data-pending-form>
+                        {% csrf_token %}
+                        <button type="submit">Follow</button>
+                    </form>
                 {% endif %}
             </p>
 

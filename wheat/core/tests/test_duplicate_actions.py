@@ -82,6 +82,17 @@ class PendingFormTemplateTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-pending-form")
 
+    def test_author_profile_follow_controls_render_as_post_forms(self):
+        self.client.force_login(self.requester_user)
+
+        response = self.client.get(f"/authors/{self.author.serial}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'method="post"')
+        self.assertContains(response, "Cancel request")
+        self.assertContains(response, "data-pending-form")
+        self.assertNotContains(response, f'href="/authors/{self.author.serial}/follow/"')
+
     def test_follow_requests_page_uses_pending_forms_for_actions(self):
         self.client.force_login(self.user)
 
@@ -104,3 +115,12 @@ class PendingFormTemplateTests(APITestCase):
         self.assertContains(list_response, "data-pending-form")
         self.assertContains(add_response, "data-pending-form")
         self.assertContains(delete_response, "data-pending-form")
+
+    def test_entry_fragment_comment_form_uses_pending_form_hook(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/authors/{self.author.serial}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'onsubmit="submitComment(event)"')
+        self.assertContains(response, "data-pending-form")

@@ -170,11 +170,39 @@ class RemoteNodeViewTests(TestCase):
 
     def test_toggle_remote_node_flips_active_flag(self):
         self.client.force_login(self.staff_user)
-        response = self.client.post(reverse("remote_node_toggle", args=[self.node.pk]))
+        response = self.client.post(
+            reverse("remote_node_toggle", args=[self.node.pk]),
+            data={"target_state": "disable"},
+        )
         self.assertEqual(response.status_code, 302)
 
         self.node.refresh_from_db()
         self.assertFalse(self.node.is_active)
+
+    def test_toggle_remote_node_to_same_state_is_idempotent(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.post(
+            reverse("remote_node_toggle", args=[self.node.pk]),
+            data={"target_state": "enable"},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.node.refresh_from_db()
+        self.assertTrue(self.node.is_active)
+
+    def test_toggle_remote_node_with_invalid_target_state_leaves_state_unchanged(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.post(
+            reverse("remote_node_toggle", args=[self.node.pk]),
+            data={"target_state": "maybe"},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.node.refresh_from_db()
+        self.assertTrue(self.node.is_active)
+        self.assertContains(response, "Invalid remote node toggle request.")
 
     def test_toggle_route_rejects_get(self):
         self.client.force_login(self.staff_user)

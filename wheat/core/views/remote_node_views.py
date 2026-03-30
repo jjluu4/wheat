@@ -100,8 +100,18 @@ def remote_node_toggle(request, pk):
         return forbidden
 
     remote_node = get_object_or_404(RemoteNode, pk=pk)
-    remote_node.is_active = not remote_node.is_active
-    remote_node.save()
+    target_state = request.POST.get("target_state")
+    if target_state == "enable":
+        desired_active = True
+    elif target_state == "disable":
+        desired_active = False
+    else:
+        messages.error(request, "Invalid remote node toggle request.")
+        return redirect("remote_node_list")
+
+    if remote_node.is_active != desired_active:
+        remote_node.is_active = desired_active
+        remote_node.save(update_fields=["is_active"])
     return redirect("remote_node_list")
 
 

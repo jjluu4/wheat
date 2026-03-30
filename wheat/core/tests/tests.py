@@ -535,6 +535,18 @@ class EntryDeleteTests(TestCase):
         self.entry.refresh_from_db()
         self.assertEqual(self.entry.visibility, "DELETED")
 
+    def test_repeated_delete_submit_is_safe_no_op_for_owner(self):
+        self.client.force_login(self.user)
+        url = reverse("entry_delete", args=[self.author.serial, self.entry.serial])
+
+        first_response = self.client.post(url)
+        second_response = self.client.post(url)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.visibility, "DELETED")
+
     def test_non_owner_cannot_delete_entry(self):
         """Non-owner cannot delete another author's entry."""
         other = User.objects.create_user(username="other", password="pass12345")

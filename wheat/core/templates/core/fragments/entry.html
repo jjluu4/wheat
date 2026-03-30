@@ -71,7 +71,7 @@
 
     <div class="new-comment"> <!--toggled by entry.js-->
         {% if request.user.is_authenticated %}
-        <form onsubmit="submitComment(event)" style="display: none;" data-user-serial="{{ request.user.author_profile.serial }}">
+        <form onsubmit="submitComment(event)" style="display: none;" data-user-serial="{{ request.user.author_profile.serial }}" data-pending-form>
             {% csrf_token %}
             <div class="form-row">
                 <textarea name="content" placeholder="Comment..."></textarea>
