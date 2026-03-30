@@ -824,7 +824,7 @@ class FollowAPITest(APITestCase):
         )
 
         self.client.login(username="same-node-view-actor", password="password5")
-        response = self.client.get(f"/authors/{target.serial}/follow/")
+        response = self.client.post(f"/authors/{target.serial}/follow/")
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Follow.objects.filter(actor=actor, target=target, status="REQUESTED").exists())

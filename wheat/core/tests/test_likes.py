@@ -2,10 +2,11 @@ import uuid
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from core.models import Author, Comment, Entry, Follow
+from core.models import Author, Comment, CommentLike, Entry, EntryLike, Follow
 
 
 class LikesAndCommentVisibilityTests(APITestCase):
@@ -137,6 +138,26 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 200)
 
+        likes_resp = self.client.get(self.entry_likes_url(self.public_entry))
+        self.assertEqual(likes_resp.data["count"], 1)
+
+    @patch("core.apis.like_api.EntryLike.objects.create")
+    def test_entry_like_recovers_from_uniqueness_race(self, mock_create):
+        self.client.force_login(self.stranger_user)
+
+        def create_then_raise(*args, **kwargs):
+            like = EntryLike(**kwargs)
+            like.save(force_insert=True)
+            raise IntegrityError("duplicate key value violates unique constraint")
+
+        mock_create.side_effect = create_then_raise
+        response = self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_entry.url},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
         likes_resp = self.client.get(self.entry_likes_url(self.public_entry))
         self.assertEqual(likes_resp.data["count"], 1)
 
@@ -469,6 +490,27 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 200)
 
+        likes_resp = self.client.get(self.comment_likes_url(self.public_comment))
+        self.assertEqual(likes_resp.status_code, 200)
+        self.assertEqual(likes_resp.data["count"], 1)
+
+    @patch("core.apis.like_api.CommentLike.objects.create")
+    def test_comment_like_recovers_from_uniqueness_race(self, mock_create):
+        self.client.force_login(self.stranger_user)
+
+        def create_then_raise(*args, **kwargs):
+            like = CommentLike(**kwargs)
+            like.save(force_insert=True)
+            raise IntegrityError("duplicate key value violates unique constraint")
+
+        mock_create.side_effect = create_then_raise
+        response = self.client.post(
+            self.like_url(self.stranger),
+            data={"type": "like", "object": self.public_comment.url},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
         likes_resp = self.client.get(self.comment_likes_url(self.public_comment))
         self.assertEqual(likes_resp.status_code, 200)
         self.assertEqual(likes_resp.data["count"], 1)
