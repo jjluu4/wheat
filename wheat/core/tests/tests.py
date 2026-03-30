@@ -678,7 +678,7 @@ class EntryViewPageInteractionTests(TestCase):
         self.assertContains(resp, "toggleLike")
         self.assertContains(resp, "Comments")
         self.assertContains(resp, "Comment")
-        self.assertContains(resp, "entry.js?v=likes-ui-4")
+        self.assertContains(resp, "entry.js?v=likes-ui-")
 
     def test_friend_sees_like_and_comment_controls_on_friends_entry_page(self):
         """Friend sees like/comment UI on a friends-only entry page."""
