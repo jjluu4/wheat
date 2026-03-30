@@ -126,7 +126,9 @@ function toggleLike(entrySerial) {
     if (!userSerial) return;
 
     const button = entryNode.querySelector('.entry-like-button');
-    const objectUrl = `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
+    const objectUrl =
+        entryNode.dataset.entryUrl ||
+        `/api/authors/${entryNode.dataset.author}/entries/${entrySerial}/`;
     const csrf = getCsrfToken(entryNode);
     const liked = button && button.dataset.liked === '1';
     const pending = button && button.dataset.pending === '1';
