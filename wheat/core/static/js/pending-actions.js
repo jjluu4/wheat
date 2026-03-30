@@ -4,6 +4,15 @@
         return Array.from(form.querySelectorAll('button, input, select, textarea'));
     }
 
+    function submitControls(form) {
+        if (!form) return [];
+        return Array.from(
+            form.querySelectorAll(
+                'button[type="submit"], button:not([type]), input[type="submit"], input[type="image"]'
+            )
+        );
+    }
+
     function markDisabled(control) {
         if (!control || control.disabled) return;
         control.dataset.pendingDisabledByScript = '1';
@@ -23,10 +32,7 @@
         if (form.dataset.pending === '1') return false;
 
         form.dataset.pending = '1';
-        formControls(form).forEach((control) => {
-            if (control.name === 'csrfmiddlewaretoken') return;
-            markDisabled(control);
-        });
+        submitControls(form).forEach(markDisabled);
         return true;
     }
 
