@@ -39,13 +39,19 @@ export function rewriteImageSrc(src, { pageOrigin, allowlistedOrigins = [], prox
     if (!src) return null;
 
     const normalizedPageOrigin = normalizeOrigin(pageOrigin);
+    const normalizedAllowlistedOrigins = allowlistedOrigins
+        .map((origin) => normalizeOrigin(origin) || origin)
+        .filter(Boolean);
 
     try {
         const resolved = pageOrigin ? new URL(src, pageOrigin) : new URL(src);
         if (normalizedPageOrigin && resolved.origin === normalizedPageOrigin) {
             return src;
         }
-        return buildProxyImageUrl(resolved.href, proxyPath);
+        if (normalizedAllowlistedOrigins.includes(resolved.origin)) {
+            return buildProxyImageUrl(resolved.href, proxyPath);
+        }
+        return resolved.href;
     } catch (_) {
         return null;
     }
