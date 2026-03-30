@@ -178,9 +178,11 @@ function toggleComments(entrySerial) {
 
 function submitComment(event) {
     event.preventDefault();
-    const form=event.target;
-    const formData=new FormData(form);
-    const entryNode=form.closest('li');
+    const form = event.target;
+    if (window.beginPendingForm && !window.beginPendingForm(form)) return;
+
+    const formData = new FormData(form);
+    const entryNode = form.closest('li');
 
     fetch(`/api/authors/${entryNode.dataset.user}/commented/`, {
         method: 'POST',
@@ -193,16 +195,37 @@ function submitComment(event) {
             entry: entryNode.dataset.entryUrl,
             content: formData.get('content')
         })
+    })
+        .then(async (response) => {
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (_) {
+                data = {};
+            }
+            return { response, data };
+        })
+        .then(({ response, data }) => {
+            if (!response.ok) {
+                console.error('Comment submit failed', response.status, data);
+                return;
+            }
 
-    }).then(() => {
-        form.reset();
-        form.style.display='none';
-        const commentsList=document.querySelector(`li[data-entry="${entryNode.dataset.entry}"] .comments`);
-        if(commentsList.style.display==='none')
-            toggleComments(entryNode.dataset.entry);
-        else
-            loadComments(entryNode.dataset.entry);
-    });
+            form.reset();
+            form.style.display = 'none';
+            const commentsList = document.querySelector(`li[data-entry="${entryNode.dataset.entry}"] .comments`);
+            if (commentsList.style.display === 'none') {
+                toggleComments(entryNode.dataset.entry);
+            } else {
+                loadComments(entryNode.dataset.entry);
+            }
+        })
+        .catch((error) => {
+            console.error('Comment submit failed', error);
+        })
+        .finally(() => {
+            if (window.endPendingForm) window.endPendingForm(form);
+        });
 }
 
 function loadComments(entrySerial, page=1) {
