@@ -219,6 +219,25 @@ class AuthorListPageTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Skar")
 
+    def test_author_list_page_wraps_long_names_with_author_card_class(self):
+        long_name = "DanielFromWheatOnTealNodeWithVeryLongDisplayName"
+        Author.objects.create(
+            url="http://testserver/api/authors/long-author",
+            host="http://testserver/api/",
+            displayName=long_name,
+            github="https://github.com/example",
+            description="Long author",
+            profileImage="https://placehold.co/150x150.png",
+            web="http://testserver/authors/long-author",
+        )
+
+        resp = self.client.get(reverse("author_list"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, long_name)
+        self.assertContains(resp, 'class="profile-link author-card-name"')
+        self.assertContains(resp, 'class="pager-meta author-node-meta"')
+
     def test_open_remote_author_requires_fqid(self):
         resp = self.client.get(reverse("author_open_remote"))
         self.assertEqual(resp.status_code, 400)
