@@ -206,19 +206,19 @@ class LikesAndCommentVisibilityTests(APITestCase):
 
     def test_author_liked_returns_entry_and_comment_likes(self):
         """GET /liked/ for an author returns both entry and comment likes."""
-        self.client.force_login(self.friend_user)
+        self.client.force_login(self.stranger_user)
         self.client.post(
-            self.like_url(self.friend),
+            self.like_url(self.stranger),
             data={"type": "like", "object": self.public_entry.url},
             format="json",
         )
         self.client.post(
-            self.like_url(self.friend),
+            self.like_url(self.stranger),
             data={"type": "like", "object": self.public_comment.url},
             format="json",
         )
 
-        resp = self.client.get(self.like_url(self.friend))
+        resp = self.client.get(self.like_url(self.stranger))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["count"], 2)
         objects = [item["object"] for item in resp.data["src"]]
@@ -459,10 +459,10 @@ class LikesAndCommentVisibilityTests(APITestCase):
 
     def test_friend_can_like_comment_on_friends_only_entry(self):
         """Friend can like a comment on a friends-only entry."""
-        self.client.force_login(self.friend_user)
+        self.client.force_login(self.owner_user)
 
         resp = self.client.post(
-            self.like_url(self.friend),
+            self.like_url(self.owner),
             data={"type": "like", "object": self.friend_comment.url},
             format="json",
         )
@@ -470,8 +470,8 @@ class LikesAndCommentVisibilityTests(APITestCase):
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["object"], self.friend_comment.url)
 
-    def test_comment_author_can_like_own_hidden_comment(self):
-        """Comment author can like their own hidden comment."""
+    def test_comment_author_cannot_like_own_hidden_comment(self):
+        """Comment author cannot like their own hidden comment."""
         self.client.force_login(self.former_user)
 
         resp = self.client.post(
@@ -480,8 +480,12 @@ class LikesAndCommentVisibilityTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(resp.status_code, 201)
-        self.assertEqual(resp.data["object"], self.former_comment.url)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.data["error"], "You cannot like your own comment")
+
+        likes_resp = self.client.get(self.comment_likes_url(self.former_comment))
+        self.assertEqual(likes_resp.status_code, 200)
+        self.assertEqual(likes_resp.data["count"], 0)
 
     def test_unauthenticated_user_cannot_like_comment(self):
         """Unauthenticated user cannot like a comment."""
