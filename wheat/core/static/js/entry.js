@@ -179,10 +179,16 @@ function toggleComments(entrySerial) {
 function submitComment(event) {
     event.preventDefault();
     const form = event.target;
-    if (window.beginPendingForm && !window.beginPendingForm(form)) return;
-
     const formData = new FormData(form);
     const entryNode = form.closest('li');
+    const auxiliaryButtons = Array.from(form.querySelectorAll('button[type="button"]'));
+
+    if (window.beginPendingForm && !window.beginPendingForm(form)) return;
+    auxiliaryButtons.forEach((button) => {
+        if (button.disabled) return;
+        button.dataset.pendingDisabledByComment = '1';
+        button.disabled = true;
+    });
 
     fetch(`/api/authors/${entryNode.dataset.user}/commented/`, {
         method: 'POST',
@@ -224,6 +230,12 @@ function submitComment(event) {
             console.error('Comment submit failed', error);
         })
         .finally(() => {
+            auxiliaryButtons.forEach((button) => {
+                if (button.dataset.pendingDisabledByComment === '1') {
+                    button.disabled = false;
+                    delete button.dataset.pendingDisabledByComment;
+                }
+            });
             if (window.endPendingForm) window.endPendingForm(form);
         });
 }
