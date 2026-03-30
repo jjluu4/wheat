@@ -29,11 +29,11 @@
                         </a>
                         wants to follow you.
                         <div class="small accept">
-                            <form action="{% url 'accept_follow' req.actor.serial %}" method="POST">
+                            <form action="{% url 'accept_follow' req.actor.serial %}" method="POST" data-pending-form>
                                 {% csrf_token %}
                                 <button type="submit">Accept</button>
                             </form>
-                            <form action="{% url 'reject_follow' req.actor.serial %}" method="POST">
+                            <form action="{% url 'reject_follow' req.actor.serial %}" method="POST" data-pending-form>
                                 {% csrf_token %}
                                 <button type="submit">Reject</button>
                             </form>

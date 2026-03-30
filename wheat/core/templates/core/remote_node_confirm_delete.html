@@ -28,7 +28,7 @@
 
                 <p>Deleting this node does not send any request to the remote server. It only removes the saved configuration from this node.</p>
 
-                <form method="post">
+                <form method="post" data-pending-form>
                     {% csrf_token %}
                     <button type="submit">Yes, delete</button>
                     <a href="{% url 'remote_node_list' %}" class="button-link">Cancel</a>

@@ -18,7 +18,7 @@
                 <h1>Create account</h1>
                 <p>Join and create your author profile.</p>
 
-                <form method="post">
+                <form method="post" data-pending-form>
                     {% csrf_token %}
 
                     {{ form.non_field_errors }}

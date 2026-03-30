@@ -15,7 +15,7 @@
             {% if request.user.is_staff %}
             <a href="{% url 'remote_node_list' %}">Manage Nodes</a>
             {% endif %}
-            <form method="post" action="{% url 'logout' %}">
+            <form method="post" action="{% url 'logout' %}" data-pending-form>
                 {% csrf_token %}
                 <button type="submit">Logout</button>
             </form>
@@ -28,6 +28,7 @@
     </div>
 </div>
 <script id="media-origin-config" type="application/json">{{ media_origins_json|safe }}</script>
+<script src="{% static 'js/pending-actions.js' %}?v=pending-actions-1"></script>
 <script>
     (function () {
         const body = document.body;
