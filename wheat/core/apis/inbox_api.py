@@ -15,8 +15,8 @@ from ..helpers import build_comment_payload, build_entry_payload, normalize_url,
 from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem, Image
 
 
-ENTRY_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
-COMMENT_OBJECT_RE = re.compile(r"/api/authors/(?P<author>[0-9a-f-]+)/commented/(?P<comment>[0-9a-f-]+)/?$")
+ENTRY_OBJECT_RE = re.compile(r"/(?:api/)?authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
+COMMENT_OBJECT_RE = re.compile(r"/(?:api/)?authors/(?P<author>[0-9a-f-]+)/(?:commented|comments)/(?P<comment>[0-9a-f-]+)/?$")
 
 
 def resolve_like_object_for_inbox(object_url):

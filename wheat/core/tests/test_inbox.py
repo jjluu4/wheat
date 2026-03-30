@@ -442,6 +442,49 @@ class InboxApiTests(APITestCase):
         self.assertEqual(like_resp.status_code, 201)
         self.assertTrue(EntryLike.objects.filter(author=remote_author, entry=entry).exists())
 
+    def test_like_payload_accepts_entry_web_url_object(self):
+        remote_author = Author.objects.create(
+            serial=uuid.uuid4(),
+            url="http://remote-node-a.example.com/api/authors/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            host="http://remote-node-a.example.com/api/",
+            displayName="Remote Web Liker",
+            github="",
+            profileImage="https://placehold.co/60x60.png",
+            web="http://remote-node-a.example.com/authors/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        )
+        entry = Entry.objects.create(
+            serial=uuid.uuid4(),
+            url=f"http://testserver/api/authors/{self.owner.serial}/entries/{uuid.uuid4()}",
+            web=f"http://testserver/authors/{self.owner.serial}/entries/{{entry_id}}/",
+            author=self.owner,
+            title="Local entry",
+            content="local",
+            content_type="text/plain",
+            visibility="PUBLIC",
+        )
+        entry.web = f"http://testserver/authors/{self.owner.serial}/entries/{entry.serial}/"
+        entry.save(update_fields=["web"])
+
+        headers = {"HTTP_AUTHORIZATION": basic_auth_value("remote_user", "remote_pass")}
+        like_payload = {
+            "type": "like",
+            "id": "http://remote-node-a.example.com/api/authors/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/liked/l-web-object",
+            "object": f"http://remote-node-a.example.com/authors/{self.owner.serial}/entries/{entry.serial}/",
+            "author": {
+                "id": remote_author.url,
+                "host": remote_author.host,
+                "displayName": remote_author.displayName,
+                "github": "",
+                "profileImage": remote_author.profileImage,
+                "web": remote_author.web,
+            },
+        }
+
+        like_resp = self.client.post(self.inbox_url, like_payload, format="json", **headers)
+
+        self.assertEqual(like_resp.status_code, 201)
+        self.assertTrue(EntryLike.objects.filter(author=remote_author, entry=entry).exists())
+
     def test_duplicate_follow_does_not_downgrade_accepted_follow(self):
         remote_author = Author.objects.create(
             serial=uuid.uuid4(),
