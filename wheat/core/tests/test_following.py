@@ -714,4 +714,84 @@ class FollowAPITest(APITestCase):
             1,
         )
         mock_notify.assert_not_called()
+
+    @patch("core.apis.follow_api.send_json_to_remote_author_inbox")
+    def test_forward_follow_request_skips_same_node_heroku_author(self, mock_send):
+        actor_user = User.objects.create_user(username="same-node-actor", password="password5")
+        actor = Author.objects.create(
+            user=actor_user,
+            serial=uuid.uuid4(),
+            url="https://wheat-5111c2e081f4.herokuapp.com/api/authors/11111111-1111-1111-1111-111111111111",
+            host="https://wheat-5111c2e081f4.herokuapp.com/api/",
+            web="https://wheat-5111c2e081f4.herokuapp.com/authors/11111111-1111-1111-1111-111111111111/",
+            displayName="Same Node Actor",
+        )
+        target_user = User.objects.create_user(username="same-node-target", password="password6")
+        target = Author.objects.create(
+            user=target_user,
+            serial=uuid.uuid4(),
+            url="https://wheat-5111c2e081f4.herokuapp.com/api/authors/22222222-2222-2222-2222-222222222222",
+            host="https://wheat-5111c2e081f4.herokuapp.com/api/",
+            web="https://wheat-5111c2e081f4.herokuapp.com/authors/22222222-2222-2222-2222-222222222222/",
+            displayName="Same Node Target",
+        )
+
+        delivered, error = forward_follow_request_to_remote_inbox(actor, target)
+
+        self.assertTrue(delivered)
+        self.assertIsNone(error)
+        mock_send.assert_not_called()
+
+    def test_follow_view_creates_same_node_follow_on_heroku_without_remote_node_credentials(self):
+        actor_user = User.objects.create_user(username="same-node-view-actor", password="password5")
+        actor = Author.objects.create(
+            user=actor_user,
+            serial=uuid.uuid4(),
+            url="https://wheat-5111c2e081f4.herokuapp.com/api/authors/33333333-3333-3333-3333-333333333333",
+            host="https://wheat-5111c2e081f4.herokuapp.com/api/",
+            web="https://wheat-5111c2e081f4.herokuapp.com/authors/33333333-3333-3333-3333-333333333333/",
+            displayName="Same Node View Actor",
+        )
+        target_user = User.objects.create_user(username="same-node-view-target", password="password6")
+        target = Author.objects.create(
+            user=target_user,
+            serial=uuid.uuid4(),
+            url="https://wheat-5111c2e081f4.herokuapp.com/api/authors/44444444-4444-4444-4444-444444444444",
+            host="https://wheat-5111c2e081f4.herokuapp.com/api/",
+            web="https://wheat-5111c2e081f4.herokuapp.com/authors/44444444-4444-4444-4444-444444444444/",
+            displayName="Same Node View Target",
+        )
+
+        self.client.login(username="same-node-view-actor", password="password5")
+        response = self.client.get(f"/authors/{target.serial}/follow/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Follow.objects.filter(actor=actor, target=target, status="REQUESTED").exists())
+
+    def test_following_api_creates_same_node_follow_on_heroku_without_remote_node_credentials(self):
+        actor_user = User.objects.create_user(username="same-node-api-actor", password="password5")
+        actor = Author.objects.create(
+            user=actor_user,
+            serial=uuid.uuid4(),
+            url="https://wheat-5111c2e081f4.herokuapp.com/api/authors/55555555-5555-5555-5555-555555555555",
+            host="https://wheat-5111c2e081f4.herokuapp.com/api/",
+            web="https://wheat-5111c2e081f4.herokuapp.com/authors/55555555-5555-5555-5555-555555555555/",
+            displayName="Same Node Api Actor",
+        )
+        target_user = User.objects.create_user(username="same-node-api-target", password="password6")
+        target = Author.objects.create(
+            user=target_user,
+            serial=uuid.uuid4(),
+            url="https://wheat-5111c2e081f4.herokuapp.com/api/authors/66666666-6666-6666-6666-666666666666",
+            host="https://wheat-5111c2e081f4.herokuapp.com/api/",
+            web="https://wheat-5111c2e081f4.herokuapp.com/authors/66666666-6666-6666-6666-666666666666/",
+            displayName="Same Node Api Target",
+        )
+        encoded_target = urllib.parse.quote(target.url, safe="")
+
+        self.client.login(username="same-node-api-actor", password="password5")
+        response = self.client.put(f"/api/authors/{actor.serial}/following/{encoded_target}")
+
+        self.assertEqual(response.status_code, 204)
+        self.assertTrue(Follow.objects.filter(actor=actor, target=target, status="REQUESTED").exists())
     
