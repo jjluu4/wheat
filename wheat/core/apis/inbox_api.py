@@ -1,18 +1,17 @@
-import json, base64
+import json
 import re
 import uuid
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.core.files.base import ContentFile
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 
 from ..auth import require_remote_node_auth
 from ..helpers import build_comment_payload, build_entry_payload, normalize_url, resolve_object_by_url
-from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem, Image
+from ..models import Author, Comment, CommentLike, Entry, EntryLike, Follow, InboxItem
 
 
 ENTRY_OBJECT_RE = re.compile(r"/(?:api/)?authors/(?P<author>[0-9a-f-]+)/entries/(?P<entry>[0-9a-f-]+)/?$")
@@ -162,20 +161,8 @@ def create_or_update_entry(payload, request):
             except IndexError:
                 pass
         
-        try:
-            image_data = base64.b64decode(content)
-            ext = "png" if "png" in content_type.lower() else "jpg"
-            
-            newImage = Image(author=author)
-            newImage.image.save(f"remote_{entry.serial}.{ext}", ContentFile(image_data), save=False)
-            newImage.save()
-            
-            entry.image_url = newImage.url
-            entry.content = "" 
-        except Exception as e:
-            print(f"Failed to decode remote base64 image: {e}")
-            entry.content = content
-            entry.image_url = image_url
+        entry.content = content
+        entry.image_url = ""
     else:
         entry.content = content
         entry.image_url = image_url

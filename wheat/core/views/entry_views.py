@@ -1,3 +1,5 @@
+import base64
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
@@ -30,14 +32,18 @@ def create_entry(request, author_serial):
             base_host = author.host.rstrip("/")
             entry.url = f"{base_host}/authors/{author.serial}/entries/{entry.serial}"
 
-            if form.cleaned_data['content_type'] == 'image':
+            if form.cleaned_data['content_type'] == 'image' or form.cleaned_data['content_type'].startswith('image'):
                 uploaded_image = form.cleaned_data.get('uploaded_image')
                 if uploaded_image:
-                    image = Image.objects.create(
-                        author=author,
-                        image=uploaded_image
-                    )
-                    entry.image_url = image.url
+                    uploaded_image.seek(0)
+                    encoded_image = base64.b64encode(uploaded_image.read()).decode('utf-8')
+                    
+                    entry.content = encoded_image
+                    entry.image_url = ""
+                    
+                    ext = uploaded_image.name.split('.')[-1].lower()
+                    mime_type = "image/png" if ext == "png" else "image/jpeg"
+                    entry.content_type = f"{mime_type};base64"
             else:
                 entry.image_url = ""
 
@@ -75,16 +81,20 @@ def edit_entry(request, author_serial, entry_serial):
     if request.method == "POST":
         form = EntryForm(request.POST, request.FILES, instance=entry)
         if form.is_valid():
-            if form.cleaned_data['content_type'] == 'image':
+            if form.cleaned_data['content_type'] == 'image' or form.cleaned_data['content_type'].startswith('image'):
                 uploaded_image = form.cleaned_data.get('uploaded_image')
                 if uploaded_image:
-                    image = Image.objects.create(
-                        author=author,
-                        image=uploaded_image
-                    )
-                    form.instance.image_url = image.url
+                    uploaded_image.seek(0)
+                    encoded_image = base64.b64encode(uploaded_image.read()).decode('utf-8')
+                    
+                    entry.content = encoded_image
+                    entry.image_url = ""
+                    
+                    ext = uploaded_image.name.split('.')[-1].lower()
+                    mime_type = "image/png" if ext == "png" else "image/jpeg"
+                    entry.content_type = f"{mime_type};base64"
             else:
-                form.instance.image_url = ""
+                entry.image_url = ""
 
             form.save()
 
