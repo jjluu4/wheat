@@ -46,15 +46,14 @@
                         {% for node in nodes %}
                         <tr>
                             <td>{% if node.name %}{{ node.name }}{% else %}{{ node.base_url }}{% endif %}</td>
-                            <td>{{ node.base_url }}</td>
-                            <td>{{ node.api_base_url }}</td>
+                            <td class="td-url">{{ node.base_url }}</td>
+                            <td class="td-url">{{ node.api_base_url }}</td>
                             <td>{{ node.username }}</td>
                             <td><span class="status-dot {% if node.is_active %}status-active{% else %}status-disabled{% endif %}"></span> {% if node.is_active %}Active{% else %}Disabled{% endif %}</td>
                             <td>{{ node.updated_at|date:"Y-m-d H:i" }}</td>
-                            <td>
+                            <td class="td-actions">
                                 <a class="button-link" href="{% url 'remote_node_edit' node.pk %}">Edit</a>
                                 <a class="button-link" href="{% url 'remote_node_delete' node.pk %}">Delete</a>
-                        
                             </td>
                             <td><form method="post" action="{% url 'remote_node_toggle' node.pk %}" style="display:inline;" data-pending-form>
                                 {% csrf_token %}

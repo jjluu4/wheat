@@ -1000,7 +1000,6 @@ table {
     border-collapse: collapse;
     font-size: 13px;
     margin-top: 12px;
-    table-layout: fixed;
 }
 
 table th, table td {
@@ -1019,8 +1018,19 @@ table th {
 
 table td {
     color: var(--text-secondary);
+}
+
+table td.td-url {
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+table td.td-actions {
+    white-space: nowrap;
+}
+
+table td.td-actions a.button-link {
+    margin-right: 4px;
 }
 
 table tr:last-child td {
@@ -1033,8 +1043,8 @@ table td button {
     padding: 4px 8px;
 }
 
-/* ── Node toggle buttons ── */
-table td button.btn-toggle {
+/* ── Node toggle buttons (compound classes beat global `button` / `body.theme-light button`) ── */
+button.btn-toggle {
     font-size: 14px;
     padding: 4px 10px;
     font-weight: 700;
@@ -1042,25 +1052,25 @@ table td button.btn-toggle {
     border: 1px solid transparent;
 }
 
-table td button.btn-toggle-enable {
+button.btn-toggle.btn-toggle-enable {
     background: rgba(34, 197, 94, 0.12);
     color: #4ade80;
     border-color: rgba(34, 197, 94, 0.25);
 }
 
-table td button.btn-toggle-disable {
+button.btn-toggle.btn-toggle-disable {
     background: rgba(239, 68, 68, 0.1);
     color: #fca5a5;
     border-color: rgba(239, 68, 68, 0.2);
 }
 
-body.theme-light table td button.btn-toggle-enable {
+body.theme-light button.btn-toggle.btn-toggle-enable {
     background: rgba(22, 163, 74, 0.1);
     color: #15803d;
     border-color: rgba(22, 163, 74, 0.25);
 }
 
-body.theme-light table td button.btn-toggle-disable {
+body.theme-light button.btn-toggle.btn-toggle-disable {
     background: rgba(220, 38, 38, 0.08);
     color: #dc2626;
     border-color: rgba(220, 38, 38, 0.2);
