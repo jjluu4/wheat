@@ -4,6 +4,7 @@
 
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ author.displayName }}</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <script src="{% static 'js/entry.js' %}?v=likes-ui-5"></script>
@@ -22,50 +23,49 @@
                     {% endfor %}
                 </div>
             {% endif %}
-            <h1 style="display: flex; align-items: center; justify-content: center; gap: 5px; margin: 5px 0 10px;flex-wrap: wrap;">
-                <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ author.displayName }} avatar">
-                {{ author.displayName }} 
-            </h1>
-            {% if author.description %}
-                <p style="text-align: center; margin: 0 0 10px;">{{ author.description }}</p>
+
+            <div class="profile-header">
+                <h1>
+                    <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ author.displayName }} avatar">
+                    {{ author.displayName }} 
+                </h1>
+                {% if author.description %}
+                    <p class="profile-description">{{ author.description }}</p>
                 {% endif %}
 
-            {% if not request.user.is_authenticated %}
-            {% elif author.serial == request.user.author_profile.serial %}
-            {% else %}
-            <p style="display: flex; align-items: center; justify-content: center;">
-                {% if followStatus == 'ACCEPTED' %}
-                    <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
-                        {% csrf_token %}
-                        <button type="submit">Unfollow</button>
-                    </form>
-                {% elif followStatus == 'REQUESTED' %}
-                    <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
-                        {% csrf_token %}
-                        <button type="submit">Cancel request</button>
-                    </form>
+                {% if not request.user.is_authenticated %}
+                {% elif author.serial == request.user.author_profile.serial %}
                 {% else %}
-                    <form method="post" action="{% url 'follow_author' author.serial %}" data-pending-form>
-                        {% csrf_token %}
-                        <button type="submit">Follow</button>
-                    </form>
+                <div class="profile-follow-action">
+                    {% if followStatus == 'ACCEPTED' %}
+                        <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
+                            {% csrf_token %}
+                            <button type="submit">Unfollow</button>
+                        </form>
+                    {% elif followStatus == 'REQUESTED' %}
+                        <form method="post" action="{% url 'unfollow_author' author.serial %}" data-pending-form>
+                            {% csrf_token %}
+                            <button type="submit">Cancel request</button>
+                        </form>
+                    {% else %}
+                        <form method="post" action="{% url 'follow_author' author.serial %}" data-pending-form>
+                            {% csrf_token %}
+                            <button type="submit">Follow</button>
+                        </form>
+                    {% endif %}
+                </div>
                 {% endif %}
-            </p>
-
-            {% endif %}
+            </div>
 
             {% if author.user_id == request.user.id or request.user.is_staff %}
-            <div style="display: flex; align-items: center; justify-content: center; padding: 10px 0; gap: 10px;">
+            <div class="profile-actions">
                 <a class="button-link" href="{% url 'author_edit' author.serial %}">Edit profile</a>
                 <a class="button-link" href="{{ author.github }}">GitHub</a>
             </div>
-            <div style="display: flex; align-items: center; justify-content: center; padding: 10px 0; gap: 10px; ">
-                    <a class="button-link" href="{% url 'follow_requests' author.serial %}">View Follow Requests</a>
-                    <a class="button-link" href="{% url 'followers_list' author.serial %}">View Followers</a>
-                    <a class="button-link" href="{% url 'following_list' author.serial %}">View Following</a>
-                    
-                
-               
+            <div class="profile-actions">
+                <a class="button-link" href="{% url 'follow_requests' author.serial %}">Follow Requests</a>
+                <a class="button-link" href="{% url 'followers_list' author.serial %}">Followers</a>
+                <a class="button-link" href="{% url 'following_list' author.serial %}">Following</a>
             </div>
             {% endif %}
 

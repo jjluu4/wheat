@@ -4,6 +4,7 @@
 
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wheat – Social Distribution</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <script src="{% static 'js/entry.js' %}?v=likes-ui-5"></script>
@@ -19,12 +20,11 @@
 
             {% if request.user.is_authenticated and request.user.author_profile %}
             <div class="card">
-                <div class="flex-row" style="align-items: center; gap: 12px; margin-bottom: 8px;">
+                <div class="welcome-card">
                     {% author_avatar_url request.user.author_profile request as author_avatar_src %}
                     <img class="avatar avatar-small" src="{{ author_avatar_src }}" alt="{{ request.user.author_profile.displayName }} avatar">
-                    <h2 style="color: wheat; margin: 0;">{{ request.user.author_profile.displayName }}</h2>
+                    <h2>{{ request.user.author_profile.displayName }}</h2>
                 </div>
-                <h2>What's new?</h2>
                 <p>Share something with your followers.</p>
                 <a class="button-link" href="{% url 'entry_create' request.user.author_profile.serial %}">
                    + Create Entry
@@ -44,15 +44,14 @@
                 <p>No public entries yet.</p>
                 {% endif %}
             </div>
-            <div>
-                <p>
-                    {% if not request.user.is_authenticated %}
-                        <a class="button-link" href="{% url 'author_list' %}">Browse authors</a>
-                        <a class="button-link" href="{% url 'signup' %}">Sign up</a>
-                        <a class="button-link" href="{% url 'login' %}">Log in</a>
-                    {% endif %}
-                </p>
+
+            {% if not request.user.is_authenticated %}
+            <div class="cta-row">
+                <a class="button-link" href="{% url 'author_list' %}">Browse authors</a>
+                <a class="button-link" href="{% url 'signup' %}">Sign up</a>
+                <a class="button-link" href="{% url 'login' %}">Log in</a>
             </div>
+            {% endif %}
             
         </div>
 

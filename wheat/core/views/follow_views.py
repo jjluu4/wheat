@@ -44,20 +44,20 @@ def accept_follow(request, author_serial):
     follow = Follow.objects.filter(actor=actor, target=target).first()
     if follow is None:
         messages.info(request, "Follow request cannot be found.")
-        return redirect("author_profile", author_serial=target.serial)
+        return redirect("follow_requests", author_serial=target.serial)
     if follow.status == "ACCEPTED":
         messages.info(request, "Follow request is already accepted.")
-        return redirect("author_profile", author_serial=target.serial)
+        return redirect("follow_requests", author_serial=target.serial)
     if follow.status != "REQUESTED":
         messages.info(request, "Follow request is not pending.")
-        return redirect("author_profile", author_serial=target.serial)
+        return redirect("follow_requests", author_serial=target.serial)
 
     follow.status = "ACCEPTED"
     follow.save(update_fields=["status"])
     if author_requires_remote_inbox(actor):
         notify_remote_follow_acceptance(actor, target)
 
-    return redirect("author_profile", author_serial=target.serial)
+    return redirect("follow_requests", author_serial=target.serial)
 
 @login_required
 @require_POST
@@ -68,13 +68,13 @@ def reject_follow(request, author_serial):
     follow = Follow.objects.filter(actor=actor, target=target).first()
     if follow is None:
         messages.info(request, "Follow request cannot be found.")
-        return redirect("author_profile", author_serial=target.serial)
+        return redirect("follow_requests", author_serial=target.serial)
     if follow.status == "REJECTED":
         messages.info(request, "Follow request is already rejected.")
-        return redirect("author_profile", author_serial=target.serial)
+        return redirect("follow_requests", author_serial=target.serial)
     if follow.status != "REQUESTED":
         messages.info(request, "Follow request is not pending.")
-        return redirect("author_profile", author_serial=target.serial)
+        return redirect("follow_requests", author_serial=target.serial)
 
     follow.status = "REJECTED"
     follow.save(update_fields=["status"])
@@ -82,7 +82,7 @@ def reject_follow(request, author_serial):
     if author_requires_remote_inbox(actor):
         notify_remote_follow_rejection(actor, target)
 
-    return redirect("author_profile", author_serial=target.serial)
+    return redirect("follow_requests", author_serial=target.serial)
 
 @login_required
 def follow_requests(request, author_serial):

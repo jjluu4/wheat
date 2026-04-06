@@ -11,18 +11,25 @@
             <a href="{% url 'author_list' %}">Authors</a>
             <a href="{% url 'my_stream' %}">My Stream</a>
             <a href="{% url 'my_profile' %}">My Profile</a>
-            <button class="button-link" id="theme-toggle">Theme</button>
+            {% if request.user.author_profile %}
+            <a class="nav-requests" href="{% url 'follow_requests' request.user.author_profile.serial %}">
+                Requests{% if pending_follow_request_count %}<span class="nav-badge">{{ pending_follow_request_count }}</span>{% endif %}
+            </a>
+            {% endif %}
             {% if request.user.is_staff %}
             <a href="{% url 'remote_node_list' %}">Manage Nodes</a>
             {% endif %}
+            <button class="button-link" id="theme-toggle">Theme</button>
             <form method="post" action="{% url 'logout' %}" data-pending-form>
                 {% csrf_token %}
                 <button type="submit">Logout</button>
             </form>
+            
             {% else %}
             <a href="{% url 'author_list' %}">Authors</a>
             <a href="{% url 'login' %}">Login</a>
             <a href="{% url 'signup' %}">Sign up</a>
+            <button class="button-link" id="theme-toggle">Theme</button>
             {% endif %}
         </div>
     </div>
