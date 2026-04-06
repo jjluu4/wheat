@@ -1000,6 +1000,7 @@ table {
     border-collapse: collapse;
     font-size: 13px;
     margin-top: 12px;
+    table-layout: fixed;
 }
 
 table th, table td {
@@ -1018,6 +1019,8 @@ table th {
 
 table td {
     color: var(--text-secondary);
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 table tr:last-child td {
